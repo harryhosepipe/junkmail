@@ -1,0 +1,150 @@
+@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&display=swap");
+
+:root {
+  color-scheme: light;
+  --bg: #f6f1e9;
+  --bg-ink: #161616;
+  --ink-muted: #4c4a45;
+  --accent: #d45a3c;
+  --accent-strong: #b4472e;
+  --panel: #fff8f0;
+  --border: #d8cfc2;
+  --shadow: 0 18px 40px -26px rgba(0, 0, 0, 0.35);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "Space Grotesk", "Segoe UI", sans-serif;
+  color: var(--bg-ink);
+  background: radial-gradient(circle at 20% 20%, #fff7ec, var(--bg));
+  min-height: 100vh;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.shell {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 32px 24px 64px;
+}
+
+.brand {
+  font-size: 28px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+
+.nav {
+  display: flex;
+  gap: 16px;
+  font-weight: 600;
+  color: var(--ink-muted);
+}
+
+.nav a {
+  padding: 8px 10px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+}
+
+.nav a:hover {
+  border-color: var(--border);
+  background: #fffdf9;
+}
+
+.hero {
+  margin-top: 28px;
+  display: grid;
+  gap: 16px;
+}
+
+.headline {
+  font-size: clamp(32px, 4vw, 48px);
+  font-weight: 700;
+}
+
+.subtle {
+  color: var(--ink-muted);
+  max-width: 520px;
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 24px;
+  box-shadow: var(--shadow);
+}
+
+.grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: #fffdf9;
+  font-weight: 600;
+  color: var(--ink-muted);
+}
+
+.cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  border-radius: 999px;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.cta:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 24px -18px rgba(212, 90, 60, 0.6);
+}
+
+.muted-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  color: var(--ink-muted);
+  font-size: 14px;
+}
+
+.vote-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.vote-card {
+  border: 1px dashed var(--border);
+  border-radius: 16px;
+  min-height: 220px;
+  display: grid;
+  place-items: center;
+  color: var(--ink-muted);
+  background: #fffcf7;
+}
+
+.footer {
+  margin-top: 48px;
+  color: var(--ink-muted);
+  font-size: 14px;
+}

@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.env.local
+.env
+.astro/
+.DS_Store
+coverage/
+.cache/
+.turbo/
+.idea/
+.vscode/
