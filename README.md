@@ -32,7 +32,7 @@ docker compose up -d
 ## Local Infrastructure
 
 Ports
-- Postgres: 5432
+- Postgres: 5433
 - Redis: 6379
 - MinIO API: 9000
 - MinIO Console: 9001

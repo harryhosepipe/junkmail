@@ -25,9 +25,9 @@
 - [x] Pin Node version (`.nvmrc` or `.tool-versions`)
 - [x] Decide env management (`.env.example`, `.env.local`, secrets in CI)
 - [x] Add README with local dev steps + architecture overview
-- [ ] Verify phase works end-to-end (tests or manual checks)
-- [ ] Merge phase branch back into `main`
-- [ ] Delete phase branch (local and remote)
+- [x] Verify phase works end-to-end (tests or manual checks)
+- [x] Merge phase branch back into `main`
+- [x] Delete phase branch (local and remote)
 
 ---
 
@@ -43,29 +43,29 @@
 - [x] Add DB migration strategy (Drizzle migrations) and scripts
 - [x] Add queue framework wiring (BullMQ) with Redis connection
 - [x] Document ports, credentials, and common dev commands
-- [ ] Verify phase works end-to-end (tests or manual checks)
-- [ ] Merge phase branch back into `main`
-- [ ] Delete phase branch (local and remote)
+- [x] Verify phase works end-to-end (tests or manual checks)
+- [x] Merge phase branch back into `main`
+- [x] Delete phase branch (local and remote)
 
 ---
 
 ## 2) Backend Foundations (Hono + Drizzle)
 
-- [ ] Create phase branch (phase-03-backend-foundations)
-- [ ] Scaffold Hono API (`/api/v1` base) with:
-  - [ ] Request logging
-  - [ ] Error handler + consistent JSON error format
-  - [ ] CORS policy (tight in prod, relaxed in dev)
-- [ ] Set up Drizzle + Postgres connection and test query
-- [ ] Implement DB schema + migrations:
-  - [ ] `users` (invite-only uploader role)
-  - [ ] `images` (status, URLs/variants JSON)
-  - [ ] `votes` (pairwise winner, hashes)
-  - [ ] `ratings` (score, uncertainty, comparisons_count)
-- [ ] Seed script:
-  - [ ] Create uploader user(s) and invite tokens
-  - [ ] Insert sample images (dev-only) + initial ratings
-- [ ] Verify phase works end-to-end (tests or manual checks)
+- [x] Create phase branch (phase-03-backend-foundations)
+- [x] Scaffold Hono API (`/api/v1` base) with:
+  - [x] Request logging
+  - [x] Error handler + consistent JSON error format
+  - [x] CORS policy (tight in prod, relaxed in dev)
+- [x] Set up Drizzle + Postgres connection and test query
+- [x] Implement DB schema + migrations:
+  - [x] `users` (invite-only uploader role)
+  - [x] `images` (status, URLs/variants JSON)
+  - [x] `votes` (pairwise winner, hashes)
+  - [x] `ratings` (score, uncertainty, comparisons_count)
+- [x] Seed script:
+  - [x] Create uploader user(s) and invite tokens
+  - [x] Insert sample images (dev-only) + initial ratings
+- [x] Verify phase works end-to-end (tests or manual checks)
 - [ ] Merge phase branch back into `main`
 - [ ] Delete phase branch (local and remote)
 
