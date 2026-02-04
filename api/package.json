@@ -9,15 +9,18 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "db:seed": "tsx src/db/seed.ts"
+    "db:seed": "tsx src/db/seed.ts",
+    "worker": "tsx src/queue/worker.ts"
   },
   "dependencies": {
     "@hono/node-server": "^1.13.0",
+    "@aws-sdk/client-s3": "^3.713.0",
     "bullmq": "^5.40.0",
     "drizzle-orm": "^0.38.2",
     "hono": "^4.6.4",
     "ioredis": "^5.5.0",
-    "pg": "^8.13.1"
+    "pg": "^8.13.1",
+    "sharp": "^0.33.5"
   },
   "devDependencies": {
     "@types/node": "^22.13.1",

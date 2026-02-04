@@ -2,6 +2,7 @@ import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
+import imagesRouter from "./routes/images.js";
 
 const app = new Hono();
 const api = new Hono();
@@ -31,6 +32,7 @@ api.use(
 );
 
 api.get("/health", (c) => c.json({ ok: true }));
+api.route("/images", imagesRouter);
 app.route("/api/v1", api);
 
 const port = Number(process.env.PORT) || 8787;

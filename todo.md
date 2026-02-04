@@ -66,31 +66,31 @@
   - [x] Create uploader user(s) and invite tokens
   - [x] Insert sample images (dev-only) + initial ratings
 - [x] Verify phase works end-to-end (tests or manual checks)
-- [ ] Merge phase branch back into `main`
-- [ ] Delete phase branch (local and remote)
+- [x] Merge phase branch back into `main`
+- [x] Delete phase branch (local and remote)
 
 ---
 
 ## 3) Object Storage + Media Pipeline (Sharp + MinIO)
 
-- [ ] Create phase branch (phase-04-media-pipeline)
-- [ ] Define storage layout (paths per image id, variants per size/format)
-- [ ] Implement server-side upload handling:
-  - [ ] Validate MIME type (JPG/PNG only)
-  - [ ] Enforce max file size (10-15MB)
-  - [ ] Write original to MinIO
-  - [ ] Create `images` row with `status=processing`
-- [ ] Implement BullMQ worker:
-  - [ ] Pull original from MinIO
-  - [ ] Generate variants: AVIF + WebP + (optional) optimized JPG/PNG
-  - [ ] Generate sizes: thumb, feed, full
-  - [ ] Store variants in MinIO
-  - [ ] Update `images.variant_urls` and set `status=public`
-- [ ] Implement responsive delivery contract:
-  - [ ] Return variant URLs suitable for `srcset`, lazy loading
-- [ ] Add retry + dead-letter strategy (at least logging + backoff)
-- [ ] Add a simple admin-only script/endpoint to reprocess an image (dev-only)
-- [ ] Verify phase works end-to-end (tests or manual checks)
+- [x] Create phase branch (phase-04-media-pipeline)
+- [x] Define storage layout (paths per image id, variants per size/format)
+- [x] Implement server-side upload handling:
+  - [x] Validate MIME type (JPG/PNG only)
+  - [x] Enforce max file size (10-15MB)
+  - [x] Write original to MinIO
+  - [x] Create `images` row with `status=processing`
+- [x] Implement BullMQ worker:
+  - [x] Pull original from MinIO
+  - [x] Generate variants: AVIF + WebP + (optional) optimized JPG/PNG
+  - [x] Generate sizes: thumb, feed, full
+  - [x] Store variants in MinIO
+  - [x] Update `images.variant_urls` and set `status=public`
+- [x] Implement responsive delivery contract:
+  - [x] Return variant URLs suitable for `srcset`, lazy loading
+- [x] Add retry + dead-letter strategy (at least logging + backoff)
+- [x] Add a simple admin-only script/endpoint to reprocess an image (dev-only)
+- [x] Verify phase works end-to-end (tests or manual checks)
 - [ ] Merge phase branch back into `main`
 - [ ] Delete phase branch (local and remote)
 
