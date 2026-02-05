@@ -1,6 +1,6 @@
 ---
 import Base from "../layouts/Base.astro";
-import RecentScans from "../components/RecentScans.svelte";
+import HomeFeed from "../components/HomeFeed.svelte";
 import VoteModule from "../components/VoteModule.svelte";
 
 export const prerender = true;
@@ -28,7 +28,7 @@ const apiBaseUrl = import.meta.env.PUBLIC_API_BASE_URL ?? "http://localhost:8787
   </section>
 
   <section class="panel" style="margin-top: 24px;">
-    <div class="headline" style="font-size: 22px;">Fresh scans</div>
-    <RecentScans apiBaseUrl={apiBaseUrl} client:visible />
+    <div class="headline" style="font-size: 22px;">Fresh + Top mix</div>
+    <HomeFeed apiBaseUrl={apiBaseUrl} client:visible />
   </section>
 </Base>

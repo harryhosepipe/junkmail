@@ -240,6 +240,21 @@ Base: /api/v1
 - Vote endpoint response under 300ms (p50)
 - Toplist cached for 60-120s
 
+## Future Considerations
+
+### Live Toplist Updates
+
+- Goal: near real-time ranking updates even with ~100 concurrent voters.
+- Approach: add a live updates channel (SSE or WebSocket) that pushes toplist deltas or full snapshots on a fixed cadence (e.g., every 2-5 seconds).
+- Backend: publish a lightweight "toplist updated" event from the vote handler; consumers throttle/batch updates to avoid flooding clients.
+- Client: subscribe and smoothly update ranks (animate moves, avoid layout shifts).
+- Fallback: if live channel fails, keep polling the cached endpoint.
+
+### Toplist Refresh Countdown
+
+- UI shows a simple countdown like "Final votes tallied in 60 seconds" that tracks the server cache TTL.
+- Countdown resets whenever a new toplist snapshot is fetched.
+
 ## Security and Privacy
 
 - Hash IPs at ingestion; never store raw IP

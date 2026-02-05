@@ -240,28 +240,28 @@ Rules (must be followed before starting a phase and after completing a phase):
 - [x] Implement cookie-based voter id creation on first visit
 - [x] Add "no ties allowed" UX (no tie option exists)
 - [x] Verify phase works end-to-end (tests or manual checks)
-- [ ] Merge phase branch back into `main`
-- [ ] Keep phase branch (do not delete)
+- [x] Merge phase branch back into `main`
+- [x] Keep phase branch (do not delete)
 
 ---
 
 ## 11) Gallery + Image Detail UX
 
-- [ ] Create phase branch (phase-11-gallery-ux)
-- [ ] Home feed component:
-  - [ ] Mixed recent/top thumbnails
-  - [ ] Lazy loading + responsive `srcset`
-- [ ] Toplist page:
-  - [ ] Ranked list with vote appearances count
-  - [ ] Show comparisons/votes as spec requires :contentReference[oaicite:5]{index=5}
-- [ ] Image detail page:
-  - [ ] Full image variant
-  - [ ] Score + vote appearances
-  - [ ] Share UI (copy link)
-  - [ ] Ensure OpenGraph/Twitter metadata
-- [ ] Verify phase works end-to-end (tests or manual checks)
-- [ ] Merge phase branch back into `main`
-- [ ] Keep phase branch (do not delete)
+- [x] Create phase branch (phase-11-gallery-ux)
+- [x] Home feed component:
+  - [x] Mixed recent/top thumbnails
+  - [x] Lazy loading + responsive `srcset`
+- [x] Toplist page:
+  - [x] Ranked list with vote appearances count
+  - [x] Show comparisons/votes as spec requires :contentReference[oaicite:5]{index=5}
+- [x] Image detail page:
+  - [x] Full image variant
+  - [x] Score + vote appearances
+  - [x] Share UI (copy link)
+  - [x] Ensure OpenGraph/Twitter metadata
+- [x] Verify phase works end-to-end (tests or manual checks)
+- [x] Merge phase branch back into `main`
+- [x] Keep phase branch (do not delete)
 
 ---
 
