@@ -155,19 +155,19 @@ Rules (must be followed before starting a phase and after completing a phase):
 
 ## 6) Matchup Selection (Bias Mitigation + Sampling)
 
-- [ ] Create phase branch (phase-07-matchups)
-- [ ] Implement `GET /api/v1/matchups/next`:
-  - [ ] Blend selection pools:
-    - [ ] New / low exposure images (forced exposure)
-    - [ ] Close-ranked pairs for separation
-    - [ ] Occasional random pairs to prevent lock-in
-  - [ ] Ensure:
-    - [ ] Both images are `public`
-    - [ ] Not the same image
-    - [ ] Avoid immediate repeats for same voter (best effort)
-- [ ] Return a `seed` value that must be echoed in `POST /votes`
-- [ ] Add metrics logging: selection reason, exposure counts
-- [ ] Verify phase works end-to-end (tests or manual checks)
+- [x] Create phase branch (phase-07-matchups)
+- [x] Implement `GET /api/v1/matchups/next`:
+  - [x] Blend selection pools:
+    - [x] New / low exposure images (forced exposure)
+    - [x] Close-ranked pairs for separation
+    - [x] Occasional random pairs to prevent lock-in
+  - [x] Ensure:
+    - [x] Both images are `public`
+    - [x] Not the same image
+    - [x] Avoid immediate repeats for same voter (best effort)
+- [x] Return a `seed` value that must be echoed in `POST /votes`
+- [x] Add metrics logging: selection reason, exposure counts
+- [x] Verify phase works end-to-end (tests or manual checks)
 - [ ] Merge phase branch back into `main`
 - [ ] Keep phase branch (do not delete)
 

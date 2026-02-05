@@ -4,6 +4,7 @@ import { cors } from "hono/cors";
 import { logger } from "hono/logger";
 import authRouter from "./routes/auth.js";
 import imagesRouter from "./routes/images.js";
+import matchupsRouter from "./routes/matchups.js";
 import votesRouter from "./routes/votes.js";
 
 const app = new Hono();
@@ -35,6 +36,7 @@ api.use(
 api.get("/health", (c) => c.json({ ok: true }));
 api.route("/auth", authRouter);
 api.route("/images", imagesRouter);
+api.route("/matchups", matchupsRouter);
 api.route("/votes", votesRouter);
 app.route("/api/v1", api);
 

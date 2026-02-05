@@ -1,0 +1,221 @@
+import { createHash } from "crypto";
+import { Hono } from "hono";
+import type { Context } from "hono";
+import { getCookie, setCookie } from "hono/cookie";
+import { eq } from "drizzle-orm";
+import { db } from "../db/client.js";
+import { images, ratings } from "../db/schema.js";
+import { generateToken } from "../auth/tokens.js";
+import { redis } from "../queue/connection.js";
+
+const matchupsRouter = new Hono();
+
+const VOTER_COOKIE_NAME = "jm_voter";
+const VOTE_HASH_SALT = process.env.VOTE_HASH_SALT || "junkmail-dev-vote";
+
+const NEW_EXPOSURE_THRESHOLD = Number(process.env.MATCHUP_NEW_EXPOSURE) || 5;
+const CLOSE_SAMPLE_SIZE = Number(process.env.MATCHUP_CLOSE_SAMPLE) || 24;
+const REPEAT_TTL_SECONDS = Number(process.env.MATCHUP_REPEAT_TTL_SECONDS) || 120;
+
+const WEIGHT_NEW = Number(process.env.MATCHUP_WEIGHT_NEW) || 0.45;
+const WEIGHT_CLOSE = Number(process.env.MATCHUP_WEIGHT_CLOSE) || 0.4;
+const WEIGHT_RANDOM = Number(process.env.MATCHUP_WEIGHT_RANDOM) || 0.15;
+
+const hashValue = (value: string, salt: string) =>
+  createHash("sha256").update(`${salt}:${value}`).digest("hex");
+
+const getVoterId = (c: Context) => {
+  const existing = getCookie(c, VOTER_COOKIE_NAME);
+  if (existing) {
+    return existing;
+  }
+
+  const token = generateToken();
+  setCookie(c, VOTER_COOKIE_NAME, token, {
+    httpOnly: true,
+    sameSite: "Lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    maxAge: 60 * 60 * 24 * 365,
+  });
+  return token;
+};
+
+const pickRandomPair = <T>(items: T[]) => {
+  if (items.length < 2) return null;
+  const indexA = Math.floor(Math.random() * items.length);
+  let indexB = Math.floor(Math.random() * (items.length - 1));
+  if (indexB >= indexA) indexB += 1;
+  return [items[indexA], items[indexB]] as const;
+};
+
+const sampleItems = <T>(items: T[], count: number) => {
+  if (items.length <= count) return [...items];
+  const copy = [...items];
+  const sample: T[] = [];
+  while (sample.length < count && copy.length) {
+    const index = Math.floor(Math.random() * copy.length);
+    sample.push(copy.splice(index, 1)[0]);
+  }
+  return sample;
+};
+
+const pickClosePair = <T extends { score: number }>(items: T[]) => {
+  if (items.length < 2) return null;
+  const pool = sampleItems(items, CLOSE_SAMPLE_SIZE);
+  if (pool.length < 2) return null;
+  const sorted = [...pool].sort((a, b) => a.score - b.score);
+  let bestIndex = 0;
+  let bestDiff = Math.abs(sorted[1].score - sorted[0].score);
+  for (let i = 1; i < sorted.length - 1; i += 1) {
+    const diff = Math.abs(sorted[i + 1].score - sorted[i].score);
+    if (diff < bestDiff) {
+      bestDiff = diff;
+      bestIndex = i;
+    }
+  }
+  return [sorted[bestIndex], sorted[bestIndex + 1]] as const;
+};
+
+const pickWeightedReason = (options: Array<{ key: string; weight: number }>) => {
+  const total = options.reduce((sum, option) => sum + option.weight, 0);
+  if (total <= 0) return options[options.length - 1]?.key;
+  let roll = Math.random() * total;
+  for (const option of options) {
+    roll -= option.weight;
+    if (roll <= 0) return option.key;
+  }
+  return options[options.length - 1]?.key;
+};
+
+const isSamePair = (a: string, b: string, prev?: { a: string; b: string } | null) => {
+  if (!prev) return false;
+  return (a === prev.a && b === prev.b) || (a === prev.b && b === prev.a);
+};
+
+matchupsRouter.get("/next", async (c) => {
+  const voterId = getVoterId(c);
+  const voterHash = hashValue(voterId, VOTE_HASH_SALT);
+  const repeatKey = `matchup:last:${voterHash}`;
+
+  const rows = await db
+    .select({
+      id: images.id,
+      title: images.title,
+      description: images.description,
+      originalUrl: images.originalUrl,
+      variantUrls: images.variantUrls,
+      createdAt: images.createdAt,
+      score: ratings.score,
+      comparisonsCount: ratings.comparisonsCount,
+    })
+    .from(images)
+    .leftJoin(ratings, eq(images.id, ratings.imageId))
+    .where(eq(images.status, "public"));
+
+  if (rows.length < 2) {
+    return c.json({ error: { message: "Not enough images" } }, 404);
+  }
+
+  const items = rows.map((row) => ({
+    ...row,
+    score: row.score ?? 0,
+    comparisonsCount: row.comparisonsCount ?? 0,
+  }));
+
+  type MatchupItem = (typeof items)[number];
+  type MatchupPair = [MatchupItem, MatchupItem];
+
+  const newItems = items.filter((item) => item.comparisonsCount <= NEW_EXPOSURE_THRESHOLD);
+  const availableReasons = [
+    newItems.length ? { key: "new", weight: WEIGHT_NEW } : null,
+    items.length > 1 ? { key: "close", weight: WEIGHT_CLOSE } : null,
+    items.length > 1 ? { key: "random", weight: WEIGHT_RANDOM } : null,
+  ].filter(Boolean) as Array<{ key: string; weight: number }>;
+
+  let lastPair: { a: string; b: string } | null = null;
+  try {
+    const cached = await redis.get(repeatKey);
+    if (cached) {
+      lastPair = JSON.parse(cached);
+    }
+  } catch {
+    lastPair = null;
+  }
+
+  let reason = pickWeightedReason(availableReasons) || "random";
+  let selected: MatchupPair | null = null;
+
+  const pickByReason = (key: string) => {
+    if (key === "new") {
+      if (newItems.length >= 2) {
+        return pickRandomPair(newItems);
+      }
+      if (newItems.length === 1) {
+        const otherPool = items.filter((item) => item.id !== newItems[0].id);
+        const otherPair = pickRandomPair(otherPool);
+        if (!otherPair) return null;
+        return [newItems[0], otherPair[0]] as const;
+      }
+    }
+    if (key === "close") {
+      return pickClosePair(items);
+    }
+    return pickRandomPair(items);
+  };
+
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    const picked = pickByReason(reason);
+    if (picked) {
+      const [a, b] = picked;
+      if (!isSamePair(a.id, b.id, lastPair)) {
+        selected = picked as MatchupPair;
+        break;
+      }
+    }
+    reason = "random";
+  }
+
+  if (!selected) {
+    const fallback = pickRandomPair(items);
+    if (!fallback) {
+      return c.json({ error: { message: "No matchup available" } }, 404);
+    }
+    selected = fallback as MatchupPair;
+    reason = "random";
+  }
+
+  const [a, b] = selected;
+  const seed = generateToken();
+
+  try {
+    await redis.set(
+      repeatKey,
+      JSON.stringify({ a: a.id, b: b.id, seed }),
+      "EX",
+      REPEAT_TTL_SECONDS,
+    );
+  } catch {
+    // ignore cache errors
+  }
+
+  console.info("[matchup]", {
+    reason,
+    a: a.id,
+    b: b.id,
+    exposureA: a.comparisonsCount,
+    exposureB: b.comparisonsCount,
+    scoreDiff: Math.abs(a.score - b.score),
+    poolNew: newItems.length,
+    poolTotal: items.length,
+  });
+
+  return c.json({
+    a,
+    b,
+    seed,
+    reason,
+  });
+});
+
+export default matchupsRouter;
