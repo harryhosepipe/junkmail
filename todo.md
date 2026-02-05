@@ -175,21 +175,21 @@ Rules (must be followed before starting a phase and after completing a phase):
 
 ## 7) Read APIs + Caching
 
-- [ ] Create phase branch (phase-08-read-apis)
-- [ ] Implement `GET /api/v1/images/top?limit=50`:
-  - [ ] Sort by score
-  - [ ] Filter by `comparisons_count >= threshold` (10-20 default) :contentReference[oaicite:2]{index=2}
-  - [ ] Include vote appearances and thumb URL
-- [ ] Implement `GET /api/v1/images/{id}`:
-  - [ ] Return variants, votes, score
+- [x] Create phase branch (phase-08-read-apis)
+- [x] Implement `GET /api/v1/images/top?limit=50`:
+  - [x] Sort by score
+  - [x] Filter by `comparisons_count >= threshold` (10-20 default) :contentReference[oaicite:2]{index=2}
+  - [x] Include vote appearances and thumb URL
+- [x] Implement `GET /api/v1/images/{id}`:
+  - [x] Return variants, votes, score
 - [x] Implement `GET /api/v1/images/recent?limit=8` for Fresh scans
-- [ ] Implement `GET /api/v1/feed/home`:
-  - [ ] Return `{ matchup, feed }` (recent + top blend)
-- [ ] Add caching strategy:
-  - [ ] Cache toplist for 60-120s in Redis :contentReference[oaicite:3]{index=3}
-  - [ ] Cache matchup selection inputs lightly (avoid stale bias)
+- [x] Implement `GET /api/v1/feed/home`:
+  - [x] Return `{ matchup, feed }` (recent + top blend)
+- [x] Add caching strategy:
+  - [x] Cache toplist for 60-120s in Redis :contentReference[oaicite:3]{index=3}
+  - [x] Cache matchup selection inputs lightly (avoid stale bias)
 - [ ] Add performance checks: vote endpoint p50 < 300ms target :contentReference[oaicite:4]{index=4}
-- [ ] Verify phase works end-to-end (tests or manual checks)
+- [x] Verify phase works end-to-end (tests or manual checks)
 - [ ] Merge phase branch back into `main`
 - [ ] Keep phase branch (do not delete)
 

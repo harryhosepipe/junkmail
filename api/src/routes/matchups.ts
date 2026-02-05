@@ -16,6 +16,7 @@ const VOTE_HASH_SALT = process.env.VOTE_HASH_SALT || "junkmail-dev-vote";
 const NEW_EXPOSURE_THRESHOLD = Number(process.env.MATCHUP_NEW_EXPOSURE) || 5;
 const CLOSE_SAMPLE_SIZE = Number(process.env.MATCHUP_CLOSE_SAMPLE) || 24;
 const REPEAT_TTL_SECONDS = Number(process.env.MATCHUP_REPEAT_TTL_SECONDS) || 120;
+const MATCHUP_POOL_TTL_SECONDS = Number(process.env.MATCHUP_POOL_TTL_SECONDS) || 10;
 
 const WEIGHT_NEW = Number(process.env.MATCHUP_WEIGHT_NEW) || 0.45;
 const WEIGHT_CLOSE = Number(process.env.MATCHUP_WEIGHT_CLOSE) || 0.4;
@@ -93,10 +94,38 @@ const isSamePair = (a: string, b: string, prev?: { a: string; b: string } | null
   return (a === prev.a && b === prev.b) || (a === prev.b && b === prev.a);
 };
 
-matchupsRouter.get("/next", async (c) => {
-  const voterId = getVoterId(c);
-  const voterHash = hashValue(voterId, VOTE_HASH_SALT);
-  const repeatKey = `matchup:last:${voterHash}`;
+type MatchupItem = {
+  id: string;
+  title: string | null;
+  description: string | null;
+  originalUrl: string;
+  variantUrls: unknown;
+  createdAt: string | Date;
+  score: number;
+  comparisonsCount: number;
+};
+
+type MatchupPair = [MatchupItem, MatchupItem];
+
+const loadMatchupPool = async (): Promise<MatchupItem[]> => {
+  const cacheKey = "matchup:pool";
+  if (MATCHUP_POOL_TTL_SECONDS > 0) {
+    try {
+      const cached = await redis.get(cacheKey);
+      if (cached) {
+        const parsed = JSON.parse(cached) as MatchupItem[];
+        if (Array.isArray(parsed)) {
+          return parsed.map((item) => ({
+            ...item,
+            score: Number(item.score) || 0,
+            comparisonsCount: Number(item.comparisonsCount) || 0,
+          }));
+        }
+      }
+    } catch {
+      // ignore cache errors
+    }
+  }
 
   const rows = await db
     .select({
@@ -113,18 +142,32 @@ matchupsRouter.get("/next", async (c) => {
     .leftJoin(ratings, eq(images.id, ratings.imageId))
     .where(eq(images.status, "public"));
 
-  if (rows.length < 2) {
-    return c.json({ error: { message: "Not enough images" } }, 404);
-  }
-
   const items = rows.map((row) => ({
     ...row,
     score: row.score ?? 0,
     comparisonsCount: row.comparisonsCount ?? 0,
   }));
 
-  type MatchupItem = (typeof items)[number];
-  type MatchupPair = [MatchupItem, MatchupItem];
+  if (MATCHUP_POOL_TTL_SECONDS > 0) {
+    try {
+      await redis.set(cacheKey, JSON.stringify(items), "EX", MATCHUP_POOL_TTL_SECONDS);
+    } catch {
+      // ignore cache errors
+    }
+  }
+
+  return items;
+};
+
+export const createMatchupPayload = async (c: Context) => {
+  const voterId = getVoterId(c);
+  const voterHash = hashValue(voterId, VOTE_HASH_SALT);
+  const repeatKey = `matchup:last:${voterHash}`;
+  const items = await loadMatchupPool();
+
+  if (items.length < 2) {
+    return null;
+  }
 
   const newItems = items.filter((item) => item.comparisonsCount <= NEW_EXPOSURE_THRESHOLD);
   const availableReasons = [
@@ -179,7 +222,7 @@ matchupsRouter.get("/next", async (c) => {
   if (!selected) {
     const fallback = pickRandomPair(items);
     if (!fallback) {
-      return c.json({ error: { message: "No matchup available" } }, 404);
+      return null;
     }
     selected = fallback as MatchupPair;
     reason = "random";
@@ -210,12 +253,21 @@ matchupsRouter.get("/next", async (c) => {
     poolTotal: items.length,
   });
 
-  return c.json({
+  return {
     a,
     b,
     seed,
     reason,
-  });
+  };
+};
+
+matchupsRouter.get("/next", async (c) => {
+  const payload = await createMatchupPayload(c);
+  if (!payload) {
+    return c.json({ error: { message: "Not enough images" } }, 404);
+  }
+
+  return c.json(payload);
 });
 
 export default matchupsRouter;

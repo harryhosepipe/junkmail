@@ -1,18 +1,118 @@
 import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { randomUUID } from "crypto";
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { db } from "../db/client.js";
 import { images, ratings, users } from "../db/schema.js";
 import { imageQueue } from "../queue/index.js";
+import { redis } from "../queue/connection.js";
 import { originalKey } from "../storage/paths.js";
 import { publicObjectUrl, s3Client, storageBucket } from "../storage/client.js";
 import { requireUploader } from "../auth/session.js";
 
 const MAX_UPLOAD_BYTES = 15 * 1024 * 1024;
 const ACCEPTED_TYPES = ["image/jpeg", "image/png"] as const;
+const TOPLIST_MIN_COMPARISONS = Number(process.env.TOPLIST_MIN_COMPARISONS) || 10;
+const TOPLIST_CACHE_SECONDS = Number(process.env.TOPLIST_CACHE_SECONDS) || 90;
 
 const imagesRouter = new Hono();
+
+const pickVariantUrl = (variant: unknown) => {
+  if (!variant) return "";
+  if (typeof variant === "string") return variant;
+  const map = variant as { webp?: string; avif?: string; jpg?: string; png?: string };
+  return map.webp || map.avif || map.jpg || map.png || "";
+};
+
+const pickThumbUrl = (variantUrls: unknown) => {
+  if (!variantUrls || typeof variantUrls !== "object") return "";
+  const variants = variantUrls as Record<string, unknown>;
+  return (
+    pickVariantUrl(variants.thumb) ||
+    pickVariantUrl(variants.feed) ||
+    pickVariantUrl(variants.full) ||
+    ""
+  );
+};
+
+export const fetchRecentImages = async (limit: number) => {
+  const scoreExpr = sql<number>`coalesce(${ratings.score}, 0)`;
+  const comparisonsExpr = sql<number>`coalesce(${ratings.comparisonsCount}, 0)`;
+  const rows = await db
+    .select({
+      id: images.id,
+      title: images.title,
+      description: images.description,
+      status: images.status,
+      originalUrl: images.originalUrl,
+      variantUrls: images.variantUrls,
+      createdAt: images.createdAt,
+      score: scoreExpr,
+      comparisonsCount: comparisonsExpr,
+    })
+    .from(images)
+    .leftJoin(ratings, eq(images.id, ratings.imageId))
+    .where(eq(images.status, "public"))
+    .orderBy(desc(images.createdAt))
+    .limit(limit);
+
+  return rows.map((row) => ({
+    ...row,
+    score: row.score ?? 0,
+    votes: row.comparisonsCount ?? 0,
+  }));
+};
+
+export const fetchTopCards = async (limit: number, minComparisons = TOPLIST_MIN_COMPARISONS) => {
+  const cacheKey = `toplist:${minComparisons}:${limit}`;
+  if (TOPLIST_CACHE_SECONDS > 0) {
+    try {
+      const cached = await redis.get(cacheKey);
+      if (cached) {
+        return JSON.parse(cached) as Array<Record<string, unknown>>;
+      }
+    } catch {
+      // ignore cache errors
+    }
+  }
+
+  const scoreExpr = sql<number>`coalesce(${ratings.score}, 0)`;
+  const comparisonsExpr = sql<number>`coalesce(${ratings.comparisonsCount}, 0)`;
+
+  const rows = await db
+    .select({
+      id: images.id,
+      title: images.title,
+      description: images.description,
+      status: images.status,
+      originalUrl: images.originalUrl,
+      variantUrls: images.variantUrls,
+      createdAt: images.createdAt,
+      score: scoreExpr,
+      comparisonsCount: comparisonsExpr,
+    })
+    .from(images)
+    .leftJoin(ratings, eq(images.id, ratings.imageId))
+    .where(and(eq(images.status, "public"), sql`${comparisonsExpr} >= ${minComparisons}`))
+    .orderBy(desc(scoreExpr))
+    .limit(limit);
+
+  const items = rows.map((row) => ({
+    ...row,
+    score: row.score ?? 0,
+    votes: row.comparisonsCount ?? 0,
+  }));
+
+  if (TOPLIST_CACHE_SECONDS > 0) {
+    try {
+      await redis.set(cacheKey, JSON.stringify(items), "EX", TOPLIST_CACHE_SECONDS);
+    } catch {
+      // ignore cache errors
+    }
+  }
+
+  return items;
+};
 
 imagesRouter.post("/", requireUploader, async (c) => {
   const body = await c.req.parseBody();
@@ -99,27 +199,33 @@ imagesRouter.post("/", requireUploader, async (c) => {
 imagesRouter.get("/recent", async (c) => {
   const rawLimit = Number(c.req.query("limit") ?? "4");
   const limit = Number.isFinite(rawLimit) && rawLimit > 0 ? Math.min(rawLimit, 12) : 4;
-
-  const rows = await db
-    .select({
-      id: images.id,
-      title: images.title,
-      description: images.description,
-      status: images.status,
-      originalUrl: images.originalUrl,
-      variantUrls: images.variantUrls,
-      createdAt: images.createdAt,
-    })
-    .from(images)
-    .where(eq(images.status, "public"))
-    .orderBy(desc(images.createdAt))
-    .limit(limit);
+  const rows = await fetchRecentImages(limit);
 
   return c.json({ items: rows });
 });
 
+imagesRouter.get("/top", async (c) => {
+  const rawLimit = Number(c.req.query("limit") ?? "50");
+  const limit = Number.isFinite(rawLimit) && rawLimit > 0 ? Math.min(rawLimit, 100) : 50;
+  const rawMin = Number(c.req.query("min") ?? `${TOPLIST_MIN_COMPARISONS}`);
+  const minComparisons = Number.isFinite(rawMin) && rawMin >= 0 ? rawMin : TOPLIST_MIN_COMPARISONS;
+
+  const rows = await fetchTopCards(limit, minComparisons);
+
+  return c.json(
+    rows.map((row) => ({
+      id: row.id,
+      score: row.score ?? 0,
+      votes: row.votes ?? 0,
+      thumb_url: pickThumbUrl(row.variantUrls) || row.originalUrl || "",
+    })),
+  );
+});
+
 imagesRouter.get("/:id", async (c) => {
   const imageId = c.req.param("id");
+  const scoreExpr = sql<number>`coalesce(${ratings.score}, 0)`;
+  const comparisonsExpr = sql<number>`coalesce(${ratings.comparisonsCount}, 0)`;
   const result = await db
     .select({
       id: images.id,
@@ -130,9 +236,12 @@ imagesRouter.get("/:id", async (c) => {
       variantUrls: images.variantUrls,
       createdAt: images.createdAt,
       uploaderEmail: users.email,
+      score: scoreExpr,
+      comparisonsCount: comparisonsExpr,
     })
     .from(images)
     .leftJoin(users, eq(images.uploaderId, users.id))
+    .leftJoin(ratings, eq(images.id, ratings.imageId))
     .where(eq(images.id, imageId))
     .limit(1);
 
@@ -150,6 +259,8 @@ imagesRouter.get("/:id", async (c) => {
     variantUrls: row.variantUrls,
     createdAt: row.createdAt,
     uploaderEmail: row.uploaderEmail,
+    score: row.score ?? 0,
+    votes: row.comparisonsCount ?? 0,
   });
 });
 
