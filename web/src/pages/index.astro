@@ -1,6 +1,7 @@
 ---
 import Base from "../layouts/Base.astro";
 import RecentScans from "../components/RecentScans.svelte";
+import VoteModule from "../components/VoteModule.svelte";
 
 export const prerender = true;
 const apiBaseUrl = import.meta.env.PUBLIC_API_BASE_URL ?? "http://localhost:8787";
@@ -21,13 +22,9 @@ const apiBaseUrl = import.meta.env.PUBLIC_API_BASE_URL ?? "http://localhost:8787
 
   <section class="panel" style="margin-top: 28px;">
     <div class="headline" style="font-size: 22px;">Pick one</div>
-    <div class="vote-grid" style="margin-top: 16px;">
-      <div class="vote-card">Matchup A</div>
-      <div class="vote-card">Matchup B</div>
+    <div style="margin-top: 16px;">
+      <VoteModule apiBaseUrl={apiBaseUrl} client:load />
     </div>
-    <p class="subtle" style="margin-top: 16px;">
-      Voting module lands here. One click and you get the next battle.
-    </p>
   </section>
 
   <section class="panel" style="margin-top: 24px;">

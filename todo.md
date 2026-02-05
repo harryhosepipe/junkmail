@@ -197,13 +197,13 @@ Rules (must be followed before starting a phase and after completing a phase):
 
 ## 8) Frontend Foundations (Astro SSR/SSG + Islands)
 
-- [ ] Create phase branch (phase-09-frontend-foundations)
+- [x] Create phase branch (phase-09-frontend-foundations)
 - [x] Create Astro app layout:
   - [x] Global styles (dry/deadpan)
   - [x] Header/footer, nav to Home/Toplist/Upload
 - [x] Configure SSR/SSG:
   - [x] Public pages SSR/SSG as appropriate (SEO-first)
-  - [ ] Islands for voting module and upload
+  - [x] Islands for voting module and upload
 - [x] Build core routes:
   - [x] `/` Home (vote module + feed)
   - [x] `/top` Toplist (ranked list + counts)
@@ -213,17 +213,17 @@ Rules (must be followed before starting a phase and after completing a phase):
 - [ ] Add Svelte integration + islands (auth indicator/login/upload), remove inline scripts
 - [x] Add Svelte integration + islands (auth indicator/login/upload), remove inline scripts
 - [x] Use Context7 MCP for Astro/Svelte workflow references
-- [ ] Hybrid SSR default; prerender public pages with `prerender = true`
-- [ ] Verify phase works end-to-end (tests or manual checks)
-- [ ] SSR via adapter: keep output static + prerender public routes
-- [ ] Enable Astro view transitions + persist auth indicator
-- [ ] Web auth flow checklist:
-  - [ ] `/login` submits email and shows "check your email"
-  - [ ] Magic link opens and redirects to `/upload` (cookie set)
-  - [ ] Invite-only messaging for non-uploader email
-  - [ ] `/upload` gated when logged out
-  - [ ] Logout clears session and re-gates upload
-  - [ ] Handle expired/used token error state on `/login`
+- [x] Hybrid SSR default; prerender public pages with `prerender = true`
+- [x] Verify phase works end-to-end (tests or manual checks)
+- [x] SSR via adapter: keep output static + prerender public routes
+- [x] Enable Astro view transitions + persist auth indicator
+- [x] Web auth flow checklist:
+  - [x] `/login` submits email and shows "check your email"
+  - [x] Magic link opens and redirects to `/upload` (cookie set)
+  - [x] Invite-only messaging for non-uploader email
+  - [x] `/upload` gated when logged out
+  - [x] Logout clears session and re-gates upload
+  - [x] Handle expired/used token error state on `/login`
 - [ ] Merge phase branch back into `main`
 - [ ] Keep phase branch (do not delete)
 
