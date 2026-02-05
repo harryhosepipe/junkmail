@@ -1,5 +1,5 @@
 <script>
-  import { onMount } from "svelte";
+  import { onDestroy, onMount } from "svelte";
 
   export let apiBaseUrl = "http://localhost:8787";
   export let initialUser = null;
@@ -10,6 +10,7 @@
   let title = "";
   let description = "";
   let file = null;
+  let fileInput = null;
   let status = "";
   let statusState = "info";
   let uploading = false;
@@ -17,6 +18,12 @@
   let previewTitle = "";
   let previewDescription = "";
   let previewVisible = false;
+  let localPreviewUrl = "";
+  let localPreviewName = "";
+  let displayPreviewUrl = "";
+  let displayPreviewTitle = "";
+  let displayPreviewDescription = "";
+  let displayPreviewLabel = "";
 
   const setStatus = (message, mode = "info") => {
     status = message;
@@ -28,6 +35,28 @@
     previewUrl = "";
     previewTitle = "";
     previewDescription = "";
+  };
+
+  const clearLocalPreview = () => {
+    if (localPreviewUrl) {
+      URL.revokeObjectURL(localPreviewUrl);
+    }
+    localPreviewUrl = "";
+    localPreviewName = "";
+  };
+
+  const handleFileChange = (event) => {
+    const nextFile = event.target.files?.[0] || null;
+    file = nextFile;
+    resetPreview();
+    clearLocalPreview();
+
+    if (!nextFile) {
+      return;
+    }
+
+    localPreviewUrl = URL.createObjectURL(nextFile);
+    localPreviewName = nextFile.name;
   };
 
   const loadSession = async () => {
@@ -70,6 +99,7 @@
             previewTitle = data.title || meta.title || "Untitled";
             previewDescription = data.description || meta.description || "";
             previewVisible = true;
+            clearLocalPreview();
             setStatus("Image is public.", "success");
             return;
           }
@@ -146,6 +176,9 @@
       title = "";
       description = "";
       file = null;
+      if (fileInput) {
+        fileInput.value = "";
+      }
     } catch (err) {
       setStatus("Upload failed. Try again.", "error");
     } finally {
@@ -173,6 +206,29 @@
       loadSession();
     }
   });
+
+  onDestroy(() => {
+    clearLocalPreview();
+  });
+
+  $: {
+    if (previewVisible && previewUrl) {
+      displayPreviewUrl = previewUrl;
+      displayPreviewTitle = previewTitle || "Public preview";
+      displayPreviewDescription = previewDescription || "";
+      displayPreviewLabel = "Public";
+    } else if (localPreviewUrl) {
+      displayPreviewUrl = localPreviewUrl;
+      displayPreviewTitle = title.trim() || localPreviewName || "Selected image";
+      displayPreviewDescription = description.trim();
+      displayPreviewLabel = "Local";
+    } else {
+      displayPreviewUrl = "";
+      displayPreviewTitle = "";
+      displayPreviewDescription = "";
+      displayPreviewLabel = "";
+    }
+  }
 </script>
 
 {#if authState === "guest"}
@@ -188,42 +244,66 @@
         Your account is signed in but does not have uploader access.
       </p>
     {:else}
-      <form class="upload-form" on:submit|preventDefault={handleUpload}>
-        <label class="field">
-          <span>Title</span>
-          <input
-            type="text"
-            name="title"
-            placeholder="e.g. Final notice envelope"
-            maxlength="120"
-            bind:value={title}
-          />
-        </label>
-        <label class="field">
-          <span>Description</span>
-          <textarea
-            name="description"
-            rows="3"
-            placeholder="Optional notes for the gallery."
-            maxlength="500"
-            bind:value={description}
-          ></textarea>
-        </label>
-        <label class="field">
-          <span>Image file</span>
-          <input
-            type="file"
-            name="file"
-            accept="image/jpeg,image/png"
-            on:change={(event) => (file = event.target.files?.[0] || null)}
-            required
-          />
-        </label>
-        <p class="hint">JPG or PNG, up to 15MB.</p>
-        <button class="cta" type="submit" disabled={uploading}>
-          {uploading ? "Uploading..." : "Upload image"}
-        </button>
-      </form>
+      <div class="upload-layout">
+        <form class="upload-form" on:submit|preventDefault={handleUpload}>
+          <label class="field">
+            <span>Title</span>
+            <input
+              type="text"
+              name="title"
+              placeholder="e.g. Final notice envelope"
+              maxlength="120"
+              bind:value={title}
+            />
+          </label>
+          <label class="field">
+            <span>Description</span>
+            <textarea
+              name="description"
+              rows="3"
+              placeholder="Optional notes for the gallery."
+              maxlength="500"
+              bind:value={description}
+            ></textarea>
+          </label>
+          <label class="field">
+            <span>Image file</span>
+            <input
+              type="file"
+              name="file"
+              accept="image/jpeg,image/png"
+              bind:this={fileInput}
+              on:change={handleFileChange}
+              required
+            />
+          </label>
+          <p class="hint">JPG or PNG, up to 15MB.</p>
+          <button class="cta" type="submit" disabled={uploading}>
+            {uploading ? "Uploading..." : "Upload image"}
+          </button>
+        </form>
+        <aside class="preview-panel" aria-live="polite">
+          <div class="preview-header">
+            <span>Preview</span>
+            {#if displayPreviewLabel}
+              <span class="preview-chip">{displayPreviewLabel}</span>
+            {/if}
+          </div>
+          {#if displayPreviewUrl}
+            <img class="preview-image" src={displayPreviewUrl} alt="Selected junkmail" />
+            <div class="preview-meta">
+              <div class="headline">{displayPreviewTitle}</div>
+              {#if displayPreviewDescription}
+                <p class="subtle">{displayPreviewDescription}</p>
+              {/if}
+            </div>
+          {:else}
+            <div class="preview-placeholder">
+              Select an image to see a preview here.
+            </div>
+          {/if}
+        </aside>
+      </div>
     {/if}
     {#if status}
       <p class={`status ${
@@ -231,17 +311,6 @@
       }`}>
         {status}
       </p>
-    {/if}
-    {#if previewVisible}
-      <div class="preview">
-        <img class="preview-image" src={previewUrl} alt="Uploaded junkmail" />
-        <div class="preview-meta">
-          <div class="headline">{previewTitle}</div>
-          {#if previewDescription}
-            <p class="subtle">{previewDescription}</p>
-          {/if}
-        </div>
-      </div>
     {/if}
     <button class="cta" type="button" on:click={handleLogout}>
       Log out
@@ -259,6 +328,23 @@
     display: grid;
     gap: 12px;
     max-width: 420px;
+  }
+
+  .upload-layout {
+    display: grid;
+    gap: 24px;
+    align-items: start;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 360px);
+  }
+
+  @media (max-width: 900px) {
+    .upload-layout {
+      grid-template-columns: 1fr;
+    }
+
+    .upload-form {
+      max-width: none;
+    }
   }
 
   .field {
@@ -307,19 +393,53 @@
     color: #2f6f3b;
   }
 
-  .preview {
-    margin-top: 16px;
+  .preview-panel {
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    padding: 18px;
+    background: #fffcf7;
+    box-shadow: var(--shadow);
     display: grid;
     gap: 12px;
   }
 
+  .preview-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-weight: 600;
+    color: var(--ink-muted);
+  }
+
+  .preview-chip {
+    font-size: 12px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: #fffdf9;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+  }
+
+  .preview-placeholder {
+    min-height: 220px;
+    border-radius: 14px;
+    border: 1px dashed var(--border);
+    display: grid;
+    place-items: center;
+    color: var(--ink-muted);
+    padding: 12px;
+    text-align: center;
+  }
+
   .preview-image {
     width: 100%;
-    max-width: 560px;
+    max-height: 420px;
     border-radius: 16px;
     border: 1px solid var(--border);
     box-shadow: var(--shadow);
     background: #fffdf9;
+    object-fit: contain;
   }
 
   .preview-meta {

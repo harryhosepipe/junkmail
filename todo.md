@@ -210,7 +210,6 @@ Rules (must be followed before starting a phase and after completing a phase):
   - [x] `/image/[id]` Image detail (full image + vote count + share metadata)
   - [x] `/upload` Upload (gated)
   - [x] `/login` Magic link request/verify UX
-- [ ] Add Svelte integration + islands (auth indicator/login/upload), remove inline scripts
 - [x] Add Svelte integration + islands (auth indicator/login/upload), remove inline scripts
 - [x] Use Context7 MCP for Astro/Svelte workflow references
 - [x] Hybrid SSR default; prerender public pages with `prerender = true`
@@ -229,24 +228,24 @@ Rules (must be followed before starting a phase and after completing a phase):
 
 ---
 
-## 9) Voting UX (Fast, No Ties)
+## 10) Voting UX (Fast, No Ties)
 
-- [ ] Create phase branch (phase-10-voting-ux)
-- [ ] Create Vote Island component:
-  - [ ] Fetch `GET /matchups/next`
-  - [ ] Render A vs B with fast click targets
-  - [ ] On click, POST `/votes` and immediately fetch next matchup
-  - [ ] Handle latency states (optimistic UI, minimal spinner)
-  - [ ] Keyboard shortcuts (optional but good for "fast")
-- [ ] Implement cookie-based voter id creation on first visit
-- [ ] Add "no ties allowed" UX (no tie option exists)
-- [ ] Verify phase works end-to-end (tests or manual checks)
+- [x] Create phase branch (phase-10-voting-ux)
+- [x] Create Vote Island component:
+  - [x] Fetch `GET /matchups/next`
+  - [x] Render A vs B with fast click targets
+  - [x] On click, POST `/votes` and immediately fetch next matchup
+  - [x] Handle latency states (optimistic UI, minimal spinner)
+  - [x] Keyboard shortcuts (optional but good for "fast")
+- [x] Implement cookie-based voter id creation on first visit
+- [x] Add "no ties allowed" UX (no tie option exists)
+- [x] Verify phase works end-to-end (tests or manual checks)
 - [ ] Merge phase branch back into `main`
 - [ ] Keep phase branch (do not delete)
 
 ---
 
-## 10) Gallery + Image Detail UX
+## 11) Gallery + Image Detail UX
 
 - [ ] Create phase branch (phase-11-gallery-ux)
 - [ ] Home feed component:
@@ -266,7 +265,7 @@ Rules (must be followed before starting a phase and after completing a phase):
 
 ---
 
-## 11) Upload UX (Invite-Only, Minimal Friction)
+## 12) Upload UX (Invite-Only, Minimal Friction)
 
 - [ ] Create phase branch (phase-12-upload-ux)
 - [ ] Login page:
@@ -290,7 +289,7 @@ Rules (must be followed before starting a phase and after completing a phase):
 
 ---
 
-## 12) SEO First-Class (Public Pages + Crawlers)
+## 13) SEO First-Class (Public Pages + Crawlers)
 
 - [ ] Create phase branch (phase-13-seo)
 - [ ] Add per-page metadata (title/description/canonical)
@@ -309,7 +308,7 @@ Rules (must be followed before starting a phase and after completing a phase):
 
 ---
 
-## 13) Hardening + Security
+## 14) Hardening + Security
 
 - [ ] Create phase branch (phase-14-hardening)
 - [ ] Input validation everywhere (zod or similar)
@@ -327,7 +326,7 @@ Rules (must be followed before starting a phase and after completing a phase):
 
 ---
 
-## 14) Performance Pass
+## 15) Performance Pass
 
 - [ ] Create phase branch (phase-15-performance)
 - [ ] Confirm Home interactive < 2s on mid-tier mobile target :contentReference[oaicite:9]{index=9}
@@ -345,7 +344,7 @@ Rules (must be followed before starting a phase and after completing a phase):
 
 ---
 
-## 15) QA + Release
+## 16) QA + Release
 
 - [ ] Create phase branch (phase-16-qa-release)
 - [ ] Write minimal tests:
