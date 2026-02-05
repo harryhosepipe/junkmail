@@ -224,8 +224,8 @@ Rules (must be followed before starting a phase and after completing a phase):
   - [x] `/upload` gated when logged out
   - [x] Logout clears session and re-gates upload
   - [x] Handle expired/used token error state on `/login`
-- [ ] Merge phase branch back into `main`
-- [ ] Keep phase branch (do not delete)
+- [x] Merge phase branch back into `main`
+- [x] Keep phase branch (do not delete)
 
 ---
 
