@@ -148,8 +148,8 @@ Rules (must be followed before starting a phase and after completing a phase):
   - [x] Server-side throttling rules (burst + sustained)
   - [x] Optional escalation hook for CAPTCHA (stub in v1)
 - [x] Verify phase works end-to-end (tests or manual checks)
-- [ ] Merge phase branch back into `main`
-- [ ] Keep phase branch (do not delete)
+- [x] Merge phase branch back into `main`
+- [x] Keep phase branch (do not delete)
 
 ---
 
