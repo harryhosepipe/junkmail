@@ -168,8 +168,8 @@ Rules (must be followed before starting a phase and after completing a phase):
 - [x] Return a `seed` value that must be echoed in `POST /votes`
 - [x] Add metrics logging: selection reason, exposure counts
 - [x] Verify phase works end-to-end (tests or manual checks)
-- [ ] Merge phase branch back into `main`
-- [ ] Keep phase branch (do not delete)
+- [x] Merge phase branch back into `main`
+- [x] Keep phase branch (do not delete)
 
 ---
 
