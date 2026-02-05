@@ -1,5 +1,9 @@
 ---
 import Base from "../layouts/Base.astro";
+import RecentScans from "../components/RecentScans.svelte";
+
+export const prerender = true;
+const apiBaseUrl = import.meta.env.PUBLIC_API_BASE_URL ?? "http://localhost:8787";
 ---
 
 <Base title="Junkmail" description="Public gallery of junkmail images with fast voting.">
@@ -28,11 +32,6 @@ import Base from "../layouts/Base.astro";
 
   <section class="panel" style="margin-top: 24px;">
     <div class="headline" style="font-size: 22px;">Fresh scans</div>
-    <div class="grid" style="margin-top: 16px;">
-      <div class="vote-card">Recent image</div>
-      <div class="vote-card">Recent image</div>
-      <div class="vote-card">Recent image</div>
-      <div class="vote-card">Recent image</div>
-    </div>
+    <RecentScans apiBaseUrl={apiBaseUrl} client:visible />
   </section>
 </Base>

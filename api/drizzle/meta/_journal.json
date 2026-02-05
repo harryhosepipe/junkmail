@@ -8,6 +8,20 @@
       "when": 1770236808312,
       "tag": "0000_abandoned_black_tarantula",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1770236810312,
+      "tag": "0001_auth_tables",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1770236812312,
+      "tag": "0002_images_metadata",
+      "breakpoints": true
     }
   ]
 }

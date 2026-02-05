@@ -9,7 +9,10 @@
     "typecheck": "astro check"
   },
   "dependencies": {
-    "astro": "^5.1.2"
+    "@astrojs/node": "^9.0.0",
+    "@astrojs/svelte": "^7.0.0",
+    "astro": "^5.1.2",
+    "svelte": "^5.37.0"
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.5",

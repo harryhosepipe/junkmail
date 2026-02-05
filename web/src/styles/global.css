@@ -42,11 +42,34 @@ a {
   font-weight: 700;
 }
 
+.site-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
 .nav {
   display: flex;
   gap: 16px;
   font-weight: 600;
   color: var(--ink-muted);
+}
+
+.auth-indicator {
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: #fffdf9;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-muted);
+}
+
+.auth-indicator[data-state="authed"] {
+  border-color: rgba(212, 90, 60, 0.5);
+  color: var(--accent-strong);
 }
 
 .nav a {
@@ -111,7 +134,9 @@ a {
   border: 1px solid var(--accent);
   color: var(--accent);
   font-weight: 600;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
 .cta:hover {

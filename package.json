@@ -11,10 +11,12 @@
     "format:check": "prettier --check .",
     "typecheck": "npm run typecheck -w api && npm run typecheck -w web",
     "dev:web": "npm run dev -w web",
-    "dev:api": "npm run dev -w api"
+    "dev:api": "npm run dev -w api",
+    "dev:all": "concurrently -n api,web,worker \"npm run dev:api\" \"npm run dev:web\" \"npm run worker -w api\""
   },
   "devDependencies": {
     "@eslint/js": "^9.18.0",
+    "concurrently": "^9.2.0",
     "eslint": "^9.18.0",
     "prettier": "^3.4.2"
   }

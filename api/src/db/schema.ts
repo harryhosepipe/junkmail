@@ -5,7 +5,7 @@ import {
   pgTable,
   text,
   timestamp,
-  uuid
+  uuid,
 } from "drizzle-orm/pg-core";
 
 export const users = pgTable("users", {
@@ -13,7 +13,28 @@ export const users = pgTable("users", {
   email: text("email").notNull().unique(),
   role: text("role").notNull(),
   inviteToken: text("invite_token").unique(),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull()
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const authTokens = pgTable("auth_tokens", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id")
+    .references(() => users.id)
+    .notNull(),
+  tokenHash: text("token_hash").notNull().unique(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  usedAt: timestamp("used_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const sessions = pgTable("sessions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id")
+    .references(() => users.id)
+    .notNull(),
+  tokenHash: text("token_hash").notNull().unique(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
 export const images = pgTable("images", {
@@ -21,10 +42,12 @@ export const images = pgTable("images", {
   uploaderId: uuid("uploader_id")
     .references(() => users.id)
     .notNull(),
+  title: text("title"),
+  description: text("description"),
   status: text("status").notNull(),
   originalUrl: text("original_url").notNull(),
   variantUrls: jsonb("variant_urls").notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull()
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
 export const votes = pgTable("votes", {
@@ -40,7 +63,7 @@ export const votes = pgTable("votes", {
     .notNull(),
   voterHash: text("voter_hash").notNull(),
   ipHash: text("ip_hash").notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull()
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
 export const ratings = pgTable("ratings", {
@@ -50,5 +73,5 @@ export const ratings = pgTable("ratings", {
   score: doublePrecision("score").notNull(),
   uncertainty: doublePrecision("uncertainty").notNull(),
   comparisonsCount: integer("comparisons_count").notNull(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull()
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });

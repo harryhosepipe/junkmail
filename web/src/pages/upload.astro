@@ -1,15 +1,36 @@
 ---
 import Base from "../layouts/Base.astro";
+import UploadForm from "../components/UploadForm.svelte";
+
+export const prerender = false;
+const apiBaseUrl = import.meta.env.PUBLIC_API_BASE_URL ?? "http://localhost:8787";
+const cookieHeader = Astro.request.headers.get("cookie") ?? "";
+let authUser = null;
+
+if (cookieHeader) {
+  try {
+    const response = await fetch(`${apiBaseUrl}/api/v1/auth/me`, {
+      headers: {
+        cookie: cookieHeader
+      }
+    });
+    if (response.ok) {
+      const data = await response.json();
+      authUser = data?.user ?? null;
+    }
+  } catch (err) {
+    authUser = null;
+  }
+}
 ---
 
-<Base title="Junkmail - Upload" description="Invite-only uploads.">
+<Base title="Junkmail - Upload" description="Invite-only uploads." authUser={authUser}>
   <section class="hero">
     <div class="headline">Upload</div>
     <p class="subtle">Invite-only. JPG and PNG only. The rest will be ignored.</p>
   </section>
 
   <section class="panel" style="margin-top: 24px;">
-    <p class="subtle">Upload form lands here.</p>
-    <a class="cta" href="/login">Request access</a>
+    <UploadForm apiBaseUrl={apiBaseUrl} initialUser={authUser} client:load />
   </section>
 </Base>

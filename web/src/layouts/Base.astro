@@ -1,7 +1,14 @@
 ---
 import "../styles/global.css";
+import { ClientRouter } from "astro:transitions";
+import AuthIndicator from "../components/AuthIndicator.svelte";
 
-const { title = "Junkmail", description = "Public junkmail gallery and voting." } = Astro.props;
+const {
+  title = "Junkmail",
+  description = "Public junkmail gallery and voting.",
+  authUser = null
+} = Astro.props;
+const apiBaseUrl = import.meta.env.PUBLIC_API_BASE_URL ?? "http://localhost:8787";
 ---
 
 <!doctype html>
@@ -11,10 +18,11 @@ const { title = "Junkmail", description = "Public junkmail gallery and voting." 
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{title}</title>
     <meta name="description" content={description} />
+    <ClientRouter />
   </head>
   <body>
     <div class="shell">
-      <header>
+      <header class="site-header">
         <div class="brand">junkmail</div>
         <nav class="nav">
           <a href="/">Home</a>
@@ -22,6 +30,12 @@ const { title = "Junkmail", description = "Public junkmail gallery and voting." 
           <a href="/upload">Upload</a>
           <a href="/login">Login</a>
         </nav>
+        <AuthIndicator
+          apiBaseUrl={apiBaseUrl}
+          initialUser={authUser}
+          client:load
+          transition:persist
+        />
       </header>
       <main>
         <slot />

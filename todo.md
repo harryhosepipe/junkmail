@@ -6,11 +6,16 @@
 
 ## Git Workflow (Per Phase)
 
-- [x] Create a new branch for each phase (e.g. `phase-01-setup`, `phase-02-backend`)
-- [ ] Keep commits focused within the phase scope
-- [x] Verify phase works end-to-end (tests or manual checks)
-- [ ] Merge the phase branch back into `main` only after verification
-- [ ] Delete phase branch after merge (local and remote)
+Rules (must be followed before starting a phase and after completing a phase):
+
+- Create a new branch for each phase (e.g. `phase-01-setup`, `phase-02-backend`).
+- Keep commits focused within the phase scope.
+- Work one todo at a time (finish before moving on).
+- Run a quick smoke test after each significant feature before proceeding.
+- Confirm env config is loaded during smoke tests (e.g., MINIO_PUBLIC_URL).
+- Verify the phase works end-to-end (tests or manual checks).
+- Merge the phase branch back into `main` only after verification.
+- Keep phase branches (do not delete) from phase-05 onward.
 
 ---
 
@@ -34,6 +39,7 @@
 ## 1) Local Infrastructure (Dev First)
 
 - [x] Create phase branch (phase-02-local-infra)
+- [x] Check for port conflicts (Postgres 5432, MinIO 9000) and adjust if needed
 - [x] Create `docker-compose.yml` for:
   - [x] Postgres
   - [x] Redis
@@ -43,6 +49,7 @@
 - [x] Add DB migration strategy (Drizzle migrations) and scripts
 - [x] Add queue framework wiring (BullMQ) with Redis connection
 - [x] Document ports, credentials, and common dev commands
+- [x] Check port availability before choosing port mappings
 - [x] Verify phase works end-to-end (tests or manual checks)
 - [x] Merge phase branch back into `main`
 - [x] Delete phase branch (local and remote)
@@ -52,6 +59,7 @@
 ## 2) Backend Foundations (Hono + Drizzle)
 
 - [x] Create phase branch (phase-03-backend-foundations)
+- [x] Load .env.local automatically in API/worker (dotenv)
 - [x] Scaffold Hono API (`/api/v1` base) with:
   - [x] Request logging
   - [x] Error handler + consistent JSON error format
@@ -90,56 +98,58 @@
   - [x] Return variant URLs suitable for `srcset`, lazy loading
 - [x] Add retry + dead-letter strategy (at least logging + backoff)
 - [x] Add a simple admin-only script/endpoint to reprocess an image (dev-only)
+- [x] Smoke test: upload sample image and verify MinIO variants
 - [x] Verify phase works end-to-end (tests or manual checks)
-- [ ] Merge phase branch back into `main`
-- [ ] Delete phase branch (local and remote)
+- [x] Merge phase branch back into `main`
+- [x] Delete phase branch (local and remote)
 
 ---
 
 ## 4) Auth (Magic Link, Invite-Only Uploads)
 
-- [ ] Create phase branch (phase-05-auth)
-- [ ] Decide email delivery for magic links (provider + API keys)
-- [ ] Implement Auth endpoints:
-  - [ ] `POST /api/v1/auth/request-link` (accept email, send link)
-  - [ ] `GET /api/v1/auth/verify?token=...` (set session cookie, redirect)
-  - [ ] `POST /api/v1/auth/logout`
-- [ ] Enforce invite-only rule:
-  - [ ] Only emails present in `users` with role `uploader` may request links
-  - [ ] Store/validate one-time token with expiry
-- [ ] Implement session management:
-  - [ ] Secure, HttpOnly cookie
-  - [ ] CSRF considerations for state-changing endpoints
-- [ ] Protect endpoints:
-  - [ ] `POST /api/v1/images` uploader-only
-- [ ] Verify phase works end-to-end (tests or manual checks)
+- [x] Create phase branch (phase-05-auth)
+- [x] Decide email delivery for magic links (provider + API keys) - Resend
+- [x] Implement Auth endpoints:
+  - [x] `POST /api/v1/auth/request-link` (accept email, send link)
+  - [x] `GET /api/v1/auth/verify?token=...` (set session cookie, redirect)
+  - [x] `POST /api/v1/auth/logout`
+- [x] Enforce invite-only rule:
+  - [x] Only emails present in `users` with role `uploader` may request links
+  - [x] Store/validate one-time token with expiry
+- [x] Implement session management:
+  - [x] Secure, HttpOnly cookie
+  - [x] CSRF considerations for state-changing endpoints
+- [x] Protect endpoints:
+  - [x] `POST /api/v1/images` uploader-only
+- [x] Finish magic-link email delivery test (Resend sender verified)
+- [x] Verify phase works end-to-end (tests or manual checks)
 - [ ] Merge phase branch back into `main`
-- [ ] Delete phase branch (local and remote)
+- [ ] Keep phase branch (do not delete)
 
 ---
 
 ## 5) Voting + Ranking Engine (Bradley-Terry Online Updates)
 
-- [ ] Create phase branch (phase-06-voting-engine)
-- [ ] Implement ranking state:
-  - [ ] Initialize new images with neutral score + high uncertainty
-  - [ ] Maintain `ratings` row per image
-- [ ] Implement `POST /api/v1/votes`:
-  - [ ] Validate: `image_a_id`, `image_b_id`, `winner_id`, `seed`
-  - [ ] Enforce "no ties" (winner must be A or B)
-  - [ ] Record vote row
-  - [ ] Update ratings via online Bradley-Terry gradient step
-  - [ ] Increment `comparisons_count` for both images
-- [ ] Implement voter identity hashing:
-  - [ ] `voter_hash` from cookie-based id
-  - [ ] `ip_hash` from IP (hash at ingestion; never store raw IP)
-- [ ] Implement abuse prevention basics:
-  - [ ] Rate limit vote endpoint by `ip_hash` + `voter_hash`
-  - [ ] Server-side throttling rules (burst + sustained)
-  - [ ] Optional escalation hook for CAPTCHA (stub in v1)
-- [ ] Verify phase works end-to-end (tests or manual checks)
+- [x] Create phase branch (phase-06-voting-engine)
+- [x] Implement ranking state:
+  - [x] Initialize new images with neutral score + high uncertainty
+  - [x] Maintain `ratings` row per image
+- [x] Implement `POST /api/v1/votes`:
+  - [x] Validate: `image_a_id`, `image_b_id`, `winner_id`, `seed`
+  - [x] Enforce "no ties" (winner must be A or B)
+  - [x] Record vote row
+  - [x] Update ratings via online Bradley-Terry gradient step
+  - [x] Increment `comparisons_count` for both images
+- [x] Implement voter identity hashing:
+  - [x] `voter_hash` from cookie-based id
+  - [x] `ip_hash` from IP (hash at ingestion; never store raw IP)
+- [x] Implement abuse prevention basics:
+  - [x] Rate limit vote endpoint by `ip_hash` + `voter_hash`
+  - [x] Server-side throttling rules (burst + sustained)
+  - [x] Optional escalation hook for CAPTCHA (stub in v1)
+- [x] Verify phase works end-to-end (tests or manual checks)
 - [ ] Merge phase branch back into `main`
-- [ ] Delete phase branch (local and remote)
+- [ ] Keep phase branch (do not delete)
 
 ---
 
@@ -159,7 +169,7 @@
 - [ ] Add metrics logging: selection reason, exposure counts
 - [ ] Verify phase works end-to-end (tests or manual checks)
 - [ ] Merge phase branch back into `main`
-- [ ] Delete phase branch (local and remote)
+- [ ] Keep phase branch (do not delete)
 
 ---
 
@@ -172,6 +182,7 @@
   - [ ] Include vote appearances and thumb URL
 - [ ] Implement `GET /api/v1/images/{id}`:
   - [ ] Return variants, votes, score
+- [x] Implement `GET /api/v1/images/recent?limit=8` for Fresh scans
 - [ ] Implement `GET /api/v1/feed/home`:
   - [ ] Return `{ matchup, feed }` (recent + top blend)
 - [ ] Add caching strategy:
@@ -180,7 +191,7 @@
 - [ ] Add performance checks: vote endpoint p50 < 300ms target :contentReference[oaicite:4]{index=4}
 - [ ] Verify phase works end-to-end (tests or manual checks)
 - [ ] Merge phase branch back into `main`
-- [ ] Delete phase branch (local and remote)
+- [ ] Keep phase branch (do not delete)
 
 ---
 
@@ -196,12 +207,25 @@
 - [x] Build core routes:
   - [x] `/` Home (vote module + feed)
   - [x] `/top` Toplist (ranked list + counts)
-  - [x] `/i/[id]` Image detail (full image + vote count + share metadata)
+  - [x] `/image/[id]` Image detail (full image + vote count + share metadata)
   - [x] `/upload` Upload (gated)
   - [x] `/login` Magic link request/verify UX
+- [ ] Add Svelte integration + islands (auth indicator/login/upload), remove inline scripts
+- [x] Add Svelte integration + islands (auth indicator/login/upload), remove inline scripts
+- [x] Use Context7 MCP for Astro/Svelte workflow references
+- [ ] Hybrid SSR default; prerender public pages with `prerender = true`
 - [ ] Verify phase works end-to-end (tests or manual checks)
+- [ ] SSR via adapter: keep output static + prerender public routes
+- [ ] Enable Astro view transitions + persist auth indicator
+- [ ] Web auth flow checklist:
+  - [ ] `/login` submits email and shows "check your email"
+  - [ ] Magic link opens and redirects to `/upload` (cookie set)
+  - [ ] Invite-only messaging for non-uploader email
+  - [ ] `/upload` gated when logged out
+  - [ ] Logout clears session and re-gates upload
+  - [ ] Handle expired/used token error state on `/login`
 - [ ] Merge phase branch back into `main`
-- [ ] Delete phase branch (local and remote)
+- [ ] Keep phase branch (do not delete)
 
 ---
 
@@ -218,7 +242,7 @@
 - [ ] Add "no ties allowed" UX (no tie option exists)
 - [ ] Verify phase works end-to-end (tests or manual checks)
 - [ ] Merge phase branch back into `main`
-- [ ] Delete phase branch (local and remote)
+- [ ] Keep phase branch (do not delete)
 
 ---
 
@@ -238,7 +262,7 @@
   - [ ] Ensure OpenGraph/Twitter metadata
 - [ ] Verify phase works end-to-end (tests or manual checks)
 - [ ] Merge phase branch back into `main`
-- [ ] Delete phase branch (local and remote)
+- [ ] Keep phase branch (do not delete)
 
 ---
 
@@ -256,9 +280,13 @@
   - [ ] Submit -> `POST /images` multipart
   - [ ] Show "processing" state; poll `GET /images/{id}` until public
   - [ ] After publish, redirect to image detail
+- [ ] Upload metadata + preview:
+  - [ ] Title + description inputs
+  - [ ] Show WebP preview after processing
+  - [ ] Store uploader + metadata with image
 - [ ] Verify phase works end-to-end (tests or manual checks)
 - [ ] Merge phase branch back into `main`
-- [ ] Delete phase branch (local and remote)
+- [ ] Keep phase branch (do not delete)
 
 ---
 
@@ -271,13 +299,13 @@
   - [ ] Toplist
   - [ ] Image detail (image preview, description, url)
 - [ ] Implement:
-  - [ ] `GET /sitemap.xml` including `/`, `/top`, and all public `/i/{id}` :contentReference[oaicite:6]{index=6}
+  - [ ] `GET /sitemap.xml` including `/`, `/top`, and all public `/image/{id}` :contentReference[oaicite:6]{index=6}
   - [ ] `GET /robots.txt` :contentReference[oaicite:7]{index=7}
 - [ ] Ensure SSG/SSR outputs are crawlable and fast
 - [ ] Verify share previews (OG validators)
 - [ ] Verify phase works end-to-end (tests or manual checks)
 - [ ] Merge phase branch back into `main`
-- [ ] Delete phase branch (local and remote)
+- [ ] Keep phase branch (do not delete)
 
 ---
 
@@ -295,7 +323,7 @@
 - [ ] Add audit logging for uploads + auth events
 - [ ] Verify phase works end-to-end (tests or manual checks)
 - [ ] Merge phase branch back into `main`
-- [ ] Delete phase branch (local and remote)
+- [ ] Keep phase branch (do not delete)
 
 ---
 
@@ -313,7 +341,7 @@
   - [ ] Queue depth alerts (even if just logs for v1)
 - [ ] Verify phase works end-to-end (tests or manual checks)
 - [ ] Merge phase branch back into `main`
-- [ ] Delete phase branch (local and remote)
+- [ ] Keep phase branch (do not delete)
 
 ---
 
@@ -337,7 +365,7 @@
 - [ ] Add v1 launch checklist and rollback steps
 - [ ] Verify phase works end-to-end (tests or manual checks)
 - [ ] Merge phase branch back into `main`
-- [ ] Delete phase branch (local and remote)
+- [ ] Keep phase branch (do not delete)
 
 ---
 
@@ -349,3 +377,17 @@
 - [ ] Rate limit values (per minute/per hour) + escalation triggers
 - [ ] Magic link token TTL + resend policy
 - [ ] Image sizes for thumb/feed/full
+
+---
+
+## Project Rules (Dynamic)
+
+- [ ] Enforce static-by-default; SSR only for auth/session-sensitive pages
+- [ ] Keep all client logic in Svelte islands (no inline scripts)
+- [ ] SSR-seed auth state on `/login` and `/upload`
+- [ ] Persist header auth indicator with view transitions
+- [ ] Standardize dev hostnames to avoid cookie/CORS mismatch
+- [ ] Build API contract before UI (no mock-only flows)
+- [ ] Use layout-stable skeletons to prevent CLS
+- [ ] Prefer explicit routes (e.g. `/image/[id]`)
+- [ ] Use Context7 MCP for Astro/Svelte updates
