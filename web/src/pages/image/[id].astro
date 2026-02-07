@@ -30,6 +30,12 @@ type ImageDetails = {
   variantUrls?: unknown;
   score?: number;
   votes?: number;
+  comments?: Array<{
+    id: string;
+    body: string;
+    userAlias?: string | null;
+    createdAt?: string | null;
+  }>;
 };
 
 let image: ImageDetails | null = null;
@@ -172,6 +178,40 @@ const ogImage = imageSrc;
             <div class="detail-value">{votes}</div>
             <div class="detail-stat" style="margin-top: 12px;">Score</div>
             <div class="detail-value">{score.toFixed(2)}</div>
+            <div class="detail-stat" style="margin-top: 12px;">Comments</div>
+            <div class="comments-wrap" id="comment-list">
+              {Array.isArray(image.comments) && image.comments.length ? (
+                image.comments.map((comment) => (
+                  <article class="comment-row" data-comment-id={comment.id}>
+                    <div class="comment-meta">
+                      <span class="comment-author">{comment.userAlias || "Unknown"}</span>
+                      <span>{comment.createdAt ? new Date(comment.createdAt).toLocaleString() : ""}</span>
+                    </div>
+                    <p>{comment.body}</p>
+                  </article>
+                ))
+              ) : (
+                <div class="comment-empty" id="comment-empty">No comments yet.</div>
+              )}
+            </div>
+            <div class="comment-composer" data-comments-root data-image-id={image.id}>
+              <a class="comment-login" href="/login" id="comment-login">Log in to comment</a>
+              <div id="comment-editor" hidden>
+                <label class="detail-stat" for="comment-body" style="margin-top: 8px;">Add comment</label>
+                <textarea
+                  id="comment-body"
+                  class="comment-input"
+                  rows="3"
+                  maxlength="500"
+                  placeholder="Say something about this junkmail..."
+                ></textarea>
+                <div class="comment-footer">
+                  <span id="comment-count">0/500</span>
+                  <button type="button" class="comment-submit" id="comment-submit">Post comment</button>
+                </div>
+                <div class="comment-error" id="comment-error"></div>
+              </div>
+            </div>
             <div class="detail-share">
               <ShareLink url={canonicalUrl} client:load />
             </div>
@@ -183,6 +223,111 @@ const ogImage = imageSrc;
     )}
   </section>
 </Base>
+
+{image ? (
+  <script is:inline define:vars={{ apiBase: serverApiBaseUrl }}>
+    const root = document.querySelector("[data-comments-root]");
+    if (root) {
+      const imageId = root.getAttribute("data-image-id");
+      const loginEl = document.getElementById("comment-login");
+      const editorEl = document.getElementById("comment-editor");
+      const inputEl = document.getElementById("comment-body");
+      const submitEl = document.getElementById("comment-submit");
+      const errorEl = document.getElementById("comment-error");
+      const listEl = document.getElementById("comment-list");
+      const emptyEl = document.getElementById("comment-empty");
+      const countEl = document.getElementById("comment-count");
+
+      const formatDate = (value) => {
+        if (!value) return "";
+        const parsed = new Date(value);
+        if (Number.isNaN(parsed.getTime())) return "";
+        return parsed.toLocaleString();
+      };
+
+      const setError = (value) => {
+        if (errorEl) errorEl.textContent = value || "";
+      };
+
+      const appendComment = (comment) => {
+        if (!listEl || !comment) return;
+        if (emptyEl) emptyEl.remove();
+        const node = document.createElement("article");
+        node.className = "comment-row";
+        const meta = document.createElement("div");
+        meta.className = "comment-meta";
+        const author = document.createElement("span");
+        author.className = "comment-author";
+        author.textContent = comment.userAlias || "Unknown";
+        const time = document.createElement("span");
+        time.textContent = formatDate(comment.createdAt);
+        const bodyEl = document.createElement("p");
+        bodyEl.textContent = comment.body || "";
+        meta.append(author, time);
+        node.append(meta, bodyEl);
+        listEl.appendChild(node);
+      };
+
+      const updateCount = () => {
+        if (!countEl || !inputEl) return;
+        countEl.textContent = `${inputEl.value.trim().length}/500`;
+      };
+
+      updateCount();
+      inputEl?.addEventListener("input", updateCount);
+
+      fetch(`${apiBase}/api/v1/auth/me`, { credentials: "include" })
+        .then((response) => (response.ok ? response.json() : null))
+        .then((data) => {
+          if (data?.user) {
+            if (loginEl) loginEl.hidden = true;
+            if (editorEl) editorEl.hidden = false;
+          }
+        })
+        .catch(() => null);
+
+      submitEl?.addEventListener("click", async () => {
+        if (!imageId || !inputEl || submitEl.hasAttribute("disabled")) return;
+        const body = inputEl.value.trim();
+        if (!body) {
+          setError("Comment cannot be empty.");
+          return;
+        }
+        if (body.length > 500) {
+          setError("Comment cannot exceed 500 characters.");
+          return;
+        }
+
+        setError("");
+        submitEl.setAttribute("disabled", "true");
+        submitEl.textContent = "Posting...";
+        try {
+          const response = await fetch(`${apiBase}/api/v1/images/${imageId}/comments`, {
+            method: "POST",
+            credentials: "include",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ body }),
+          });
+          const data = await response.json().catch(() => ({}));
+          if (!response.ok) {
+            setError(data?.error?.message || "Could not post comment.");
+            return;
+          }
+          appendComment(data?.comment);
+          inputEl.value = "";
+          updateCount();
+        } catch {
+          setError("Could not post comment.");
+        } finally {
+          submitEl.removeAttribute("disabled");
+          submitEl.textContent = "Post comment";
+        }
+      });
+    }
+  </script>
+) : null}
 
 <style>
   .detail-layout {
@@ -247,6 +392,102 @@ const ogImage = imageSrc;
 
   .detail-share {
     margin-top: 16px;
+  }
+
+  .comments-wrap {
+    display: grid;
+    gap: 8px;
+    max-height: 260px;
+    overflow: auto;
+    padding-right: 4px;
+  }
+
+  .comment-row {
+    margin: 0;
+    padding: 10px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: #fffefc;
+  }
+
+  .comment-row p {
+    margin: 6px 0 0;
+    font-size: 14px;
+    color: var(--bg-ink);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+
+  .comment-meta {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    font-size: 11px;
+    color: var(--ink-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  .comment-author {
+    color: var(--bg-ink);
+    font-weight: 700;
+  }
+
+  .comment-empty {
+    font-size: 13px;
+    color: var(--ink-muted);
+  }
+
+  .comment-composer {
+    margin-top: 8px;
+    display: grid;
+    gap: 6px;
+  }
+
+  .comment-login {
+    font-size: 13px;
+    color: var(--bg-ink);
+  }
+
+  .comment-input {
+    width: 100%;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 12px;
+    font: inherit;
+    color: var(--bg-ink);
+    background: white;
+    resize: vertical;
+  }
+
+  .comment-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    font-size: 12px;
+    color: var(--ink-muted);
+  }
+
+  .comment-submit {
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 8px 12px;
+    font: inherit;
+    background: #fff5e3;
+    color: var(--bg-ink);
+    cursor: pointer;
+  }
+
+  .comment-submit[disabled] {
+    opacity: 0.65;
+    cursor: progress;
+  }
+
+  .comment-error {
+    min-height: 18px;
+    font-size: 13px;
+    color: #9a2e1f;
   }
 
   .detail-empty {

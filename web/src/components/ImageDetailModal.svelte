@@ -10,10 +10,15 @@
   let loading = false;
   let errorMessage = "";
   let image = null;
+  let viewer = null;
+  let commentDraft = "";
+  let commentError = "";
+  let commentSaving = false;
   let overlayEl;
   let closeButtonEl;
   let previousBodyOverflow = "";
   let previousActiveElement = null;
+  const COMMENT_MAX_LENGTH = 500;
 
   const normalizeVariants = (value) => {
     if (!value) return {};
@@ -121,6 +126,80 @@
     }
   };
 
+  const fetchViewer = async () => {
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/v1/auth/me`, {
+        credentials: "include",
+      });
+      if (!response.ok) {
+        viewer = null;
+        return;
+      }
+      const data = await response.json();
+      viewer = data?.user ?? null;
+    } catch {
+      viewer = null;
+    }
+  };
+
+  const formatCommentDate = (value) => {
+    if (!value) return "";
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return "";
+    return parsed.toLocaleString(undefined, {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  const submitComment = async () => {
+    if (!image?.id || commentSaving) return;
+    const text = commentDraft.trim();
+    if (!text) {
+      commentError = "Comment cannot be empty.";
+      return;
+    }
+    if (text.length > COMMENT_MAX_LENGTH) {
+      commentError = `Comment cannot exceed ${COMMENT_MAX_LENGTH} characters.`;
+      return;
+    }
+
+    commentSaving = true;
+    commentError = "";
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/v1/images/${image.id}/comments`, {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ body: text }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        commentError = data?.error?.message || "Could not post comment.";
+        return;
+      }
+      const nextComment = data?.comment;
+      if (!nextComment) {
+        commentError = "Could not post comment.";
+        return;
+      }
+      image = {
+        ...image,
+        comments: [...(Array.isArray(image?.comments) ? image.comments : []), nextComment],
+      };
+      commentDraft = "";
+    } catch {
+      commentError = "Could not post comment.";
+    } finally {
+      commentSaving = false;
+    }
+  };
+
   const lockScroll = () => {
     if (typeof document === "undefined") return;
     previousBodyOverflow = document.body.style.overflow;
@@ -134,6 +213,7 @@
 
   $: if (open && imageId) {
     fetchImage();
+    fetchViewer();
   }
 
   $: if (open) {
@@ -238,6 +318,49 @@
             <div class="detail-value">{Number(image?.votes ?? 0)}</div>
             <div class="detail-stat">Score</div>
             <div class="detail-value">{Number(image?.score ?? 0).toFixed(2)}</div>
+            <div class="detail-stat" style="margin-top: 10px;">Comments</div>
+            <div class="comments-wrap">
+              {#if Array.isArray(image?.comments) && image.comments.length}
+                {#each image.comments as comment}
+                  <article class="comment-row">
+                    <div class="comment-meta">
+                      <span class="comment-author">{comment?.userAlias || "Unknown"}</span>
+                      <span>{formatCommentDate(comment?.createdAt)}</span>
+                    </div>
+                    <p>{comment?.body || ""}</p>
+                  </article>
+                {/each}
+              {:else}
+                <div class="comment-empty">No comments yet.</div>
+              {/if}
+            </div>
+            {#if viewer}
+              <label class="comment-label" for="comment-draft">Add comment</label>
+              <textarea
+                id="comment-draft"
+                class="comment-input"
+                bind:value={commentDraft}
+                maxlength={COMMENT_MAX_LENGTH}
+                rows="3"
+                placeholder="Say something about this junkmail..."
+              ></textarea>
+              <div class="comment-footer">
+                <span>{commentDraft.trim().length}/{COMMENT_MAX_LENGTH}</span>
+                <button
+                  type="button"
+                  class="detail-btn"
+                  disabled={commentSaving}
+                  on:click={submitComment}
+                >
+                  {commentSaving ? "Posting..." : "Post comment"}
+                </button>
+              </div>
+              {#if commentError}
+                <div class="comment-error">{commentError}</div>
+              {/if}
+            {:else}
+              <a class="comment-login" href="/login">Log in to comment</a>
+            {/if}
             <div class="detail-actions">
               <button type="button" class="detail-btn" on:click={handleClose}>Back</button>
               <a class="detail-link" href={`/image/${image.id}`}>Open page</a>
@@ -384,6 +507,88 @@
     display: flex;
     gap: 10px;
     flex-wrap: wrap;
+  }
+
+  .comments-wrap {
+    display: grid;
+    gap: 8px;
+    max-height: 220px;
+    overflow: auto;
+    padding-right: 4px;
+  }
+
+  .comment-row {
+    margin: 0;
+    padding: 10px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: #fffefc;
+  }
+
+  .comment-row p {
+    margin: 6px 0 0;
+    font-size: 14px;
+    color: var(--bg-ink);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+
+  .comment-meta {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    font-size: 11px;
+    color: var(--ink-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  .comment-author {
+    color: var(--bg-ink);
+    font-weight: 700;
+  }
+
+  .comment-empty {
+    font-size: 13px;
+    color: var(--ink-muted);
+  }
+
+  .comment-label {
+    margin-top: 4px;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--ink-muted);
+  }
+
+  .comment-input {
+    width: 100%;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 12px;
+    font: inherit;
+    color: var(--bg-ink);
+    background: white;
+    resize: vertical;
+  }
+
+  .comment-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    font-size: 12px;
+    color: var(--ink-muted);
+  }
+
+  .comment-error {
+    font-size: 13px;
+    color: #9a2e1f;
+  }
+
+  .comment-login {
+    font-size: 13px;
+    color: var(--bg-ink);
   }
 
   .detail-btn,

@@ -1,9 +1,10 @@
 import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { randomUUID } from "crypto";
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import { Hono } from "hono";
+import type { Context } from "hono";
 import { db } from "../db/client.js";
-import { images, ratings } from "../db/schema.js";
+import { imageComments, images, ratings, users } from "../db/schema.js";
 import { imageQueue } from "../queue/index.js";
 import { redis } from "../queue/connection.js";
 import { originalKey } from "../storage/paths.js";
@@ -13,7 +14,8 @@ import {
   normalizePublicAssetData,
   normalizePublicAssetUrl,
 } from "../storage/publicUrls.js";
-import { requireUploader } from "../auth/session.js";
+import { getSessionUser, requireUploader } from "../auth/session.js";
+import { ensureSameOrigin } from "../auth/csrf.js";
 import { queryConvexRatingsByImageIds, queryConvexTopRatings } from "../convex/client.js";
 import { resolveAuthUserProfileById } from "../auth/userProfile.js";
 
@@ -21,8 +23,26 @@ const MAX_UPLOAD_BYTES = 15 * 1024 * 1024;
 const ACCEPTED_TYPES = ["image/jpeg", "image/png"] as const;
 const TOPLIST_MIN_COMPARISONS = Number(process.env.TOPLIST_MIN_COMPARISONS) || 10;
 const TOPLIST_CACHE_SECONDS = Number(process.env.TOPLIST_CACHE_SECONDS) || 90;
+const COMMENT_MAX_LENGTH = 500;
 
 const imagesRouter = new Hono();
+
+const readPayload = async (c: Context) => {
+  const contentType = c.req.header("content-type") || "";
+  if (contentType.includes("application/json")) {
+    try {
+      return await c.req.json();
+    } catch {
+      return {};
+    }
+  }
+
+  try {
+    return await c.req.parseBody();
+  } catch {
+    return {};
+  }
+};
 
 type ImageCard = {
   id: string;
@@ -292,8 +312,24 @@ imagesRouter.get("/:id", async (c) => {
     return c.json({ error: { message: "Image not found" } }, 404);
   }
 
-  const [rating] = await queryConvexRatingsByImageIds([row.id]);
-  const uploader = await resolveAuthUserProfileById(row.uploaderId);
+  const [ratingRows, uploader, commentRows] = await Promise.all([
+    queryConvexRatingsByImageIds([row.id]),
+    resolveAuthUserProfileById(row.uploaderId),
+    db
+      .select({
+        id: imageComments.id,
+        body: imageComments.body,
+        createdAt: imageComments.createdAt,
+        userId: imageComments.userId,
+        userAlias: users.alias,
+      })
+      .from(imageComments)
+      .innerJoin(users, eq(imageComments.userId, users.id))
+      .where(eq(imageComments.imageId, row.id))
+      .orderBy(asc(imageComments.createdAt))
+      .limit(100),
+  ]);
+  const rating = ratingRows[0];
 
   return c.json({
     id: row.id,
@@ -307,7 +343,71 @@ imagesRouter.get("/:id", async (c) => {
     uploaderAlias: uploader?.alias ?? null,
     score: rating?.score ?? 0,
     votes: rating?.comparisonsCount ?? 0,
+    comments: commentRows.map((comment) => ({
+      id: comment.id,
+      body: comment.body,
+      createdAt: comment.createdAt,
+      userId: comment.userId,
+      userAlias: comment.userAlias,
+    })),
   });
+});
+
+imagesRouter.post("/:id/comments", async (c) => {
+  const csrfError = ensureSameOrigin(c);
+  if (csrfError) {
+    return csrfError;
+  }
+
+  const user = await getSessionUser(c);
+  if (!user) {
+    return c.json({ error: { message: "Unauthorized" } }, 401);
+  }
+
+  const imageId = c.req.param("id");
+  const imageRow = await db
+    .select({ id: images.id })
+    .from(images)
+    .where(eq(images.id, imageId))
+    .limit(1);
+  if (!imageRow[0]) {
+    return c.json({ error: { message: "Image not found" } }, 404);
+  }
+
+  const body = await readPayload(c);
+  const text = typeof body.body === "string" ? body.body.trim() : "";
+  if (!text) {
+    return c.json({ error: { message: "Comment cannot be empty." } }, 400);
+  }
+  if (text.length > COMMENT_MAX_LENGTH) {
+    return c.json({ error: { message: `Comment cannot exceed ${COMMENT_MAX_LENGTH} characters.` } }, 400);
+  }
+
+  const [comment] = await db
+    .insert(imageComments)
+    .values({
+      imageId,
+      userId: user.id,
+      body: text,
+    })
+    .returning({
+      id: imageComments.id,
+      body: imageComments.body,
+      createdAt: imageComments.createdAt,
+    });
+
+  return c.json(
+    {
+      comment: {
+        id: comment.id,
+        body: comment.body,
+        createdAt: comment.createdAt,
+        userId: user.id,
+        userAlias: user.alias,
+      },
+    },
+    201,
+  );
 });
 
 imagesRouter.post("/:id/reprocess", async (c) => {

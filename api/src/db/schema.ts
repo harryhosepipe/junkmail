@@ -76,3 +76,15 @@ export const ratings = pgTable("ratings", {
   comparisonsCount: integer("comparisons_count").notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
+
+export const imageComments = pgTable("image_comments", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  imageId: uuid("image_id")
+    .references(() => images.id)
+    .notNull(),
+  userId: uuid("user_id")
+    .references(() => users.id)
+    .notNull(),
+  body: text("body").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
