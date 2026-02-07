@@ -25,6 +25,7 @@ type ImageDetails = {
   status: string;
   title?: string | null;
   description?: string | null;
+  uploaderAlias?: string | null;
   originalUrl?: string | null;
   variantUrls?: unknown;
   score?: number;
@@ -165,6 +166,8 @@ const ogImage = imageSrc;
             )}
           </div>
           <div class="detail-meta">
+            <div class="detail-stat">Uploaded by</div>
+            <div class="detail-value detail-value-sm">{image?.uploaderAlias || "Unknown"}</div>
             <div class="detail-stat">Appearances</div>
             <div class="detail-value">{votes}</div>
             <div class="detail-stat" style="margin-top: 12px;">Score</div>
@@ -236,6 +239,10 @@ const ogImage = imageSrc;
     font-size: 22px;
     font-weight: 700;
     color: var(--bg-ink);
+  }
+
+  .detail-value-sm {
+    font-size: 18px;
   }
 
   .detail-share {

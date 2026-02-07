@@ -1,6 +1,11 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 
+const fallbackAlias = (email: string, authUserId: string) => {
+  const base = email.split("@")[0]?.trim();
+  return base || `user-${authUserId.slice(0, 8)}`;
+};
+
 export const getByAuthUserId = query({
   args: {
     authUserId: v.string(),
@@ -19,6 +24,7 @@ export const getByAuthUserId = query({
     return {
       authUserId: profile.authUserId,
       email: profile.email,
+      alias: profile.alias || fallbackAlias(profile.email, profile.authUserId),
       role: profile.role,
       createdAt: profile.createdAt,
       updatedAt: profile.updatedAt,
@@ -44,6 +50,7 @@ export const getByEmail = query({
     return {
       authUserId: profile.authUserId,
       email: profile.email,
+      alias: profile.alias || fallbackAlias(profile.email, profile.authUserId),
       role: profile.role,
       createdAt: profile.createdAt,
       updatedAt: profile.updatedAt,
@@ -55,6 +62,7 @@ export const upsertByAuthUserId = mutation({
   args: {
     authUserId: v.string(),
     email: v.string(),
+    alias: v.string(),
     role: v.string(),
     createdAt: v.optional(v.number()),
     updatedAt: v.optional(v.number()),
@@ -69,6 +77,7 @@ export const upsertByAuthUserId = mutation({
     const next = {
       email: args.email,
       emailLower: args.email.toLowerCase(),
+      alias: args.alias.trim() || fallbackAlias(args.email, args.authUserId),
       role: args.role,
       updatedAt: now,
     };

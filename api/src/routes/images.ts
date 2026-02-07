@@ -178,7 +178,7 @@ imagesRouter.post("/", requireUploader, async (c) => {
   const key = originalKey(imageId, ext);
   const data = Buffer.from(await upload.arrayBuffer());
 
-  const authUser = (c as any).get("authUser") as { id: string; email?: string };
+  const authUser = (c as any).get("authUser") as { id: string; email?: string; alias?: string };
 
   await s3Client.send(
     new PutObjectCommand({
@@ -212,6 +212,7 @@ imagesRouter.post("/", requireUploader, async (c) => {
     imageId,
     uploaderId: authUser.id,
     uploaderEmail: authUser.email,
+    uploaderAlias: authUser.alias,
   });
 
   await imageQueue.add(
@@ -294,6 +295,7 @@ imagesRouter.get("/:id", async (c) => {
     variantUrls: row.variantUrls,
     createdAt: row.createdAt,
     uploaderEmail: uploader?.email ?? null,
+    uploaderAlias: uploader?.alias ?? null,
     score: rating?.score ?? 0,
     votes: rating?.comparisonsCount ?? 0,
   });

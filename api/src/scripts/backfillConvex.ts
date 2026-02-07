@@ -36,6 +36,7 @@ const run = async () => {
     await mutateConvexUpsertUserProfile({
       authUserId: user.id,
       email: user.email,
+      alias: user.alias,
       role: user.role,
       createdAt: toMillis(user.createdAt),
       updatedAt: toMillis(user.createdAt),

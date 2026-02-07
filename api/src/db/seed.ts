@@ -8,6 +8,7 @@ const run = async () => {
     .insert(users)
     .values({
       email: "uploader@example.com",
+      alias: "uploader",
       role: "uploader",
       inviteToken: "invite-dev",
     })
@@ -28,6 +29,7 @@ const run = async () => {
     await mutateConvexUpsertUserProfile({
       authUserId: uploaderId,
       email: "uploader@example.com",
+      alias: "uploader",
       role: "uploader",
     });
   } catch {

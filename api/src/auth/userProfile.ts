@@ -11,18 +11,29 @@ import {
 export type AuthUserProfile = {
   id: string;
   email: string;
+  alias: string;
   role: string;
+};
+
+const fallbackAliasFromEmail = (email: string, id: string) => {
+  const base = email.split("@")[0]?.trim();
+  if (base) {
+    return base;
+  }
+  return `user-${id.slice(0, 8)}`;
 };
 
 const mapConvexProfile = (profile: ConvexUserProfile): AuthUserProfile => ({
   id: profile.authUserId,
   email: profile.email,
+  alias: profile.alias || fallbackAliasFromEmail(profile.email, profile.authUserId),
   role: profile.role,
 });
 
 const upsertConvexFromPostgres = async (user: {
   id: string;
   email: string;
+  alias: string;
   role: string;
   createdAt?: Date;
 }) => {
@@ -30,6 +41,7 @@ const upsertConvexFromPostgres = async (user: {
     await mutateConvexUpsertUserProfile({
       authUserId: user.id,
       email: user.email,
+      alias: user.alias,
       role: user.role,
       createdAt: user.createdAt?.getTime(),
     });
@@ -52,6 +64,7 @@ export const resolveAuthUserProfileById = async (authUserId: string) => {
     .select({
       id: users.id,
       email: users.email,
+      alias: users.alias,
       role: users.role,
       createdAt: users.createdAt,
     })
@@ -68,6 +81,7 @@ export const resolveAuthUserProfileById = async (authUserId: string) => {
   return {
     id: user.id,
     email: user.email,
+    alias: user.alias,
     role: user.role,
   } satisfies AuthUserProfile;
 };
@@ -90,6 +104,7 @@ export const resolveInvitedUploaderByEmail = async (email: string) => {
     .select({
       id: users.id,
       email: users.email,
+      alias: users.alias,
       role: users.role,
       createdAt: users.createdAt,
     })
@@ -106,6 +121,7 @@ export const resolveInvitedUploaderByEmail = async (email: string) => {
   return {
     id: user.id,
     email: user.email,
+    alias: user.alias,
     role: user.role,
   } satisfies AuthUserProfile;
 };

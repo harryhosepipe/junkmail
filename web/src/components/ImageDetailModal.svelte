@@ -232,6 +232,8 @@
             <p class="detail-description">
               {image?.description || "One piece of mail, judged without mercy."}
             </p>
+            <div class="detail-stat">Uploaded by</div>
+            <div class="detail-value detail-value-sm">{image?.uploaderAlias || "Unknown"}</div>
             <div class="detail-stat">Appearances</div>
             <div class="detail-value">{Number(image?.votes ?? 0)}</div>
             <div class="detail-stat">Score</div>
@@ -371,6 +373,10 @@
     font-size: 22px;
     font-weight: 700;
     color: var(--bg-ink);
+  }
+
+  .detail-value-sm {
+    font-size: 18px;
   }
 
   .detail-actions {

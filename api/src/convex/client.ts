@@ -56,6 +56,7 @@ type TopRatingItem = {
 export type ConvexUserProfile = {
   authUserId: string;
   email: string;
+  alias: string;
   role: string;
   createdAt: number;
   updatedAt: number;
@@ -64,6 +65,7 @@ export type ConvexUserProfile = {
 type UpsertUserProfileArgs = {
   authUserId: string;
   email: string;
+  alias: string;
   role: string;
   createdAt?: number;
   updatedAt?: number;

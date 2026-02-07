@@ -6,6 +6,7 @@ export default defineSchema({
     authUserId: v.string(),
     email: v.string(),
     emailLower: v.string(),
+    alias: v.string(),
     role: v.string(),
     createdAt: v.number(),
     updatedAt: v.number(),
