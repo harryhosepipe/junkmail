@@ -253,9 +253,7 @@
       <div class="vote-card">{errorMessage || "Matchup unavailable."}</div>
       <div class="vote-card">Try again.</div>
     </div>
-    <button class="vote-retry" type="button" on:click={() => loadMatchup()}>
-      Retry
-    </button>
+    <button class="vote-retry" type="button" on:click={() => loadMatchup()}> Retry </button>
   </div>
 {:else}
   <div class="vote-header">

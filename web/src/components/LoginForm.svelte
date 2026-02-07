@@ -25,7 +25,7 @@
       const response = await fetch(`${apiBaseUrl}/api/v1/auth/request-link`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim(), next: "/upload" })
+        body: JSON.stringify({ email: email.trim(), next: "/upload" }),
       });
 
       if (!response.ok) {
@@ -75,9 +75,11 @@
   <p class="status error">Link expired or already used. Request a new one.</p>
 {/if}
 {#if status}
-  <p class={`status ${statusState === "error" ? "error" : ""} ${
-    statusState === "success" ? "success" : ""
-  }`}>
+  <p
+    class={`status ${statusState === "error" ? "error" : ""} ${
+      statusState === "success" ? "success" : ""
+    }`}
+  >
     {status}
   </p>
 {/if}

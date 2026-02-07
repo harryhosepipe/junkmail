@@ -57,12 +57,7 @@ const getMatchup = async (voterId: string, ip: string) => {
   return payload;
 };
 
-const postVote = async (
-  payload: MatchupPayload,
-  voterId: string,
-  ip: string,
-  winnerId: string,
-) => {
+const postVote = async (payload: MatchupPayload, voterId: string, ip: string, winnerId: string) => {
   const startedAt = Date.now();
   const response = await fetch(`${API_BASE_URL}/api/v1/votes`, {
     method: "POST",
@@ -252,7 +247,9 @@ const run = async () => {
 
   const discoveredIds = await runDiscovery();
   const baselineRows = await queryConvexRatingsByImageIds(discoveredIds);
-  const baselineByImage = new Map(baselineRows.map((row) => [row.imageId, row.comparisonsCount ?? 0]));
+  const baselineByImage = new Map(
+    baselineRows.map((row) => [row.imageId, row.comparisonsCount ?? 0]),
+  );
 
   const probe = await runProbeLatency(expectedAppearances, touchedIds);
   const load = await runConcurrentLoad(expectedAppearances, touchedIds);

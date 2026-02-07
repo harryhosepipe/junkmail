@@ -7,7 +7,8 @@
   let state = "loading";
 
   const pickImageUrl = (item) => {
-    const variant = item?.variantUrls?.feed || item?.variantUrls?.thumb || item?.variantUrls?.full || {};
+    const variant =
+      item?.variantUrls?.feed || item?.variantUrls?.thumb || item?.variantUrls?.full || {};
     return variant.webp || variant.jpg || variant.png || item?.originalUrl || "";
   };
 
@@ -79,7 +80,9 @@
     color: inherit;
     text-decoration: none;
     box-shadow: var(--shadow);
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    transition:
+      transform 0.2s ease,
+      box-shadow 0.2s ease;
   }
 
   .scan-card:hover {

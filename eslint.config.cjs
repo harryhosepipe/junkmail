@@ -6,8 +6,8 @@ module.exports = [
     ignores: ["dist/**", "node_modules/**"],
     languageOptions: {
       ecmaVersion: "latest",
-      sourceType: "module"
+      sourceType: "module",
     },
-    rules: {}
-  }
+    rules: {},
+  },
 ];

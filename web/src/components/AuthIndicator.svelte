@@ -4,7 +4,11 @@
   export let apiBaseUrl = "http://localhost:8787";
   export let initialUser = null;
 
-  let label = initialUser?.email ? `Junklord: ${initialUser.email}` : initialUser ? "Junklord" : "Visitor";
+  let label = initialUser?.email
+    ? `Junklord: ${initialUser.email}`
+    : initialUser
+      ? "Junklord"
+      : "Visitor";
   let state = initialUser ? "authed" : "guest";
 
   const setIndicator = (text, nextState) => {
@@ -16,7 +20,7 @@
     setIndicator("Visitor", "guest");
     try {
       const response = await fetch(`${apiBaseUrl}/api/v1/auth/me`, {
-        credentials: "include"
+        credentials: "include",
       });
       if (!response.ok) {
         setIndicator("Visitor", "guest");

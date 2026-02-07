@@ -9,7 +9,7 @@ const run = async () => {
     .values({
       email: "uploader@example.com",
       role: "uploader",
-      inviteToken: "invite-dev"
+      inviteToken: "invite-dev",
     })
     .onConflictDoNothing();
 
@@ -44,8 +44,8 @@ const run = async () => {
         variantUrls: {
           thumb: "https://example.com/junkmail-1-thumb.jpg",
           feed: "https://example.com/junkmail-1-feed.jpg",
-          full: "https://example.com/junkmail-1-full.jpg"
-        }
+          full: "https://example.com/junkmail-1-full.jpg",
+        },
       },
       {
         uploaderId,
@@ -54,8 +54,8 @@ const run = async () => {
         variantUrls: {
           thumb: "https://example.com/junkmail-2-thumb.jpg",
           feed: "https://example.com/junkmail-2-feed.jpg",
-          full: "https://example.com/junkmail-2-full.jpg"
-        }
+          full: "https://example.com/junkmail-2-full.jpg",
+        },
       },
       {
         uploaderId,
@@ -64,9 +64,9 @@ const run = async () => {
         variantUrls: {
           thumb: "https://example.com/junkmail-3-thumb.jpg",
           feed: "https://example.com/junkmail-3-feed.jpg",
-          full: "https://example.com/junkmail-3-full.jpg"
-        }
-      }
+          full: "https://example.com/junkmail-3-full.jpg",
+        },
+      },
     ])
     .returning({ id: images.id });
 
@@ -76,8 +76,8 @@ const run = async () => {
         imageId: row.id,
         score: 0,
         uncertainty: 1,
-        comparisonsCount: 0
-      }))
+        comparisonsCount: 0,
+      })),
     );
   }
 };

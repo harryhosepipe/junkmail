@@ -33,7 +33,9 @@
 
   const hydrateThumbs = async () => {
     try {
-      const response = await fetch(`${apiBaseUrl}/api/v1/images/top?limit=100&min=${minComparisons}`);
+      const response = await fetch(
+        `${apiBaseUrl}/api/v1/images/top?limit=100&min=${minComparisons}`,
+      );
       if (!response.ok) {
         return;
       }
@@ -63,7 +65,7 @@
       },
       () => {
         state = "error";
-      }
+      },
     );
   };
 
@@ -80,7 +82,9 @@
     const fallback = setTimeout(async () => {
       if (state !== "loading") return;
       try {
-        const response = await fetch(`${apiBaseUrl}/api/v1/images/top?limit=20&min=${minComparisons}`);
+        const response = await fetch(
+          `${apiBaseUrl}/api/v1/images/top?limit=20&min=${minComparisons}`,
+        );
         if (!response.ok) {
           state = "error";
           return;
@@ -205,7 +209,9 @@
     color: inherit;
     text-decoration: none;
     box-shadow: var(--shadow);
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    transition:
+      transform 0.2s ease,
+      box-shadow 0.2s ease;
   }
 
   .top-row:hover {

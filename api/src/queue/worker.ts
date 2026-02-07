@@ -12,7 +12,7 @@ import { redis } from "./connection.js";
 const sizes: Record<ImageSize, number> = {
   thumb: 320,
   feed: 960,
-  full: 1600
+  full: 1600,
 };
 
 const toBuffer = async (body: unknown) => {
@@ -41,8 +41,8 @@ const worker = new Worker(
     const original = await s3Client.send(
       new GetObjectCommand({
         Bucket: storageBucket,
-        Key: key
-      })
+        Key: key,
+      }),
     );
 
     const originalBuffer = await toBuffer(original.Body);
@@ -71,8 +71,8 @@ const worker = new Worker(
           Bucket: storageBucket,
           Key: avifKey,
           Body: avifBuffer,
-          ContentType: "image/avif"
-        })
+          ContentType: "image/avif",
+        }),
       );
 
       await s3Client.send(
@@ -80,8 +80,8 @@ const worker = new Worker(
           Bucket: storageBucket,
           Key: webpKey,
           Body: webpBuffer,
-          ContentType: "image/webp"
-        })
+          ContentType: "image/webp",
+        }),
       );
 
       await s3Client.send(
@@ -89,26 +89,23 @@ const worker = new Worker(
           Bucket: storageBucket,
           Key: fallbackKey,
           Body: fallbackBuffer,
-          ContentType: contentType
-        })
+          ContentType: contentType,
+        }),
       );
 
       variantUrls[size] = {
         width,
         avif: publicObjectUrl(avifKey),
         webp: publicObjectUrl(webpKey),
-        [fallbackFormat]: publicObjectUrl(fallbackKey)
+        [fallbackFormat]: publicObjectUrl(fallbackKey),
       };
     }
 
-    await db
-      .update(images)
-      .set({ status: "public", variantUrls })
-      .where(eq(images.id, imageId));
+    await db.update(images).set({ status: "public", variantUrls }).where(eq(images.id, imageId));
   },
   {
-    connection: redis
-  }
+    connection: redis,
+  },
 );
 
 worker.on("failed", (job, err) => {

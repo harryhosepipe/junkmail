@@ -62,7 +62,7 @@
   const loadSession = async () => {
     try {
       const response = await fetch(`${apiBaseUrl}/api/v1/auth/me`, {
-        credentials: "include"
+        credentials: "include",
       });
       if (!response.ok) {
         authState = "guest";
@@ -92,8 +92,7 @@
         const data = await response.json();
         if (data.status === "public") {
           const variant = data?.variantUrls?.feed || data?.variantUrls?.full || {};
-          const imageUrl =
-            variant.webp || variant.jpg || variant.png || data.originalUrl;
+          const imageUrl = variant.webp || variant.jpg || variant.png || data.originalUrl;
           if (imageUrl) {
             previewUrl = imageUrl;
             previewTitle = data.title || meta.title || "Untitled";
@@ -152,7 +151,7 @@
       const response = await fetch(`${apiBaseUrl}/api/v1/images`, {
         method: "POST",
         body: formData,
-        credentials: "include"
+        credentials: "include",
       });
 
       if (response.status === 401 || response.status === 403) {
@@ -192,7 +191,7 @@
       await fetch(`${apiBaseUrl}/api/v1/auth/logout`, {
         method: "POST",
         credentials: "include",
-        headers: { "Content-Type": "application/json" }
+        headers: { "Content-Type": "application/json" },
       });
       authState = "guest";
       setStatus("Signed out.", "success");
@@ -240,9 +239,7 @@
   <div class="auth-state">
     <p class="subtle">{userEmail ? `Signed in as ${userEmail}` : "Signed in"}</p>
     {#if userRole !== "uploader"}
-      <p class="subtle">
-        Your account is signed in but does not have uploader access.
-      </p>
+      <p class="subtle">Your account is signed in but does not have uploader access.</p>
     {:else}
       <div class="upload-layout">
         <form class="upload-form" on:submit|preventDefault={handleUpload}>
@@ -298,23 +295,21 @@
               {/if}
             </div>
           {:else}
-            <div class="preview-placeholder">
-              Select an image to see a preview here.
-            </div>
+            <div class="preview-placeholder">Select an image to see a preview here.</div>
           {/if}
         </aside>
       </div>
     {/if}
     {#if status}
-      <p class={`status ${
-        statusState === "error" ? "error" : statusState === "success" ? "success" : ""
-      }`}>
+      <p
+        class={`status ${
+          statusState === "error" ? "error" : statusState === "success" ? "success" : ""
+        }`}
+      >
         {status}
       </p>
     {/if}
-    <button class="cta" type="button" on:click={handleLogout}>
-      Log out
-    </button>
+    <button class="cta" type="button" on:click={handleLogout}> Log out </button>
   </div>
 {/if}
 

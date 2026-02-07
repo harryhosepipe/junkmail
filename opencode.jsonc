@@ -7,10 +7,10 @@
         "-y",
         "@upstash/context7-mcp",
         "--api-key",
-        "ctx7sk-2823f9c8-4172-40b5-9d6f-b73e0144c132"
+        "ctx7sk-2823f9c8-4172-40b5-9d6f-b73e0144c132",
       ],
-      "enabled": true
-    }
+      "enabled": true,
+    },
   },
-  "$schema": "https://opencode.ai/config.json"
+  "$schema": "https://opencode.ai/config.json",
 }

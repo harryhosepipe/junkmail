@@ -80,7 +80,7 @@
           score: Number(rating?.score) || 0,
           votes: Number(rating?.comparisonsCount) || 0,
         },
-      ])
+      ]),
     );
 
     items = baseItems.map((item) => {
@@ -116,7 +116,7 @@
       },
       () => {
         state = "error";
-      }
+      },
     );
   };
 
@@ -173,10 +173,18 @@
           {#if sources.fallbackSrc}
             <picture>
               {#if sources.avifSrcset}
-                <source type="image/avif" srcset={sources.avifSrcset} sizes="(max-width: 900px) 100vw, 33vw" />
+                <source
+                  type="image/avif"
+                  srcset={sources.avifSrcset}
+                  sizes="(max-width: 900px) 100vw, 33vw"
+                />
               {/if}
               {#if sources.webpSrcset}
-                <source type="image/webp" srcset={sources.webpSrcset} sizes="(max-width: 900px) 100vw, 33vw" />
+                <source
+                  type="image/webp"
+                  srcset={sources.webpSrcset}
+                  sizes="(max-width: 900px) 100vw, 33vw"
+                />
               {/if}
               <img
                 src={sources.fallbackSrc}
@@ -211,7 +219,9 @@
     color: inherit;
     text-decoration: none;
     box-shadow: var(--shadow);
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    transition:
+      transform 0.2s ease,
+      box-shadow 0.2s ease;
   }
 
   .feed-card:hover {

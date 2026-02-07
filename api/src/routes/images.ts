@@ -76,11 +76,13 @@ export const fetchRecentImages = async (limit: number) => {
     ]),
   );
 
-  return rows.map((row): ImageCard => ({
-    ...row,
-    score: ratingByImageId.get(row.id)?.score ?? 0,
-    votes: ratingByImageId.get(row.id)?.comparisonsCount ?? 0,
-  }));
+  return rows.map(
+    (row): ImageCard => ({
+      ...row,
+      score: ratingByImageId.get(row.id)?.score ?? 0,
+      votes: ratingByImageId.get(row.id)?.comparisonsCount ?? 0,
+    }),
+  );
 };
 
 export const fetchTopCards = async (limit: number, minComparisons = TOPLIST_MIN_COMPARISONS) => {
