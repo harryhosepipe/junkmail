@@ -12,6 +12,9 @@
   let lastChoice = null;
   let prefetchedMatchup = null;
   let prefetchPromise = null;
+  let prefetchedAssetsReady = Promise.resolve();
+
+  const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
   const normalizeVariants = (value) => {
     if (!value) return {};
@@ -42,14 +45,59 @@
     return response.json();
   };
 
+  const preloadImage = (url) =>
+    new Promise((resolve) => {
+      if (!url || typeof Image === "undefined") {
+        resolve();
+        return;
+      }
+
+      const image = new Image();
+      let done = false;
+      const finish = () => {
+        if (done) return;
+        done = true;
+        resolve();
+      };
+
+      image.onload = finish;
+      image.onerror = finish;
+      image.decoding = "async";
+      image.src = url;
+
+      if (typeof image.decode === "function") {
+        image.decode().then(finish).catch(finish);
+      }
+    });
+
+  const warmMatchupAssets = (data) =>
+    Promise.allSettled([preloadImage(pickImageUrl(data?.a)), preloadImage(pickImageUrl(data?.b))]);
+
+  const consumePrefetchedMatchup = async () => {
+    if (!prefetchedMatchup && prefetchPromise) {
+      await prefetchPromise;
+    }
+
+    if (!prefetchedMatchup) {
+      return null;
+    }
+
+    const next = prefetchedMatchup;
+    prefetchedMatchup = null;
+    await Promise.race([prefetchedAssetsReady, wait(350)]);
+    return next;
+  };
+
   const prefetchNextMatchup = () => {
     if (prefetchPromise) return;
     prefetchPromise = requestMatchup()
       .then((data) => {
         prefetchedMatchup = data;
+        prefetchedAssetsReady = warmMatchupAssets(data);
       })
       .catch(() => {
         prefetchedMatchup = null;
+        prefetchedAssetsReady = Promise.resolve();
       })
       .finally(() => {
         prefetchPromise = null;
@@ -117,8 +165,7 @@
       errorMessage = err?.message || "Vote failed. Please try again.";
     });
 
-    const nextMatchup = prefetchedMatchup;
-    prefetchedMatchup = null;
+    const nextMatchup = await consumePrefetchedMatchup();
 
     if (nextMatchup) {
       matchup = nextMatchup;
@@ -178,12 +225,30 @@
 </script>
 
 {#if state === "loading"}
-  <div class="vote-grid">
-    <div class="vote-card skeleton"></div>
-    <div class="vote-card skeleton"></div>
+  <div class="vote-header">
+    <div class="vote-kicker">No ties. Pick one.</div>
+    <div class="vote-shortcuts">A / L or Left / Right</div>
+    <div class="vote-feedback" aria-hidden="true"></div>
+  </div>
+  <div class="vote-grid" aria-hidden="true">
+    {#each ["A", "B"] as key}
+      <div class="vote-card live skeleton-card">
+        <div class="vote-key">{key}</div>
+        <div class="vote-image skeleton"></div>
+        <div class="vote-meta">
+          <div class="vote-line skeleton"></div>
+          <div class="vote-line short skeleton"></div>
+        </div>
+      </div>
+    {/each}
   </div>
 {:else if state === "error"}
   <div class="vote-error">
+    <div class="vote-header">
+      <div class="vote-kicker">No ties. Pick one.</div>
+      <div class="vote-shortcuts">A / L or Left / Right</div>
+      <div class="vote-feedback" aria-hidden="true"></div>
+    </div>
     <div class="vote-grid">
       <div class="vote-card">{errorMessage || "Matchup unavailable."}</div>
       <div class="vote-card">Try again.</div>
@@ -196,12 +261,14 @@
   <div class="vote-header">
     <div class="vote-kicker">No ties. Pick one.</div>
     <div class="vote-shortcuts">A / L or Left / Right</div>
-    {#if statusMessage}
-      <div class="vote-status" role="status" aria-live="polite">{statusMessage}</div>
-    {/if}
-    {#if errorMessage}
-      <div class="vote-alert" role="status" aria-live="polite">{errorMessage}</div>
-    {/if}
+    <div class="vote-feedback">
+      {#if statusMessage}
+        <div class="vote-status" role="status" aria-live="polite">{statusMessage}</div>
+      {/if}
+      {#if errorMessage}
+        <div class="vote-alert" role="status" aria-live="polite">{errorMessage}</div>
+      {/if}
+    </div>
   </div>
   <div class="vote-grid" data-state={busy ? "busy" : "ready"}>
     {#each [matchup?.a, matchup?.b] as item, index}
@@ -263,6 +330,10 @@
   .vote-status {
     font-size: 12px;
     color: var(--accent-strong);
+  }
+
+  .vote-feedback {
+    min-height: 16px;
   }
 
   .vote-alert {
@@ -359,6 +430,8 @@
   .vote-meta {
     display: grid;
     gap: 4px;
+    width: 100%;
+    min-height: 42px;
   }
 
   .vote-title {
@@ -374,6 +447,22 @@
   .vote-placeholder {
     color: var(--ink-muted);
     font-size: 14px;
+  }
+
+  .skeleton-card {
+    pointer-events: none;
+    cursor: default;
+  }
+
+  .vote-line {
+    width: 72%;
+    height: 14px;
+    border-radius: 999px;
+  }
+
+  .vote-line.short {
+    width: 46%;
+    height: 12px;
   }
 
   .skeleton {
