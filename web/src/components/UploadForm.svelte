@@ -24,6 +24,7 @@
   let displayPreviewTitle = "";
   let displayPreviewDescription = "";
   let displayPreviewLabel = "";
+  const fileInputId = "upload-file-input";
 
   const setStatus = (message, mode = "info") => {
     status = message;
@@ -57,6 +58,10 @@
 
     localPreviewUrl = URL.createObjectURL(nextFile);
     localPreviewName = nextFile.name;
+  };
+
+  const chooseFile = () => {
+    fileInput?.click();
   };
 
   const loadSession = async () => {
@@ -244,37 +249,53 @@
       <div class="upload-layout">
         <form class="upload-form" on:submit|preventDefault={handleUpload}>
           <label class="field">
-            <span>Title</span>
-            <input
-              type="text"
-              name="title"
-              placeholder="e.g. Final notice envelope"
-              maxlength="120"
-              bind:value={title}
-            />
-          </label>
-          <label class="field">
-            <span>Description</span>
-            <textarea
-              name="description"
-              rows="3"
-              placeholder="Optional notes for the gallery."
-              maxlength="500"
-              bind:value={description}
-            ></textarea>
-          </label>
-          <label class="field">
             <span>Image file</span>
             <input
+              id={fileInputId}
               type="file"
               name="file"
               accept="image/jpeg,image/png"
+              class="visually-hidden"
               bind:this={fileInput}
               on:change={handleFileChange}
-              required
             />
+            <button
+              type="button"
+              class="file-cta"
+              aria-controls={fileInputId}
+              on:click={chooseFile}
+            >
+              <span class="file-cta-main"
+                >{file ? "Pick a different image" : "Pick your junkmail image"}</span
+              >
+              <span class="file-cta-sub">JPG or PNG, up to 15MB</span>
+            </button>
+            {#if file}
+              <div class="file-chip" aria-live="polite">{file.name}</div>
+            {/if}
           </label>
-          <p class="hint">JPG or PNG, up to 15MB.</p>
+          {#if file}
+            <label class="field">
+              <span>Title</span>
+              <input
+                type="text"
+                name="title"
+                placeholder="e.g. Final notice envelope"
+                maxlength="120"
+                bind:value={title}
+              />
+            </label>
+            <label class="field">
+              <span>Description</span>
+              <textarea
+                name="description"
+                rows="3"
+                placeholder="Optional notes for the gallery."
+                maxlength="500"
+                bind:value={description}
+              ></textarea>
+            </label>
+          {/if}
           <button class="cta" type="submit" disabled={uploading}>
             {uploading ? "Uploading..." : "Upload image"}
           </button>
@@ -349,13 +370,70 @@
     color: var(--ink-muted);
   }
 
-  .field input[type="file"] {
-    padding: 10px 12px;
-    border-radius: 12px;
+  .visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  .file-cta {
+    display: grid;
+    gap: 4px;
+    width: 100%;
+    padding: 16px 18px;
+    border-radius: 14px;
     border: 1px solid var(--border);
+    text-align: left;
     background: #fffdf9;
-    font-size: 14px;
+    cursor: pointer;
     color: var(--bg-ink);
+    box-shadow: 0 10px 22px -18px rgba(212, 90, 60, 0.7);
+    transition:
+      transform 0.16s ease,
+      box-shadow 0.16s ease,
+      border-color 0.16s ease;
+  }
+
+  .file-cta:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 18px 28px -22px rgba(212, 90, 60, 0.85);
+    border-color: rgba(212, 90, 60, 0.45);
+  }
+
+  .file-cta:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  .file-cta-main {
+    font-size: 16px;
+    font-weight: 700;
+  }
+
+  .file-cta-sub {
+    font-size: 13px;
+    color: var(--ink-muted);
+  }
+
+  .file-chip {
+    display: inline-flex;
+    align-items: center;
+    max-width: 100%;
+    padding: 6px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: #fffcf7;
+    font-size: 12px;
+    color: var(--ink-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .field textarea,
@@ -367,12 +445,6 @@
     font-size: 15px;
     color: var(--bg-ink);
     font-family: inherit;
-  }
-
-  .hint {
-    color: var(--ink-muted);
-    font-size: 14px;
-    margin: 0;
   }
 
   .status {
