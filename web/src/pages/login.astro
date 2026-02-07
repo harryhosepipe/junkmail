@@ -1,16 +1,16 @@
 ---
 import Base from "../layouts/Base.astro";
 import LoginForm from "../components/LoginForm.svelte";
+import { publicApiBaseUrl, serverApiBaseUrl } from "../lib/apiBase";
 
 export const prerender = false;
 const error = Astro.url.searchParams.get("error");
-const apiBaseUrl = import.meta.env.PUBLIC_API_BASE_URL ?? "http://localhost:8787";
 const cookieHeader = Astro.request.headers.get("cookie") ?? "";
 let authUser = null;
 
 if (cookieHeader) {
   try {
-    const response = await fetch(`${apiBaseUrl}/api/v1/auth/me`, {
+    const response = await fetch(`${serverApiBaseUrl}/api/v1/auth/me`, {
       headers: {
         cookie: cookieHeader
       }
@@ -32,6 +32,6 @@ if (cookieHeader) {
   </section>
 
   <section class="panel" style="margin-top: 24px;">
-    <LoginForm apiBaseUrl={apiBaseUrl} error={error ?? ""} client:load />
+    <LoginForm apiBaseUrl={publicApiBaseUrl} error={error ?? ""} client:load />
   </section>
 </Base>

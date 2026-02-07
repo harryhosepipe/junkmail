@@ -8,6 +8,11 @@ import { imageQueue } from "../queue/index.js";
 import { redis } from "../queue/connection.js";
 import { originalKey } from "../storage/paths.js";
 import { publicObjectUrl, s3Client, storageBucket } from "../storage/client.js";
+import {
+  extractStorageObjectKey,
+  normalizePublicAssetData,
+  normalizePublicAssetUrl,
+} from "../storage/publicUrls.js";
 import { requireUploader } from "../auth/session.js";
 import { queryConvexRatingsByImageIds, queryConvexTopRatings } from "../convex/client.js";
 import { resolveAuthUserProfileById } from "../auth/userProfile.js";
@@ -79,6 +84,8 @@ export const fetchRecentImages = async (limit: number) => {
   return rows.map(
     (row): ImageCard => ({
       ...row,
+      originalUrl: normalizePublicAssetUrl(row.originalUrl),
+      variantUrls: normalizePublicAssetData(row.variantUrls),
       score: ratingByImageId.get(row.id)?.score ?? 0,
       votes: ratingByImageId.get(row.id)?.comparisonsCount ?? 0,
     }),
@@ -135,6 +142,8 @@ export const fetchTopCards = async (limit: number, minComparisons = TOPLIST_MIN_
       const rating = ratingByImageId.get(id);
       return {
         ...row,
+        originalUrl: normalizePublicAssetUrl(row.originalUrl),
+        variantUrls: normalizePublicAssetData(row.variantUrls),
         score: rating?.score ?? 0,
         votes: rating?.comparisonsCount ?? 0,
       } as ImageCard;
@@ -232,7 +241,7 @@ imagesRouter.post("/", requireUploader, async (c) => {
     },
   );
 
-  return c.json({ id: imageId, status: "processing", originalUrl }, 201);
+  return c.json({ id: imageId, status: "processing", originalUrl: normalizePublicAssetUrl(originalUrl) }, 201);
 });
 
 imagesRouter.get("/recent", async (c) => {
@@ -256,7 +265,7 @@ imagesRouter.get("/top", async (c) => {
       id: row.id,
       score: row.score ?? 0,
       votes: row.votes ?? 0,
-      thumb_url: pickThumbUrl(row.variantUrls) || row.originalUrl || "",
+      thumb_url: pickThumbUrl(row.variantUrls) || normalizePublicAssetUrl(row.originalUrl) || "",
     })),
   );
 });
@@ -291,8 +300,8 @@ imagesRouter.get("/:id", async (c) => {
     status: row.status,
     title: row.title,
     description: row.description,
-    originalUrl: row.originalUrl,
-    variantUrls: row.variantUrls,
+    originalUrl: normalizePublicAssetUrl(row.originalUrl),
+    variantUrls: normalizePublicAssetData(row.variantUrls),
     createdAt: row.createdAt,
     uploaderEmail: uploader?.email ?? null,
     uploaderAlias: uploader?.alias ?? null,
@@ -318,11 +327,10 @@ imagesRouter.post("/:id/reprocess", async (c) => {
     return c.json({ error: { message: "Image not found" } }, 404);
   }
 
-  const url = new URL(originalUrl);
-  const prefix = `/${storageBucket}/`;
-  const key = url.pathname.startsWith(prefix)
-    ? url.pathname.slice(prefix.length)
-    : url.pathname.replace(/^\/+/, "");
+  const key = extractStorageObjectKey(originalUrl);
+  if (!key) {
+    return c.json({ error: { message: "Image storage key unavailable" } }, 422);
+  }
 
   const ext = key.endsWith(".png") ? "png" : "jpg";
   const contentType = ext === "png" ? "image/png" : "image/jpeg";

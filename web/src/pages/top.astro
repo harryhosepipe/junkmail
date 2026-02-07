@@ -1,9 +1,9 @@
 ---
 import Base from "../layouts/Base.astro";
 import TopList from "../components/TopList.svelte";
+import { publicApiBaseUrl } from "../lib/apiBase";
 
 export const prerender = true;
-const apiBaseUrl = import.meta.env.PUBLIC_API_BASE_URL ?? "http://localhost:8787";
 ---
 
 <Base title="Junkmail - Toplist" description="Highest ranked junkmail images.">
@@ -13,6 +13,6 @@ const apiBaseUrl = import.meta.env.PUBLIC_API_BASE_URL ?? "http://localhost:8787
   </section>
 
   <section class="panel" style="margin-top: 24px;">
-    <TopList apiBaseUrl={apiBaseUrl} client:visible />
+    <TopList apiBaseUrl={publicApiBaseUrl} client:visible />
   </section>
 </Base>

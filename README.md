@@ -53,6 +53,26 @@ This simulates ~100 concurrent voters (`REALTIME_TEST_USERS`, default `100`), ch
 docker compose up -d
 ```
 
+## Single-Origin Gateway (Cloudflare Tunnel Friendly)
+
+The web dev server now proxies API and image traffic so one public origin works end-to-end:
+
+- `/` -> Astro web (`localhost:4321`)
+- `/api/*` -> API (`localhost:8787`)
+- `/assets/*` -> MinIO (`localhost:9010`)
+
+This removes the need to rotate `PUBLIC_API_BASE_URL` or `MINIO_PUBLIC_URL` every time a random tunnel URL changes.
+
+Run:
+
+```bash
+npm run dev:api
+npm run dev:web
+cloudflared tunnel --url http://localhost:4321
+```
+
+Use the printed `https://...trycloudflare.com` URL. Voting and images should work through the same hostname.
+
 ## Local Infrastructure
 
 Ports

@@ -1,7 +1,7 @@
 <script>
   import { onDestroy, onMount } from "svelte";
 
-  export let apiBaseUrl = "http://localhost:8787";
+  export let apiBaseUrl = "/api";
 
   let state = "loading";
   let matchup = null;

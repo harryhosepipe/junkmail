@@ -1,16 +1,16 @@
 ---
 import Base from "../layouts/Base.astro";
 import ProfilePanel from "../components/ProfilePanel.svelte";
+import { publicApiBaseUrl, serverApiBaseUrl } from "../lib/apiBase";
 
 export const prerender = false;
-const apiBaseUrl = import.meta.env.PUBLIC_API_BASE_URL ?? "http://localhost:8787";
 const cookieHeader = Astro.request.headers.get("cookie") ?? "";
 
 let authUser = null;
 
 if (cookieHeader) {
   try {
-    const meResponse = await fetch(`${apiBaseUrl}/api/v1/auth/me`, {
+    const meResponse = await fetch(`${serverApiBaseUrl}/api/v1/auth/me`, {
       headers: { cookie: cookieHeader },
     });
 
@@ -29,6 +29,6 @@ if (cookieHeader) {
   </section>
 
   <section class="panel" style="margin-top: 24px;">
-    <ProfilePanel apiBaseUrl={apiBaseUrl} client:load />
+    <ProfilePanel apiBaseUrl={publicApiBaseUrl} client:load />
   </section>
 </Base>

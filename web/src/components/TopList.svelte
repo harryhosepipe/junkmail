@@ -3,7 +3,7 @@
   import { convex } from "../lib/convex";
   import ImageDetailModal from "./ImageDetailModal.svelte";
 
-  export let apiBaseUrl = "http://localhost:8787";
+  export let apiBaseUrl = "/api";
 
   let items = [];
   let state = "loading";

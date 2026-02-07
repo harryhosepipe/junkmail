@@ -1,7 +1,7 @@
 <script>
   import { createEventDispatcher, tick } from "svelte";
 
-  export let apiBaseUrl = "http://localhost:8787";
+  export let apiBaseUrl = "/api";
   export let imageId = "";
   export let open = false;
 

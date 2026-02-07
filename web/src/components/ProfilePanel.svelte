@@ -1,7 +1,7 @@
 <script>
   import { onMount } from "svelte";
 
-  export let apiBaseUrl = "http://localhost:8787";
+  export let apiBaseUrl = "/api";
 
   let loading = true;
   let saving = false;

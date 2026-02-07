@@ -2,9 +2,9 @@
 import Base from "../layouts/Base.astro";
 import HomeFeed from "../components/HomeFeed.svelte";
 import VoteModule from "../components/VoteModule.svelte";
+import { publicApiBaseUrl } from "../lib/apiBase";
 
 export const prerender = true;
-const apiBaseUrl = import.meta.env.PUBLIC_API_BASE_URL ?? "http://localhost:8787";
 ---
 
 <Base title="Junkmail" description="Public gallery of junkmail images with fast voting.">
@@ -23,12 +23,12 @@ const apiBaseUrl = import.meta.env.PUBLIC_API_BASE_URL ?? "http://localhost:8787
   <section class="panel" style="margin-top: 28px;">
     <div class="headline" style="font-size: 22px;">Pick one</div>
     <div style="margin-top: 16px;">
-      <VoteModule apiBaseUrl={apiBaseUrl} client:load />
+      <VoteModule apiBaseUrl={publicApiBaseUrl} client:load />
     </div>
   </section>
 
   <section class="panel" style="margin-top: 24px;">
     <div class="headline" style="font-size: 22px;">Fresh + Top mix</div>
-    <HomeFeed apiBaseUrl={apiBaseUrl} client:visible />
+    <HomeFeed apiBaseUrl={publicApiBaseUrl} client:visible />
   </section>
 </Base>

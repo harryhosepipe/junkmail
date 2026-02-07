@@ -1,9 +1,9 @@
 ---
 import Base from "../../layouts/Base.astro";
 import ShareLink from "../../components/ShareLink.svelte";
+import { serverApiBaseUrl } from "../../lib/apiBase";
 
 export const prerender = false;
-const apiBaseUrl = import.meta.env.PUBLIC_API_BASE_URL ?? "http://localhost:8787";
 const { id } = Astro.params;
 type VariantFormat = "avif" | "webp" | "jpg" | "png";
 type VariantAsset = {
@@ -86,7 +86,7 @@ const pickFallbackUrl = (variants: ImageVariants, originalUrl?: string | null) =
 
 if (id) {
   try {
-    const response = await fetch(`${apiBaseUrl}/api/v1/images/${id}`);
+    const response = await fetch(`${serverApiBaseUrl}/api/v1/images/${id}`);
     if (response.ok) {
       image = await response.json();
     } else {

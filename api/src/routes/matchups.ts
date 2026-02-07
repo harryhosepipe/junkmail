@@ -8,6 +8,7 @@ import { images } from "../db/schema.js";
 import { generateToken } from "../auth/tokens.js";
 import { redis } from "../queue/connection.js";
 import { queryConvexRatingsByImageIds } from "../convex/client.js";
+import { normalizePublicAssetData, normalizePublicAssetUrl } from "../storage/publicUrls.js";
 
 const matchupsRouter = new Hono();
 
@@ -291,8 +292,16 @@ export const createMatchupPayload = async (c: Context) => {
   });
 
   return {
-    a,
-    b,
+    a: {
+      ...a,
+      originalUrl: normalizePublicAssetUrl(a.originalUrl),
+      variantUrls: normalizePublicAssetData(a.variantUrls),
+    },
+    b: {
+      ...b,
+      originalUrl: normalizePublicAssetUrl(b.originalUrl),
+      variantUrls: normalizePublicAssetData(b.variantUrls),
+    },
     seed,
     reason,
   };
