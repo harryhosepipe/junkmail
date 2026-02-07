@@ -2,6 +2,16 @@ import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 
 export default defineSchema({
+  userProfiles: defineTable({
+    authUserId: v.string(),
+    email: v.string(),
+    emailLower: v.string(),
+    role: v.string(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_auth_user_id", ["authUserId"])
+    .index("by_email_lower", ["emailLower"]),
   imageRatings: defineTable({
     imageId: v.string(),
     score: v.number(),

@@ -5,24 +5,50 @@ import ShareLink from "../../components/ShareLink.svelte";
 export const prerender = false;
 const apiBaseUrl = import.meta.env.PUBLIC_API_BASE_URL ?? "http://localhost:8787";
 const { id } = Astro.params;
-let image = null;
+type VariantFormat = "avif" | "webp" | "jpg" | "png";
+type VariantAsset = {
+  avif?: string;
+  webp?: string;
+  jpg?: string;
+  png?: string;
+  width?: number;
+};
+
+type ImageVariants = {
+  thumb?: VariantAsset;
+  feed?: VariantAsset;
+  full?: VariantAsset;
+};
+
+type ImageDetails = {
+  id: string;
+  status: string;
+  title?: string | null;
+  description?: string | null;
+  originalUrl?: string | null;
+  variantUrls?: unknown;
+  score?: number;
+  votes?: number;
+};
+
+let image: ImageDetails | null = null;
 let error = "";
 
-const normalizeVariants = (value) => {
+const normalizeVariants = (value: unknown): ImageVariants => {
   if (!value) return {};
   if (typeof value === "string") {
     try {
-      return JSON.parse(value);
+      return JSON.parse(value) as ImageVariants;
     } catch {
       return {};
     }
   }
-  return value;
+  return value as ImageVariants;
 };
 
-const buildSrcset = (variants, format) => {
+const buildSrcset = (variants: ImageVariants, format: VariantFormat | "") => {
   if (!variants || !format) return "";
-  const sizes = ["thumb", "feed", "full"];
+  const sizes: Array<keyof ImageVariants> = ["thumb", "feed", "full"];
   const entries = sizes
     .map((size) => {
       const variant = variants?.[size];
@@ -35,8 +61,8 @@ const buildSrcset = (variants, format) => {
   return entries.join(", ");
 };
 
-const pickFallbackFormat = (variants) => {
-  const sizes = ["full", "feed", "thumb"];
+const pickFallbackFormat = (variants: ImageVariants): "jpg" | "png" | "" => {
+  const sizes: Array<keyof ImageVariants> = ["full", "feed", "thumb"];
   for (const size of sizes) {
     const variant = variants?.[size];
     if (variant?.jpg) return "jpg";
@@ -45,8 +71,8 @@ const pickFallbackFormat = (variants) => {
   return "";
 };
 
-const pickFallbackUrl = (variants, originalUrl) => {
-  const sizes = ["full", "feed", "thumb"];
+const pickFallbackUrl = (variants: ImageVariants, originalUrl?: string | null) => {
+  const sizes: Array<keyof ImageVariants> = ["full", "feed", "thumb"];
   for (const size of sizes) {
     const variant = variants?.[size];
     if (variant?.webp) return variant.webp;

@@ -53,6 +53,22 @@ type TopRatingItem = {
   comparisonsCount: number;
 };
 
+export type ConvexUserProfile = {
+  authUserId: string;
+  email: string;
+  role: string;
+  createdAt: number;
+  updatedAt: number;
+};
+
+type UpsertUserProfileArgs = {
+  authUserId: string;
+  email: string;
+  role: string;
+  createdAt?: number;
+  updatedAt?: number;
+};
+
 const healthPingRef = makeFunctionReference<"query", Record<string, never>, ConvexHealth>(
   "health:ping",
 );
@@ -67,6 +83,21 @@ const recordVoteRef = makeFunctionReference<"mutation", RecordVoteArgs, RecordVo
 const topRatingsRef = makeFunctionReference<"query", TopRatingsArgs, TopRatingItem[]>(
   "voting:getTopRatings",
 );
+const userProfileByEmailRef = makeFunctionReference<
+  "query",
+  { emailLower: string },
+  ConvexUserProfile | null
+>("users:getByEmail");
+const userProfileByAuthIdRef = makeFunctionReference<
+  "query",
+  { authUserId: string },
+  ConvexUserProfile | null
+>("users:getByAuthUserId");
+const upsertUserProfileRef = makeFunctionReference<
+  "mutation",
+  UpsertUserProfileArgs,
+  { ok: boolean }
+>("users:upsertByAuthUserId");
 
 const createConvexClient = () => {
   const url = resolveConvexUrl();
@@ -110,4 +141,19 @@ export const mutateConvexRecordVote = async (args: RecordVoteArgs) => {
 export const queryConvexTopRatings = async (args: TopRatingsArgs) => {
   const { client } = createConvexClient();
   return client.query(topRatingsRef, args);
+};
+
+export const queryConvexUserProfileByEmail = async (email: string) => {
+  const { client } = createConvexClient();
+  return client.query(userProfileByEmailRef, { emailLower: email.toLowerCase() });
+};
+
+export const queryConvexUserProfileByAuthUserId = async (authUserId: string) => {
+  const { client } = createConvexClient();
+  return client.query(userProfileByAuthIdRef, { authUserId });
+};
+
+export const mutateConvexUpsertUserProfile = async (args: UpsertUserProfileArgs) => {
+  const { client } = createConvexClient();
+  return client.mutation(upsertUserProfileRef, args);
 };

@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import type { Context } from "hono";
 import { and, eq, gt, isNull } from "drizzle-orm";
 import { db } from "../db/client.js";
-import { authTokens, users } from "../db/schema.js";
+import { authTokens } from "../db/schema.js";
 import { sendMagicLinkEmail } from "../auth/email.js";
 import {
   clearSessionCookie,
@@ -14,6 +14,7 @@ import {
 } from "../auth/session.js";
 import { ensureSameOrigin } from "../auth/csrf.js";
 import { generateToken, hashToken } from "../auth/tokens.js";
+import { resolveInvitedUploaderByEmail } from "../auth/userProfile.js";
 
 const authRouter = new Hono();
 const MAGIC_LINK_TTL_MINUTES = Number(process.env.MAGIC_LINK_TTL_MINUTES) || 30;
@@ -57,13 +58,9 @@ authRouter.post("/request-link", async (c) => {
     return c.json({ error: { message: "Valid email required" } }, 400);
   }
 
-  const invited = await db
-    .select({ id: users.id })
-    .from(users)
-    .where(and(eq(users.email, email), eq(users.role, "uploader")))
-    .limit(1);
+  const invited = await resolveInvitedUploaderByEmail(email);
 
-  if (!invited[0]) {
+  if (!invited) {
     return c.json({ ok: true });
   }
 
@@ -71,7 +68,7 @@ authRouter.post("/request-link", async (c) => {
   const tokenHash = hashToken(token);
   const expiresAt = new Date(Date.now() + MAGIC_LINK_TTL_MINUTES * 60 * 1000);
 
-  await db.insert(authTokens).values({ userId: invited[0].id, tokenHash, expiresAt });
+  await db.insert(authTokens).values({ userId: invited.id, tokenHash, expiresAt });
 
   const apiOrigin = process.env.API_BASE_URL || new URL(c.req.url).origin;
   const link = new URL("/api/v1/auth/verify", apiOrigin);

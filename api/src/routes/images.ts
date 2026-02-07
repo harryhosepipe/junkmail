@@ -3,13 +3,14 @@ import { randomUUID } from "crypto";
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { Hono } from "hono";
 import { db } from "../db/client.js";
-import { images, ratings, users } from "../db/schema.js";
+import { images, ratings } from "../db/schema.js";
 import { imageQueue } from "../queue/index.js";
 import { redis } from "../queue/connection.js";
 import { originalKey } from "../storage/paths.js";
 import { publicObjectUrl, s3Client, storageBucket } from "../storage/client.js";
 import { requireUploader } from "../auth/session.js";
 import { queryConvexRatingsByImageIds, queryConvexTopRatings } from "../convex/client.js";
+import { resolveAuthUserProfileById } from "../auth/userProfile.js";
 
 const MAX_UPLOAD_BYTES = 15 * 1024 * 1024;
 const ACCEPTED_TYPES = ["image/jpeg", "image/png"] as const;
@@ -268,10 +269,9 @@ imagesRouter.get("/:id", async (c) => {
       originalUrl: images.originalUrl,
       variantUrls: images.variantUrls,
       createdAt: images.createdAt,
-      uploaderEmail: users.email,
+      uploaderId: images.uploaderId,
     })
     .from(images)
-    .leftJoin(users, eq(images.uploaderId, users.id))
     .where(eq(images.id, imageId))
     .limit(1);
 
@@ -281,6 +281,7 @@ imagesRouter.get("/:id", async (c) => {
   }
 
   const [rating] = await queryConvexRatingsByImageIds([row.id]);
+  const uploader = await resolveAuthUserProfileById(row.uploaderId);
 
   return c.json({
     id: row.id,
@@ -290,7 +291,7 @@ imagesRouter.get("/:id", async (c) => {
     originalUrl: row.originalUrl,
     variantUrls: row.variantUrls,
     createdAt: row.createdAt,
-    uploaderEmail: row.uploaderEmail,
+    uploaderEmail: uploader?.email ?? null,
     score: rating?.score ?? 0,
     votes: rating?.comparisonsCount ?? 0,
   });

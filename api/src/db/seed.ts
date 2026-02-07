@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { db, pool } from "./client.js";
 import { images, ratings, users } from "./schema.js";
+import { mutateConvexUpsertUserProfile } from "../convex/client.js";
 
 const run = async () => {
   await db
@@ -21,6 +22,16 @@ const run = async () => {
   const uploaderId = uploadedBy[0]?.id;
   if (!uploaderId) {
     throw new Error("Seed failed: uploader user missing");
+  }
+
+  try {
+    await mutateConvexUpsertUserProfile({
+      authUserId: uploaderId,
+      email: "uploader@example.com",
+      role: "uploader",
+    });
+  } catch {
+    // Local seed still works when Convex is not configured.
   }
 
   const seeded = await db

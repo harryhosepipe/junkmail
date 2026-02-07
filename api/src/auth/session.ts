@@ -2,9 +2,10 @@ import type { Context, Next } from "hono";
 import { getCookie, setCookie, deleteCookie } from "hono/cookie";
 import { and, eq, gt } from "drizzle-orm";
 import { db } from "../db/client.js";
-import { sessions, users } from "../db/schema.js";
+import { sessions } from "../db/schema.js";
 import { ensureSameOrigin } from "./csrf.js";
 import { generateToken, hashToken } from "./tokens.js";
+import { resolveAuthUserProfileById } from "./userProfile.js";
 
 const SESSION_COOKIE_NAME = "jm_session";
 const SESSION_TTL_DAYS = Number(process.env.SESSION_TTL_DAYS) || 30;
@@ -50,13 +51,17 @@ export const getSessionUser = async (c: Context) => {
 
   const tokenHash = hashToken(token);
   const result = await db
-    .select({ id: users.id, email: users.email, role: users.role })
+    .select({ userId: sessions.userId })
     .from(sessions)
-    .innerJoin(users, eq(sessions.userId, users.id))
     .where(and(eq(sessions.tokenHash, tokenHash), gt(sessions.expiresAt, new Date())))
     .limit(1);
 
-  return result[0] ?? null;
+  const authUserId = result[0]?.userId;
+  if (!authUserId) {
+    return null;
+  }
+
+  return resolveAuthUserProfileById(authUserId);
 };
 
 export const requireUploader = async (c: Context, next: Next) => {
