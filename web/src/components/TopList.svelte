@@ -16,6 +16,7 @@
   let unsubscribeToplist = null;
   let unsubscribeConnection = null;
   const thumbById = new Map();
+  const knownTopIds = new Set();
 
   const placeholders = Array.from({ length: 8 });
 
@@ -33,7 +34,7 @@
         votes: Number(row?.comparisonsCount) || Number(row?.votes) || 0,
         thumb_url: thumbById.get(row?.imageId || row?.id) || "",
       }))
-      .filter((row) => row.id);
+      .filter((row) => row.id && (knownTopIds.size === 0 || knownTopIds.has(row.id)));
 
   const hydrateThumbs = async () => {
     try {
@@ -45,8 +46,10 @@
       }
       const data = await response.json();
       const rows = Array.isArray(data) ? data : [];
+      knownTopIds.clear();
       for (const row of rows) {
         if (row?.id) {
+          knownTopIds.add(row.id);
           thumbById.set(row.id, row?.thumb_url || "");
         }
       }
