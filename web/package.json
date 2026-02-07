@@ -12,6 +12,7 @@
     "@astrojs/node": "^9.0.0",
     "@astrojs/svelte": "^7.0.0",
     "astro": "^5.1.2",
+    "convex": "^1.31.7",
     "svelte": "^5.37.0"
   },
   "devDependencies": {

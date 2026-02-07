@@ -3,6 +3,7 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
 import authRouter from "./routes/auth.js";
+import convexRouter from "./routes/convex.js";
 import feedRouter from "./routes/feed.js";
 import imagesRouter from "./routes/images.js";
 import matchupsRouter from "./routes/matchups.js";
@@ -35,6 +36,7 @@ api.use(
 );
 
 api.get("/health", (c) => c.json({ ok: true }));
+api.route("/convex", convexRouter);
 api.route("/auth", authRouter);
 api.route("/feed", feedRouter);
 api.route("/images", imagesRouter);

@@ -138,6 +138,11 @@ export const mutateConvexRecordVote = async (args: RecordVoteArgs) => {
   return client.mutation(recordVoteRef, args);
 };
 
+export const isConvexOptimisticConcurrencyError = (error: unknown) => {
+  const message = error instanceof Error ? error.message : String(error || "");
+  return message.includes("OptimisticConcurrencyControlFailure");
+};
+
 export const queryConvexTopRatings = async (args: TopRatingsArgs) => {
   const { client } = createConvexClient();
   return client.query(topRatingsRef, args);

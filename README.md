@@ -17,6 +17,7 @@ cp .env.example .env.local
 ```
 
 The API and worker load `.env.local` automatically.
+If you prefer `environment.local`, that is loaded too.
 
 3. Run API and web
 
@@ -24,6 +25,27 @@ The API and worker load `.env.local` automatically.
 npm run dev:api
 npm run dev:web
 ```
+
+Convex setup (required for realtime migration work)
+
+```bash
+npm run convex:codegen
+npm run convex:check
+```
+
+Environment values used by the Convex check:
+
+- `CONVEX_URL` for server-side calls
+- `CONVEX_ADMIN_KEY` for admin-authenticated server calls
+- `PUBLIC_CONVEX_URL` for browser usage
+
+Realtime voting validation
+
+```bash
+npm run validate:realtime -w api
+```
+
+This simulates ~100 concurrent voters (`REALTIME_TEST_USERS`, default `100`), checks vote latency and propagation latency SLOs, and validates leaderboard consistency from Convex ratings.
 
 4. Start local services
 
