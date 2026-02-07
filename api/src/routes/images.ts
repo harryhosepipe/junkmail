@@ -1,6 +1,6 @@
 import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { randomUUID } from "crypto";
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { Hono } from "hono";
 import { db } from "../db/client.js";
 import { images, ratings, users } from "../db/schema.js";
@@ -9,6 +9,7 @@ import { redis } from "../queue/connection.js";
 import { originalKey } from "../storage/paths.js";
 import { publicObjectUrl, s3Client, storageBucket } from "../storage/client.js";
 import { requireUploader } from "../auth/session.js";
+import { queryConvexRatingsByImageIds, queryConvexTopRatings } from "../convex/client.js";
 
 const MAX_UPLOAD_BYTES = 15 * 1024 * 1024;
 const ACCEPTED_TYPES = ["image/jpeg", "image/png"] as const;
@@ -16,6 +17,18 @@ const TOPLIST_MIN_COMPARISONS = Number(process.env.TOPLIST_MIN_COMPARISONS) || 1
 const TOPLIST_CACHE_SECONDS = Number(process.env.TOPLIST_CACHE_SECONDS) || 90;
 
 const imagesRouter = new Hono();
+
+type ImageCard = {
+  id: string;
+  title: string | null;
+  description: string | null;
+  status: string;
+  originalUrl: string;
+  variantUrls: unknown;
+  createdAt: Date;
+  score: number;
+  votes: number;
+};
 
 const pickVariantUrl = (variant: unknown) => {
   if (!variant) return "";
@@ -36,8 +49,6 @@ const pickThumbUrl = (variantUrls: unknown) => {
 };
 
 export const fetchRecentImages = async (limit: number) => {
-  const scoreExpr = sql<number>`coalesce(${ratings.score}, 0)`;
-  const comparisonsExpr = sql<number>`coalesce(${ratings.comparisonsCount}, 0)`;
   const rows = await db
     .select({
       id: images.id,
@@ -47,19 +58,27 @@ export const fetchRecentImages = async (limit: number) => {
       originalUrl: images.originalUrl,
       variantUrls: images.variantUrls,
       createdAt: images.createdAt,
-      score: scoreExpr,
-      comparisonsCount: comparisonsExpr,
     })
     .from(images)
-    .leftJoin(ratings, eq(images.id, ratings.imageId))
     .where(eq(images.status, "public"))
     .orderBy(desc(images.createdAt))
     .limit(limit);
 
-  return rows.map((row) => ({
+  const ratingRows = await queryConvexRatingsByImageIds(rows.map((row) => row.id));
+  const ratingByImageId = new Map(
+    ratingRows.map((rating) => [
+      rating.imageId,
+      {
+        score: rating.score ?? 0,
+        comparisonsCount: rating.comparisonsCount ?? 0,
+      },
+    ]),
+  );
+
+  return rows.map((row): ImageCard => ({
     ...row,
-    score: row.score ?? 0,
-    votes: row.comparisonsCount ?? 0,
+    score: ratingByImageId.get(row.id)?.score ?? 0,
+    votes: ratingByImageId.get(row.id)?.comparisonsCount ?? 0,
   }));
 };
 
@@ -69,39 +88,55 @@ export const fetchTopCards = async (limit: number, minComparisons = TOPLIST_MIN_
     try {
       const cached = await redis.get(cacheKey);
       if (cached) {
-        return JSON.parse(cached) as Array<Record<string, unknown>>;
+        return JSON.parse(cached) as ImageCard[];
       }
     } catch {
       // ignore cache errors
     }
   }
 
-  const scoreExpr = sql<number>`coalesce(${ratings.score}, 0)`;
-  const comparisonsExpr = sql<number>`coalesce(${ratings.comparisonsCount}, 0)`;
+  const topRatings = await queryConvexTopRatings({
+    limit,
+    minComparisons,
+  });
+  const ratingByImageId = new Map(
+    topRatings.map((rating) => [
+      rating.imageId,
+      {
+        score: rating.score ?? 0,
+        comparisonsCount: rating.comparisonsCount ?? 0,
+      },
+    ]),
+  );
+  const orderedIds = topRatings.map((rating) => rating.imageId);
+  const rows = orderedIds.length
+    ? await db
+        .select({
+          id: images.id,
+          title: images.title,
+          description: images.description,
+          status: images.status,
+          originalUrl: images.originalUrl,
+          variantUrls: images.variantUrls,
+          createdAt: images.createdAt,
+        })
+        .from(images)
+        .where(and(eq(images.status, "public"), inArray(images.id, orderedIds)))
+    : [];
 
-  const rows = await db
-    .select({
-      id: images.id,
-      title: images.title,
-      description: images.description,
-      status: images.status,
-      originalUrl: images.originalUrl,
-      variantUrls: images.variantUrls,
-      createdAt: images.createdAt,
-      score: scoreExpr,
-      comparisonsCount: comparisonsExpr,
+  const rowById = new Map(rows.map((row) => [row.id, row]));
+  const items = orderedIds
+    .map((id) => {
+      const row = rowById.get(id);
+      if (!row) return null;
+      const rating = ratingByImageId.get(id);
+      return {
+        ...row,
+        score: rating?.score ?? 0,
+        votes: rating?.comparisonsCount ?? 0,
+      } as ImageCard;
     })
-    .from(images)
-    .leftJoin(ratings, eq(images.id, ratings.imageId))
-    .where(and(eq(images.status, "public"), sql`${comparisonsExpr} >= ${minComparisons}`))
-    .orderBy(desc(scoreExpr))
-    .limit(limit);
-
-  const items = rows.map((row) => ({
-    ...row,
-    score: row.score ?? 0,
-    votes: row.comparisonsCount ?? 0,
-  }));
+    .filter((row): row is ImageCard => Boolean(row));
 
   if (TOPLIST_CACHE_SECONDS > 0) {
     try {
@@ -224,8 +259,6 @@ imagesRouter.get("/top", async (c) => {
 
 imagesRouter.get("/:id", async (c) => {
   const imageId = c.req.param("id");
-  const scoreExpr = sql<number>`coalesce(${ratings.score}, 0)`;
-  const comparisonsExpr = sql<number>`coalesce(${ratings.comparisonsCount}, 0)`;
   const result = await db
     .select({
       id: images.id,
@@ -236,12 +269,9 @@ imagesRouter.get("/:id", async (c) => {
       variantUrls: images.variantUrls,
       createdAt: images.createdAt,
       uploaderEmail: users.email,
-      score: scoreExpr,
-      comparisonsCount: comparisonsExpr,
     })
     .from(images)
     .leftJoin(users, eq(images.uploaderId, users.id))
-    .leftJoin(ratings, eq(images.id, ratings.imageId))
     .where(eq(images.id, imageId))
     .limit(1);
 
@@ -249,6 +279,8 @@ imagesRouter.get("/:id", async (c) => {
   if (!row) {
     return c.json({ error: { message: "Image not found" } }, 404);
   }
+
+  const [rating] = await queryConvexRatingsByImageIds([row.id]);
 
   return c.json({
     id: row.id,
@@ -259,8 +291,8 @@ imagesRouter.get("/:id", async (c) => {
     variantUrls: row.variantUrls,
     createdAt: row.createdAt,
     uploaderEmail: row.uploaderEmail,
-    score: row.score ?? 0,
-    votes: row.comparisonsCount ?? 0,
+    score: rating?.score ?? 0,
+    votes: rating?.comparisonsCount ?? 0,
   });
 });
 

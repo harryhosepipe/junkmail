@@ -2,12 +2,13 @@ import { createHash } from "crypto";
 import { Hono } from "hono";
 import type { Context } from "hono";
 import { getCookie, setCookie } from "hono/cookie";
-import { eq, inArray } from "drizzle-orm";
+import { inArray } from "drizzle-orm";
 import { db } from "../db/client.js";
-import { images, ratings, votes } from "../db/schema.js";
+import { images } from "../db/schema.js";
 import { ensureSameOrigin } from "../auth/csrf.js";
 import { generateToken } from "../auth/tokens.js";
 import { redis } from "../queue/connection.js";
+import { mutateConvexRecordVote } from "../convex/client.js";
 
 const votesRouter = new Hono();
 
@@ -19,11 +20,6 @@ const RATE_LIMIT_BURST = Number(process.env.VOTE_RATE_LIMIT_BURST) || 20;
 const RATE_LIMIT_BURST_WINDOW = Number(process.env.VOTE_RATE_LIMIT_BURST_WINDOW) || 60;
 const RATE_LIMIT_SUSTAINED = Number(process.env.VOTE_RATE_LIMIT_SUSTAINED) || 240;
 const RATE_LIMIT_SUSTAINED_WINDOW = Number(process.env.VOTE_RATE_LIMIT_SUSTAINED_WINDOW) || 3600;
-
-const LEARNING_RATE = Number(process.env.BRADLEY_TERRY_K) || 0.15;
-const INITIAL_SCORE = Number(process.env.RATING_INITIAL_SCORE) || 0;
-const INITIAL_UNCERTAINTY = Number(process.env.RATING_INITIAL_UNCERTAINTY) || 1;
-const MIN_UNCERTAINTY = Number(process.env.RATING_MIN_UNCERTAINTY) || 0.15;
 
 const hashValue = (value: string, salt: string) =>
   createHash("sha256").update(`${salt}:${value}`).digest("hex");
@@ -86,11 +82,6 @@ const allowedByRateLimit = async (hash: string, prefix: string) => {
 
 const normalizeBodyValue = (value: unknown) => (typeof value === "string" ? value.trim() : "");
 
-const updateUncertainty = (comparisonsCount: number) => {
-  const next = 1 / Math.sqrt(comparisonsCount + 1);
-  return Math.max(MIN_UNCERTAINTY, next);
-};
-
 votesRouter.post("/", async (c) => {
   const csrfError = ensureSameOrigin(c);
   if (csrfError) {
@@ -143,82 +134,13 @@ votesRouter.post("/", async (c) => {
     return c.json({ error: { message: "Matchup unavailable" } }, 404);
   }
 
-  const now = new Date();
-
-  await db.transaction(async (tx) => {
-    await tx
-      .insert(ratings)
-      .values([
-        {
-          imageId: imageAId,
-          score: INITIAL_SCORE,
-          uncertainty: INITIAL_UNCERTAINTY,
-          comparisonsCount: 0,
-        },
-        {
-          imageId: imageBId,
-          score: INITIAL_SCORE,
-          uncertainty: INITIAL_UNCERTAINTY,
-          comparisonsCount: 0,
-        },
-      ])
-      .onConflictDoNothing();
-
-    const ratingRows = await tx
-      .select({
-        imageId: ratings.imageId,
-        score: ratings.score,
-        uncertainty: ratings.uncertainty,
-        comparisonsCount: ratings.comparisonsCount,
-      })
-      .from(ratings)
-      .where(inArray(ratings.imageId, [imageAId, imageBId]));
-
-    const ratingA = ratingRows.find((row) => row.imageId === imageAId);
-    const ratingB = ratingRows.find((row) => row.imageId === imageBId);
-
-    if (!ratingA || !ratingB) {
-      throw new Error("Ratings unavailable");
-    }
-
-    const scoreA = ratingA.score;
-    const scoreB = ratingB.score;
-    const probabilityA = 1 / (1 + Math.exp(-(scoreA - scoreB)));
-    const outcomeA = winnerId === imageAId ? 1 : 0;
-    const deltaA = LEARNING_RATE * (outcomeA - probabilityA);
-    const deltaB = -deltaA;
-
-    const nextComparisonsA = ratingA.comparisonsCount + 1;
-    const nextComparisonsB = ratingB.comparisonsCount + 1;
-
-    await tx
-      .update(ratings)
-      .set({
-        score: scoreA + deltaA,
-        comparisonsCount: nextComparisonsA,
-        uncertainty: updateUncertainty(nextComparisonsA),
-        updatedAt: now,
-      })
-      .where(eq(ratings.imageId, imageAId));
-
-    await tx
-      .update(ratings)
-      .set({
-        score: scoreB + deltaB,
-        comparisonsCount: nextComparisonsB,
-        uncertainty: updateUncertainty(nextComparisonsB),
-        updatedAt: now,
-      })
-      .where(eq(ratings.imageId, imageBId));
-
-    await tx.insert(votes).values({
-      imageAId,
-      imageBId,
-      winnerId,
-      voterHash,
-      ipHash,
-      createdAt: now,
-    });
+  await mutateConvexRecordVote({
+    imageAId,
+    imageBId,
+    winnerId,
+    voterHash,
+    ipHash,
+    createdAt: Date.now(),
   });
 
   return c.json({ ok: true });

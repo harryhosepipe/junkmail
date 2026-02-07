@@ -4,9 +4,10 @@ import type { Context } from "hono";
 import { getCookie, setCookie } from "hono/cookie";
 import { eq } from "drizzle-orm";
 import { db } from "../db/client.js";
-import { images, ratings } from "../db/schema.js";
+import { images } from "../db/schema.js";
 import { generateToken } from "../auth/tokens.js";
 import { redis } from "../queue/connection.js";
+import { queryConvexRatingsByImageIds } from "../convex/client.js";
 
 const matchupsRouter = new Hono();
 
@@ -135,18 +136,29 @@ const loadMatchupPool = async (): Promise<MatchupItem[]> => {
       originalUrl: images.originalUrl,
       variantUrls: images.variantUrls,
       createdAt: images.createdAt,
-      score: ratings.score,
-      comparisonsCount: ratings.comparisonsCount,
     })
     .from(images)
-    .leftJoin(ratings, eq(images.id, ratings.imageId))
     .where(eq(images.status, "public"));
 
-  const items = rows.map((row) => ({
-    ...row,
-    score: row.score ?? 0,
-    comparisonsCount: row.comparisonsCount ?? 0,
-  }));
+  const ratingRows = await queryConvexRatingsByImageIds(rows.map((row) => row.id));
+  const ratingByImageId = new Map(
+    ratingRows.map((rating) => [
+      rating.imageId,
+      {
+        score: rating.score ?? 0,
+        comparisonsCount: rating.comparisonsCount ?? 0,
+      },
+    ]),
+  );
+
+  const items = rows.map((row) => {
+    const rating = ratingByImageId.get(row.id);
+    return {
+      ...row,
+      score: rating?.score ?? 0,
+      comparisonsCount: rating?.comparisonsCount ?? 0,
+    };
+  });
 
   if (MATCHUP_POOL_TTL_SECONDS > 0) {
     try {
