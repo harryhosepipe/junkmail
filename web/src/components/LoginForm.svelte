@@ -1,5 +1,5 @@
 <script>
-  export let apiBaseUrl = "/api";
+  export let apiBaseUrl = "";
   export let error = "";
 
   let email = "";

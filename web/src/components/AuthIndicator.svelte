@@ -1,7 +1,7 @@
 <script>
   import { onMount } from "svelte";
 
-  export let apiBaseUrl = "/api";
+  export let apiBaseUrl = "";
   export let initialUser = null;
 
   const profilePath = "/profile";
