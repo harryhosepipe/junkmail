@@ -1,6 +1,7 @@
 <script>
   import { onDestroy, onMount } from "svelte";
   import { convex } from "../lib/convex";
+  import ImageDetailModal from "./ImageDetailModal.svelte";
 
   export let apiBaseUrl = "http://localhost:8787";
 
@@ -8,6 +9,9 @@
   let state = "loading";
   let baseItems = [];
   let unsubscribeRatings = null;
+  let modalOpen = false;
+  let modalImageId = "";
+  let modalPushedHistory = false;
 
   const placeholders = Array.from({ length: 6 });
 
@@ -120,8 +124,65 @@
     );
   };
 
+  const openImageModal = (id) => {
+    if (!id) return;
+    modalImageId = id;
+    modalOpen = true;
+
+    if (typeof window === "undefined") return;
+    const modalPath = `/image/${id}`;
+    if (window.location.pathname !== modalPath) {
+      window.history.pushState({ jmModal: true }, "", modalPath);
+      modalPushedHistory = true;
+    } else {
+      modalPushedHistory = false;
+    }
+  };
+
+  const handleCardClick = (event, id) => {
+    if (
+      event.defaultPrevented ||
+      event.button !== 0 ||
+      event.metaKey ||
+      event.ctrlKey ||
+      event.shiftKey ||
+      event.altKey
+    ) {
+      return;
+    }
+    event.preventDefault();
+    openImageModal(id);
+  };
+
+  const closeImageModal = () => {
+    if (typeof window !== "undefined" && modalPushedHistory) {
+      modalPushedHistory = false;
+      window.history.back();
+      return;
+    }
+    modalOpen = false;
+    modalImageId = "";
+  };
+
+  const handlePopstate = () => {
+    if (typeof window === "undefined") return;
+    const match = window.location.pathname.match(/^\/image\/([^/]+)$/);
+    if (match) {
+      modalImageId = match[1];
+      modalOpen = true;
+      modalPushedHistory = true;
+      return;
+    }
+    modalOpen = false;
+    modalImageId = "";
+    modalPushedHistory = false;
+  };
+
   onMount(async () => {
     state = "loading";
+    if (typeof window !== "undefined") {
+      window.addEventListener("popstate", handlePopstate);
+    }
     try {
       const response = await fetch(`${apiBaseUrl}/api/v1/images/recent?limit=8`);
       if (!response.ok) {
@@ -144,6 +205,9 @@
     if (unsubscribeRatings) {
       unsubscribeRatings();
       unsubscribeRatings = null;
+    }
+    if (typeof window !== "undefined") {
+      window.removeEventListener("popstate", handlePopstate);
     }
   });
 </script>
@@ -168,7 +232,11 @@
   <div class="grid" style="margin-top: 16px;">
     {#each items as item}
       {@const sources = getImageSources(item)}
-      <a class="feed-card" href={`/image/${item.id}`}>
+      <a
+        class="feed-card"
+        href={`/image/${item.id}`}
+        on:click={(event) => handleCardClick(event, item.id)}
+      >
         <div class="feed-image">
           {#if sources.fallbackSrc}
             <picture>
@@ -207,6 +275,7 @@
     {/each}
   </div>
 {/if}
+<ImageDetailModal {apiBaseUrl} imageId={modalImageId} open={modalOpen} on:close={closeImageModal} />
 
 <style>
   .feed-card {
