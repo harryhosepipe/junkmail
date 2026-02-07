@@ -1,13 +1,37 @@
 const js = require("@eslint/js");
+const tsParser = require("@typescript-eslint/parser");
+const globals = require("globals");
 
 module.exports = [
-  js.configs.recommended,
   {
-    ignores: ["dist/**", "node_modules/**"],
+    ignores: ["node_modules/**", "**/dist/**", "**/.astro/**", "convex/_generated/**", ".beads/**"],
+  },
+  {
+    files: ["**/*.{js,cjs,mjs}"],
+    ...js.configs.recommended,
     languageOptions: {
       ecmaVersion: "latest",
       sourceType: "module",
+      globals: {
+        ...globals.node,
+        ...globals.browser,
+      },
     },
-    rules: {},
+  },
+  {
+    files: ["**/*.{ts,tsx,mts,cts}"],
+    languageOptions: {
+      parser: tsParser,
+      ecmaVersion: "latest",
+      sourceType: "module",
+      globals: {
+        ...globals.node,
+        ...globals.browser,
+      },
+    },
+    rules: {
+      "no-undef": "off",
+      "no-unused-vars": "off",
+    },
   },
 ];
