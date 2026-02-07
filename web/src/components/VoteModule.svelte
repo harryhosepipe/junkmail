@@ -263,7 +263,8 @@
 {#if state === "loading"}
   <div class="vote-header">
     <div class="vote-kicker">No ties. Pick one.</div>
-    <div class="vote-shortcuts">A / L or Left / Right</div>
+    <div class="vote-shortcuts vote-shortcuts-desktop">A / L or Left / Right</div>
+    <div class="vote-shortcuts vote-shortcuts-mobile">Tap A or B to vote</div>
     <div class="vote-feedback" aria-hidden="true"></div>
   </div>
   <div class="vote-grid" aria-hidden="true">
@@ -282,7 +283,8 @@
   <div class="vote-error">
     <div class="vote-header">
       <div class="vote-kicker">No ties. Pick one.</div>
-      <div class="vote-shortcuts">A / L or Left / Right</div>
+      <div class="vote-shortcuts vote-shortcuts-desktop">A / L or Left / Right</div>
+      <div class="vote-shortcuts vote-shortcuts-mobile">Tap A or B to vote</div>
       <div class="vote-feedback" aria-hidden="true"></div>
     </div>
     <div class="vote-grid">
@@ -294,7 +296,8 @@
 {:else}
   <div class="vote-header">
     <div class="vote-kicker">No ties. Pick one.</div>
-    <div class="vote-shortcuts">A / L or Left / Right</div>
+    <div class="vote-shortcuts vote-shortcuts-desktop">A / L or Left / Right</div>
+    <div class="vote-shortcuts vote-shortcuts-mobile">Tap A or B to vote</div>
     <div class="vote-feedback">
       {#if statusMessage}
         <div class="vote-status" role="status" aria-live="polite">{statusMessage}</div>
@@ -372,6 +375,10 @@
     text-transform: uppercase;
   }
 
+  .vote-shortcuts-mobile {
+    display: none;
+  }
+
   .vote-status {
     font-size: 12px;
     color: var(--accent-strong);
@@ -417,6 +424,7 @@
       transform 0.15s ease,
       box-shadow 0.15s ease,
       border-color 0.15s ease;
+    touch-action: manipulation;
   }
 
   .vote-card.live:hover {
@@ -603,6 +611,79 @@
 
     .vote-confetti {
       display: none;
+    }
+  }
+
+  @media (max-width: 860px) {
+    .vote-header {
+      align-items: flex-start;
+      gap: 6px;
+      margin-bottom: 10px;
+    }
+
+    .vote-kicker {
+      font-size: 15px;
+      color: var(--bg-ink);
+    }
+
+    .vote-shortcuts-desktop {
+      display: none;
+    }
+
+    .vote-shortcuts-mobile {
+      display: block;
+      letter-spacing: 0.08em;
+      font-size: 11px;
+    }
+
+    .vote-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .vote-card.live {
+      padding: 12px;
+      gap: 10px;
+      border-width: 2px;
+      border-radius: 14px;
+      min-height: 280px;
+    }
+
+    .vote-card.live:hover {
+      transform: none;
+      box-shadow: none;
+    }
+
+    .vote-key {
+      font-size: 13px;
+      color: var(--accent-strong);
+      letter-spacing: 0.14em;
+    }
+
+    .vote-image {
+      aspect-ratio: 3 / 4;
+    }
+
+    .vote-title {
+      font-size: 14px;
+      line-height: 1.2;
+    }
+
+    .vote-subtle {
+      font-size: 11px;
+    }
+
+    .vote-status,
+    .vote-alert {
+      font-size: 11px;
+    }
+
+    .vote-stamp {
+      right: 8px;
+      top: 8px;
+      font-size: 9px;
+      letter-spacing: 0.14em;
+      padding: 3px 7px;
     }
   }
 </style>
