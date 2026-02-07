@@ -1,8 +1,8 @@
 import { Hono } from "hono";
 import type { Context } from "hono";
-import { and, eq, gt, isNull } from "drizzle-orm";
+import { and, count, eq, gt, isNull } from "drizzle-orm";
 import { db } from "../db/client.js";
-import { authTokens } from "../db/schema.js";
+import { authTokens, images } from "../db/schema.js";
 import { sendMagicLinkEmail } from "../auth/email.js";
 import {
   clearSessionCookie,
@@ -15,6 +15,7 @@ import {
 import { ensureSameOrigin } from "../auth/csrf.js";
 import { generateToken, hashToken } from "../auth/tokens.js";
 import { resolveInvitedUploaderByEmail } from "../auth/userProfile.js";
+import { queryConvexVoteCountByAuthUserId } from "../convex/client.js";
 
 const authRouter = new Hono();
 const MAGIC_LINK_TTL_MINUTES = Number(process.env.MAGIC_LINK_TTL_MINUTES) || 30;
@@ -146,6 +147,37 @@ authRouter.get("/me", async (c) => {
   }
 
   return c.json({ user });
+});
+
+authRouter.get("/profile", async (c) => {
+  const user = await getSessionUser(c);
+  if (!user) {
+    return c.json({ error: { message: "Unauthorized" } }, 401);
+  }
+
+  const [uploadStats, voteStats] = await Promise.all([
+    db
+      .select({ count: count() })
+      .from(images)
+      .where(eq(images.uploaderId, user.id))
+      .limit(1),
+    queryConvexVoteCountByAuthUserId(user.id).catch(() => ({ count: 0 })),
+  ]);
+
+  const uploadedImages = Number(uploadStats[0]?.count ?? 0);
+  const votesCast = Number(voteStats?.count ?? 0);
+
+  return c.json({
+    profile: {
+      id: user.id,
+      email: user.email,
+      alias: user.alias,
+      role: user.role,
+      createdAt: user.createdAt,
+      uploadedImages,
+      votesCast,
+    },
+  });
 });
 
 export default authRouter;

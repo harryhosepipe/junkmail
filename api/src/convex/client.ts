@@ -33,6 +33,7 @@ type RecordVoteArgs = {
   imageBId: string;
   winnerId: string;
   voterHash: string;
+  voterAuthUserId?: string;
   ipHash: string;
   createdAt?: number;
 };
@@ -108,6 +109,11 @@ const recordVoteRef = makeFunctionReference<"mutation", RecordVoteArgs, RecordVo
 const topRatingsRef = makeFunctionReference<"query", TopRatingsArgs, TopRatingItem[]>(
   "voting:getTopRatings",
 );
+const voteCountByAuthUserIdRef = makeFunctionReference<
+  "query",
+  { authUserId: string },
+  { count: number }
+>("voting:getVoteCountByAuthUserId");
 const userProfileByEmailRef = makeFunctionReference<
   "query",
   { emailLower: string },
@@ -189,6 +195,11 @@ export const isConvexOptimisticConcurrencyError = (error: unknown) => {
 export const queryConvexTopRatings = async (args: TopRatingsArgs) => {
   const { client } = createConvexClient();
   return client.query(topRatingsRef, args);
+};
+
+export const queryConvexVoteCountByAuthUserId = async (authUserId: string) => {
+  const { client } = createConvexClient();
+  return client.query(voteCountByAuthUserIdRef, { authUserId });
 };
 
 export const queryConvexUserProfileByEmail = async (email: string) => {

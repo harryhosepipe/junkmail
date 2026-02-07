@@ -7,6 +7,7 @@ import { db } from "../db/client.js";
 import { images } from "../db/schema.js";
 import { ensureSameOrigin } from "../auth/csrf.js";
 import { generateToken } from "../auth/tokens.js";
+import { getSessionUser } from "../auth/session.js";
 import { redis } from "../queue/connection.js";
 import { voteQueue } from "../queue/index.js";
 
@@ -109,6 +110,7 @@ votesRouter.post("/", async (c) => {
   const voterId = getVoterId(c);
   const voterHash = hashValue(voterId, VOTE_HASH_SALT);
   const ipHash = hashValue(getClientIp(c), IP_HASH_SALT);
+  const sessionUser = await getSessionUser(c);
 
   const allowedIp = await allowedByRateLimit(ipHash, "ip");
   const allowedVoter = await allowedByRateLimit(voterHash, "voter");
@@ -140,6 +142,7 @@ votesRouter.post("/", async (c) => {
       imageBId,
       winnerId,
       voterHash,
+      voterAuthUserId: sessionUser?.id,
       ipHash,
       createdAt: Date.now(),
     });

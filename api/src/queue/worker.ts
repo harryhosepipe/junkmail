@@ -116,11 +116,13 @@ worker.on("failed", (job, err) => {
 const voteWorker = new Worker(
   "vote-writes",
   async (job) => {
-    const { imageAId, imageBId, winnerId, voterHash, ipHash, createdAt } = job.data as {
+    const { imageAId, imageBId, winnerId, voterHash, voterAuthUserId, ipHash, createdAt } =
+      job.data as {
       imageAId: string;
       imageBId: string;
       winnerId: string;
       voterHash: string;
+      voterAuthUserId?: string;
       ipHash: string;
       createdAt: number;
     };
@@ -130,6 +132,7 @@ const voteWorker = new Worker(
       imageBId,
       winnerId,
       voterHash,
+      voterAuthUserId,
       ipHash,
       createdAt,
     });

@@ -46,6 +46,7 @@ export const recordVote = mutation({
     imageBId: v.string(),
     winnerId: v.string(),
     voterHash: v.string(),
+    voterAuthUserId: v.optional(v.string()),
     ipHash: v.string(),
     createdAt: v.optional(v.number()),
   },
@@ -91,11 +92,25 @@ export const recordVote = mutation({
       imageBId: args.imageBId,
       winnerId: args.winnerId,
       voterHash: args.voterHash,
+      voterAuthUserId: args.voterAuthUserId,
       ipHash: args.ipHash,
       createdAt: now,
     });
 
     return { ok: true };
+  },
+});
+
+export const getVoteCountByAuthUserId = query({
+  args: {
+    authUserId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const rows = await ctx.db
+      .query("votes")
+      .withIndex("by_voter_auth_user_id", (q) => q.eq("voterAuthUserId", args.authUserId))
+      .collect();
+    return { count: rows.length };
   },
 });
 

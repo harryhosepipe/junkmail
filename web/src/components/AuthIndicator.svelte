@@ -4,8 +4,17 @@
   export let apiBaseUrl = "http://localhost:8787";
   export let initialUser = null;
 
-  let label = initialUser?.email
-    ? `Junklord: ${initialUser.email}`
+  const profilePath = "/profile";
+  const profileLabel = (user) => {
+    const alias = user?.alias;
+    const email = user?.email;
+    if (alias) return `Junklord: ${alias}`;
+    if (email) return `Junklord: ${email}`;
+    return "Junklord";
+  };
+
+  let label = initialUser?.email || initialUser?.alias
+    ? profileLabel(initialUser)
     : initialUser
       ? "Junklord"
       : "Visitor";
@@ -27,9 +36,9 @@
         return;
       }
       const data = await response.json();
-      const email = data?.user?.email;
-      if (email) {
-        setIndicator(`Junklord: ${email}`, "authed");
+      const user = data?.user;
+      if (user?.email || user?.alias) {
+        setIndicator(profileLabel(user), "authed");
       } else {
         setIndicator("Junklord", "authed");
       }
@@ -39,4 +48,8 @@
   });
 </script>
 
-<div class="auth-indicator" data-state={state}>{label}</div>
+{#if state === "authed"}
+  <a class="auth-indicator" data-state={state} href={profilePath}>{label}</a>
+{:else}
+  <div class="auth-indicator" data-state={state}>{label}</div>
+{/if}

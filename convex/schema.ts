@@ -28,9 +28,11 @@ export default defineSchema({
     imageBId: v.string(),
     winnerId: v.string(),
     voterHash: v.string(),
+    voterAuthUserId: v.optional(v.string()),
     ipHash: v.string(),
     createdAt: v.number(),
   })
     .index("by_created_at", ["createdAt"])
-    .index("by_winner_id", ["winnerId"]),
+    .index("by_winner_id", ["winnerId"])
+    .index("by_voter_auth_user_id", ["voterAuthUserId"]),
 });
