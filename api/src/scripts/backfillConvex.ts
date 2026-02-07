@@ -2,8 +2,10 @@ import { asc } from "drizzle-orm";
 import { db, pool } from "../db/client.js";
 import { ratings, users, votes } from "../db/schema.js";
 import {
+  mutateConvexBackfillClearImageRatingsBatch,
+  mutateConvexBackfillClearUserProfilesBatch,
+  mutateConvexBackfillClearVotesBatch,
   mutateConvexBackfillInsertVote,
-  mutateConvexBackfillResetData,
   mutateConvexBackfillUpsertImageRating,
   mutateConvexUpsertUserProfile,
   queryConvexBackfillCounts,
@@ -23,6 +25,20 @@ const chunked = <T>(items: T[], size: number) => {
   return chunks;
 };
 
+const clearInBatches = async (
+  clearBatch: (args: { limit?: number }) => Promise<{ deleted: number; hasMore: boolean }>,
+  limit = 256,
+) => {
+  let totalDeleted = 0;
+  let hasMore = true;
+  while (hasMore) {
+    const result = await clearBatch({ limit });
+    totalDeleted += result.deleted;
+    hasMore = result.hasMore;
+  }
+  return totalDeleted;
+};
+
 const run = async () => {
   const [pgUsers, pgRatings, pgVotes] = await Promise.all([
     db.select().from(users),
@@ -30,7 +46,9 @@ const run = async () => {
     db.select().from(votes).orderBy(asc(votes.createdAt)),
   ]);
 
-  await mutateConvexBackfillResetData({ includeUsers: true });
+  await clearInBatches(mutateConvexBackfillClearVotesBatch);
+  await clearInBatches(mutateConvexBackfillClearImageRatingsBatch);
+  await clearInBatches(mutateConvexBackfillClearUserProfilesBatch);
 
   for (const user of pgUsers) {
     await mutateConvexUpsertUserProfile({

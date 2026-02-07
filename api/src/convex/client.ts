@@ -95,6 +95,15 @@ type BackfillCounts = {
   votes: number;
 };
 
+type BackfillClearBatchArgs = {
+  limit?: number;
+};
+
+type BackfillClearBatchResult = {
+  deleted: number;
+  hasMore: boolean;
+};
+
 const healthPingRef = makeFunctionReference<"query", Record<string, never>, ConvexHealth>(
   "health:ping",
 );
@@ -134,11 +143,21 @@ const upsertUserProfileRef = makeFunctionReference<
   UpsertUserProfileArgs,
   { ok: boolean }
 >("users:upsertByAuthUserId");
-const backfillResetDataRef = makeFunctionReference<
+const backfillClearVotesBatchRef = makeFunctionReference<
   "mutation",
-  { includeUsers?: boolean },
-  { ok: boolean }
->("backfill:resetData");
+  BackfillClearBatchArgs,
+  BackfillClearBatchResult
+>("backfill:clearVotesBatch");
+const backfillClearImageRatingsBatchRef = makeFunctionReference<
+  "mutation",
+  BackfillClearBatchArgs,
+  BackfillClearBatchResult
+>("backfill:clearImageRatingsBatch");
+const backfillClearUserProfilesBatchRef = makeFunctionReference<
+  "mutation",
+  BackfillClearBatchArgs,
+  BackfillClearBatchResult
+>("backfill:clearUserProfilesBatch");
 const backfillUpsertImageRatingRef = makeFunctionReference<
   "mutation",
   BackfillUpsertImageRatingArgs,
@@ -230,9 +249,19 @@ export const mutateConvexUpsertUserProfile = async (args: UpsertUserProfileArgs)
   return client.mutation(upsertUserProfileRef, args);
 };
 
-export const mutateConvexBackfillResetData = async (args: { includeUsers?: boolean }) => {
+export const mutateConvexBackfillClearVotesBatch = async (args: BackfillClearBatchArgs) => {
   const { client } = createConvexClient();
-  return client.mutation(backfillResetDataRef, args);
+  return client.mutation(backfillClearVotesBatchRef, args);
+};
+
+export const mutateConvexBackfillClearImageRatingsBatch = async (args: BackfillClearBatchArgs) => {
+  const { client } = createConvexClient();
+  return client.mutation(backfillClearImageRatingsBatchRef, args);
+};
+
+export const mutateConvexBackfillClearUserProfilesBatch = async (args: BackfillClearBatchArgs) => {
+  const { client } = createConvexClient();
+  return client.mutation(backfillClearUserProfilesBatchRef, args);
 };
 
 export const mutateConvexBackfillUpsertImageRating = async (

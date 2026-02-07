@@ -1,23 +1,48 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 
-export const resetData = mutation({
+const DEFAULT_BATCH_SIZE = 256;
+const MAX_BATCH_SIZE = 512;
+
+const resolveBatchSize = (value?: number) => {
+  const raw = Math.floor(value ?? DEFAULT_BATCH_SIZE);
+  if (!Number.isFinite(raw) || raw < 1) return DEFAULT_BATCH_SIZE;
+  return Math.min(raw, MAX_BATCH_SIZE);
+};
+
+export const clearVotesBatch = mutation({
   args: {
-    includeUsers: v.optional(v.boolean()),
+    limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    const votes = await ctx.db.query("votes").collect();
-    await Promise.all(votes.map((row) => ctx.db.delete(row._id)));
+    const limit = resolveBatchSize(args.limit);
+    const rows = await ctx.db.query("votes").take(limit);
+    await Promise.all(rows.map((row) => ctx.db.delete(row._id)));
+    return { deleted: rows.length, hasMore: rows.length === limit };
+  },
+});
 
-    const ratings = await ctx.db.query("imageRatings").collect();
-    await Promise.all(ratings.map((row) => ctx.db.delete(row._id)));
+export const clearImageRatingsBatch = mutation({
+  args: {
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const limit = resolveBatchSize(args.limit);
+    const rows = await ctx.db.query("imageRatings").take(limit);
+    await Promise.all(rows.map((row) => ctx.db.delete(row._id)));
+    return { deleted: rows.length, hasMore: rows.length === limit };
+  },
+});
 
-    if (args.includeUsers) {
-      const users = await ctx.db.query("userProfiles").collect();
-      await Promise.all(users.map((row) => ctx.db.delete(row._id)));
-    }
-
-    return { ok: true };
+export const clearUserProfilesBatch = mutation({
+  args: {
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const limit = resolveBatchSize(args.limit);
+    const rows = await ctx.db.query("userProfiles").take(limit);
+    await Promise.all(rows.map((row) => ctx.db.delete(row._id)));
+    return { deleted: rows.length, hasMore: rows.length === limit };
   },
 });
 
