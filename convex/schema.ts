@@ -34,5 +34,6 @@ export default defineSchema({
   })
     .index("by_created_at", ["createdAt"])
     .index("by_winner_id", ["winnerId"])
+    .index("by_voter_hash", ["voterHash"])
     .index("by_voter_auth_user_id", ["voterAuthUserId"]),
 });

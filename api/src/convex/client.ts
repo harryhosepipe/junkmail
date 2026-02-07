@@ -114,6 +114,11 @@ const voteCountByAuthUserIdRef = makeFunctionReference<
   { authUserId: string },
   { count: number }
 >("voting:getVoteCountByAuthUserId");
+const voteCountForProfileRef = makeFunctionReference<
+  "query",
+  { authUserId: string; voterHash?: string },
+  { count: number }
+>("voting:getVoteCountForProfile");
 const userProfileByEmailRef = makeFunctionReference<
   "query",
   { emailLower: string },
@@ -200,6 +205,14 @@ export const queryConvexTopRatings = async (args: TopRatingsArgs) => {
 export const queryConvexVoteCountByAuthUserId = async (authUserId: string) => {
   const { client } = createConvexClient();
   return client.query(voteCountByAuthUserIdRef, { authUserId });
+};
+
+export const queryConvexVoteCountForProfile = async (args: {
+  authUserId: string;
+  voterHash?: string;
+}) => {
+  const { client } = createConvexClient();
+  return client.query(voteCountForProfileRef, args);
 };
 
 export const queryConvexUserProfileByEmail = async (email: string) => {

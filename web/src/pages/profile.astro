@@ -1,64 +1,25 @@
 ---
 import Base from "../layouts/Base.astro";
+import ProfilePanel from "../components/ProfilePanel.svelte";
 
 export const prerender = false;
 const apiBaseUrl = import.meta.env.PUBLIC_API_BASE_URL ?? "http://localhost:8787";
 const cookieHeader = Astro.request.headers.get("cookie") ?? "";
 
 let authUser = null;
-type ProfileDetails = {
-  id: string;
-  email: string;
-  alias: string;
-  role: string;
-  createdAt: string;
-  uploadedImages: number;
-  votesCast: number;
-};
-let profile: ProfileDetails | null = null;
-let error = "";
 
 if (cookieHeader) {
   try {
-    const [meResponse, profileResponse] = await Promise.all([
-      fetch(`${apiBaseUrl}/api/v1/auth/me`, {
-        headers: { cookie: cookieHeader },
-      }),
-      fetch(`${apiBaseUrl}/api/v1/auth/profile`, {
-        headers: { cookie: cookieHeader },
-      }),
-    ]);
+    const meResponse = await fetch(`${apiBaseUrl}/api/v1/auth/me`, {
+      headers: { cookie: cookieHeader },
+    });
 
     if (meResponse.ok) {
       const meData = await meResponse.json();
       authUser = meData?.user ?? null;
     }
-
-    if (profileResponse.ok) {
-      const profileData = await profileResponse.json();
-      profile = profileData?.profile ?? null;
-    } else if (profileResponse.status === 401) {
-      error = "You need to log in to view your profile.";
-    } else {
-      error = "Could not load profile details.";
-    }
-  } catch {
-    error = "Could not load profile details.";
-  }
-} else {
-  error = "You need to log in to view your profile.";
+  } catch {}
 }
-
-const formatDate = (value: string | null | undefined) => {
-  if (!value) return "Unknown";
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return "Unknown";
-  return parsed.toLocaleDateString(undefined, {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
-};
 ---
 
 <Base title="Junkmail - Profile" description="Manage your account details." authUser={authUser}>
@@ -68,82 +29,6 @@ const formatDate = (value: string | null | undefined) => {
   </section>
 
   <section class="panel" style="margin-top: 24px;">
-    {profile ? (
-      <div class="profile-grid">
-        <div class="profile-meta">
-          <div class="detail-stat">Alias</div>
-          <div class="detail-value">{profile.alias || "Unknown"}</div>
-          <div class="detail-stat">Email</div>
-          <div class="detail-value detail-value-sm">{profile.email}</div>
-          <div class="detail-stat">Signed up</div>
-          <div class="detail-value detail-value-sm">{formatDate(profile.createdAt)}</div>
-        </div>
-        <div class="profile-stats">
-          <div class="detail-stat">Votes cast</div>
-          <div class="detail-value">{Number(profile.votesCast ?? 0)}</div>
-          <div class="detail-stat">Images uploaded</div>
-          <div class="detail-value">{Number(profile.uploadedImages ?? 0)}</div>
-        </div>
-      </div>
-    ) : (
-      <div class="detail-empty">
-        {error}
-        <div style="margin-top: 12px;">
-          <a href="/login">Go to login</a>
-        </div>
-      </div>
-    )}
+    <ProfilePanel apiBaseUrl={apiBaseUrl} client:load />
   </section>
 </Base>
-
-<style>
-  .profile-grid {
-    display: grid;
-    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
-    gap: 16px;
-  }
-
-  .profile-meta,
-  .profile-stats {
-    border: 1px solid var(--border);
-    border-radius: 16px;
-    padding: 16px;
-    background: #fffcf7;
-    display: grid;
-    gap: 6px;
-    box-shadow: var(--shadow);
-  }
-
-  .detail-stat {
-    font-size: 12px;
-    color: var(--ink-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.12em;
-    margin-top: 2px;
-  }
-
-  .detail-value {
-    font-size: 22px;
-    font-weight: 700;
-    color: var(--bg-ink);
-  }
-
-  .detail-value-sm {
-    font-size: 16px;
-    word-break: break-word;
-  }
-
-  .detail-empty {
-    padding: 24px;
-    border-radius: 16px;
-    border: 1px dashed var(--border);
-    background: #fffdf9;
-    color: var(--ink-muted);
-  }
-
-  @media (max-width: 900px) {
-    .profile-grid {
-      grid-template-columns: 1fr;
-    }
-  }
-</style>

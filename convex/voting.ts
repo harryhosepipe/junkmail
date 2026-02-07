@@ -114,6 +114,37 @@ export const getVoteCountByAuthUserId = query({
   },
 });
 
+export const getVoteCountForProfile = query({
+  args: {
+    authUserId: v.string(),
+    voterHash: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const [authedVotes, hashVotes] = await Promise.all([
+      ctx.db
+        .query("votes")
+        .withIndex("by_voter_auth_user_id", (q) => q.eq("voterAuthUserId", args.authUserId))
+        .collect(),
+      args.voterHash
+        ? ctx.db
+            .query("votes")
+            .withIndex("by_voter_hash", (q) => q.eq("voterHash", args.voterHash!))
+            .collect()
+        : Promise.resolve([]),
+    ]);
+
+    const uniqueIds = new Set<string>();
+    for (const vote of authedVotes) {
+      uniqueIds.add(vote._id);
+    }
+    for (const vote of hashVotes) {
+      uniqueIds.add(vote._id);
+    }
+
+    return { count: uniqueIds.size };
+  },
+});
+
 export const getRatingsByImageIds = query({
   args: {
     imageIds: v.array(v.string()),
