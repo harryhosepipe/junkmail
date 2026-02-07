@@ -8,6 +8,7 @@
     "start": "node dist/index.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "convex:check": "tsx src/scripts/checkConvex.ts",
+    "convex:backfill": "tsx src/scripts/backfillConvex.ts",
     "validate:realtime": "tsx src/scripts/validateRealtimeVoting.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",

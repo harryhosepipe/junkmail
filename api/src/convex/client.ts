@@ -69,6 +69,29 @@ type UpsertUserProfileArgs = {
   updatedAt?: number;
 };
 
+type BackfillUpsertImageRatingArgs = {
+  imageId: string;
+  score: number;
+  uncertainty: number;
+  comparisonsCount: number;
+  updatedAt: number;
+};
+
+type BackfillInsertVoteArgs = {
+  imageAId: string;
+  imageBId: string;
+  winnerId: string;
+  voterHash: string;
+  ipHash: string;
+  createdAt: number;
+};
+
+type BackfillCounts = {
+  userProfiles: number;
+  imageRatings: number;
+  votes: number;
+};
+
 const healthPingRef = makeFunctionReference<"query", Record<string, never>, ConvexHealth>(
   "health:ping",
 );
@@ -98,6 +121,24 @@ const upsertUserProfileRef = makeFunctionReference<
   UpsertUserProfileArgs,
   { ok: boolean }
 >("users:upsertByAuthUserId");
+const backfillResetDataRef = makeFunctionReference<
+  "mutation",
+  { includeUsers?: boolean },
+  { ok: boolean }
+>("backfill:resetData");
+const backfillUpsertImageRatingRef = makeFunctionReference<
+  "mutation",
+  BackfillUpsertImageRatingArgs,
+  { ok: boolean }
+>("backfill:upsertImageRating");
+const backfillInsertVoteRef = makeFunctionReference<
+  "mutation",
+  BackfillInsertVoteArgs,
+  { ok: boolean }
+>("backfill:insertVote");
+const backfillGetCountsRef = makeFunctionReference<"query", Record<string, never>, BackfillCounts>(
+  "backfill:getCounts",
+);
 
 const createConvexClient = () => {
   const url = resolveConvexUrl();
@@ -161,4 +202,26 @@ export const queryConvexUserProfileByAuthUserId = async (authUserId: string) => 
 export const mutateConvexUpsertUserProfile = async (args: UpsertUserProfileArgs) => {
   const { client } = createConvexClient();
   return client.mutation(upsertUserProfileRef, args);
+};
+
+export const mutateConvexBackfillResetData = async (args: { includeUsers?: boolean }) => {
+  const { client } = createConvexClient();
+  return client.mutation(backfillResetDataRef, args);
+};
+
+export const mutateConvexBackfillUpsertImageRating = async (
+  args: BackfillUpsertImageRatingArgs,
+) => {
+  const { client } = createConvexClient();
+  return client.mutation(backfillUpsertImageRatingRef, args);
+};
+
+export const mutateConvexBackfillInsertVote = async (args: BackfillInsertVoteArgs) => {
+  const { client } = createConvexClient();
+  return client.mutation(backfillInsertVoteRef, args);
+};
+
+export const queryConvexBackfillCounts = async () => {
+  const { client } = createConvexClient();
+  return client.query(backfillGetCountsRef, {});
 };
