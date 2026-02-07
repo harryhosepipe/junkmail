@@ -15,6 +15,7 @@
   let prefetchPromise = null;
   let prefetchedAssetsReady = Promise.resolve();
   let celebrateResetTimer = null;
+  const celebrationMinVisibleMs = 220;
 
   const confettiPieces = [
     { x: -52, y: -56, hue: 12, delay: 0 },
@@ -176,6 +177,7 @@
     busy = true;
     lastChoice = winnerId;
     triggerCelebrate(winnerId);
+    const voteStartedAt = Date.now();
     statusMessage = "Locked. Loading next...";
     errorMessage = "";
 
@@ -191,6 +193,11 @@
     const nextMatchup = await consumePrefetchedMatchup();
 
     if (nextMatchup) {
+      const elapsed = Date.now() - voteStartedAt;
+      const delay = Math.max(0, celebrationMinVisibleMs - elapsed);
+      if (delay > 0) {
+        await wait(delay);
+      }
       matchup = nextMatchup;
       state = "ready";
       busy = false;
