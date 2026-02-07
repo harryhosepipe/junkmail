@@ -7,6 +7,7 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
     "convex:check": "tsx src/scripts/checkConvex.ts",
     "convex:backfill": "tsx src/scripts/backfillConvex.ts",
     "validate:realtime": "tsx src/scripts/validateRealtimeVoting.ts",
@@ -32,6 +33,7 @@
     "@types/pg": "^8.11.10",
     "drizzle-kit": "^0.30.2",
     "tsx": "^4.19.2",
-    "typescript": "^5.7.3"
+    "typescript": "^5.7.3",
+    "vitest": "^4.0.18"
   }
 }
