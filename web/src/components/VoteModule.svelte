@@ -10,9 +10,20 @@
   let statusMessage = "";
   let errorMessage = "";
   let lastChoice = null;
+  let celebrateChoiceId = null;
   let prefetchedMatchup = null;
   let prefetchPromise = null;
   let prefetchedAssetsReady = Promise.resolve();
+  let celebrateResetTimer = null;
+
+  const confettiPieces = [
+    { x: -52, y: -56, hue: 12, delay: 0 },
+    { x: -36, y: -72, hue: 28, delay: 40 },
+    { x: -12, y: -80, hue: 54, delay: 65 },
+    { x: 14, y: -82, hue: 188, delay: 25 },
+    { x: 38, y: -74, hue: 154, delay: 70 },
+    { x: 54, y: -58, hue: 332, delay: 10 },
+  ];
 
   const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -145,6 +156,17 @@
     }
   };
 
+  const triggerCelebrate = (winnerId) => {
+    celebrateChoiceId = winnerId;
+    if (celebrateResetTimer) {
+      clearTimeout(celebrateResetTimer);
+    }
+    celebrateResetTimer = setTimeout(() => {
+      celebrateChoiceId = null;
+      celebrateResetTimer = null;
+    }, 760);
+  };
+
   const submitVote = async (winnerId) => {
     if (busy || state !== "ready" || !matchup) return;
     const imageAId = matchup?.a?.id;
@@ -153,6 +175,7 @@
 
     busy = true;
     lastChoice = winnerId;
+    triggerCelebrate(winnerId);
     statusMessage = "Locked. Loading next...";
     errorMessage = "";
 
@@ -174,6 +197,7 @@
       loadingNext = false;
       statusMessage = "";
       lastChoice = null;
+      celebrateChoiceId = null;
       prefetchNextMatchup();
       return;
     }
@@ -191,6 +215,7 @@
       loadingNext = false;
       statusMessage = "";
       lastChoice = null;
+      celebrateChoiceId = null;
     }
   };
 
@@ -220,6 +245,10 @@
   onDestroy(() => {
     if (typeof window !== "undefined") {
       window.removeEventListener("keydown", handleKeydown);
+    }
+    if (celebrateResetTimer) {
+      clearTimeout(celebrateResetTimer);
+      celebrateResetTimer = null;
     }
   });
 </script>
@@ -298,6 +327,17 @@
               : `Vote ${index === 0 ? "A" : "B"}`}
           </div>
         </div>
+        {#if celebrateChoiceId === item?.id}
+          <div class="vote-celebrate" aria-hidden="true">
+            <div class="vote-stamp">WINNER</div>
+            {#each confettiPieces as piece}
+              <span
+                class="vote-confetti"
+                style={`--confetti-x:${piece.x}px;--confetti-y:${piece.y}px;--confetti-hue:${piece.hue};--confetti-delay:${piece.delay}ms;`}
+              ></span>
+            {/each}
+          </div>
+        {/if}
       </button>
     {/each}
   </div>
@@ -355,6 +395,7 @@
   }
 
   .vote-card.live {
+    position: relative;
     padding: 16px;
     gap: 12px;
     align-content: start;
@@ -447,6 +488,43 @@
     font-size: 14px;
   }
 
+  .vote-celebrate {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    overflow: hidden;
+  }
+
+  .vote-stamp {
+    position: absolute;
+    right: 14px;
+    top: 14px;
+    padding: 4px 9px;
+    border-radius: 999px;
+    border: 2px solid rgba(212, 90, 60, 0.85);
+    background: rgba(255, 244, 230, 0.92);
+    color: rgba(180, 60, 34, 0.95);
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.18em;
+    transform: rotate(-9deg) scale(0.6);
+    opacity: 0;
+    animation: stamp-pop 320ms cubic-bezier(0.2, 1, 0.25, 1) forwards;
+  }
+
+  .vote-confetti {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 8px;
+    height: 12px;
+    border-radius: 2px;
+    background: hsl(var(--confetti-hue) 92% 58%);
+    transform: translate(-50%, -50%) rotate(0deg) scale(0.8);
+    opacity: 0;
+    animation: confetti-burst 640ms ease-out var(--confetti-delay) forwards;
+  }
+
   .skeleton-card {
     pointer-events: none;
     cursor: default;
@@ -475,6 +553,49 @@
     }
     100% {
       background-position: 200% 0%;
+    }
+  }
+
+  @keyframes stamp-pop {
+    0% {
+      transform: rotate(-9deg) scale(0.6);
+      opacity: 0;
+    }
+    60% {
+      transform: rotate(-9deg) scale(1.08);
+      opacity: 1;
+    }
+    100% {
+      transform: rotate(-9deg) scale(1);
+      opacity: 1;
+    }
+  }
+
+  @keyframes confetti-burst {
+    0% {
+      transform: translate(-50%, -50%) rotate(0deg) scale(0.75);
+      opacity: 0.95;
+    }
+    100% {
+      transform: translate(calc(-50% + var(--confetti-x)), calc(-50% + var(--confetti-y)))
+        rotate(245deg) scale(1);
+      opacity: 0;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .vote-stamp,
+    .vote-confetti {
+      animation: none;
+    }
+
+    .vote-stamp {
+      transform: rotate(-9deg) scale(1);
+      opacity: 1;
+    }
+
+    .vote-confetti {
+      display: none;
     }
   }
 </style>
