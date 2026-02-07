@@ -1,16 +1,17 @@
 <script>
   import { onDestroy, onMount } from "svelte";
+  import { convex } from "../lib/convex";
 
   export let apiBaseUrl = "http://localhost:8787";
-  export let refreshIntervalSeconds = 90;
 
   let items = [];
   let state = "loading";
+  let connection = "connecting";
   const minComparisons = 0;
-  let countdown = refreshIntervalSeconds;
-  let countdownLabel = "seconds";
-  let nextRefreshAt = null;
-  let countdownTimer = null;
+
+  let unsubscribeToplist = null;
+  let unsubscribeConnection = null;
+  const thumbById = new Map();
 
   const placeholders = Array.from({ length: 8 });
 
@@ -20,68 +21,105 @@
     return score.toFixed(2);
   };
 
-  const setNextRefresh = () => {
-    nextRefreshAt = Date.now() + refreshIntervalSeconds * 1000;
-  };
+  const mergeToplist = (rows) =>
+    rows
+      .map((row) => ({
+        id: row?.imageId || row?.id,
+        score: Number(row?.score) || 0,
+        votes: Number(row?.comparisonsCount) || Number(row?.votes) || 0,
+        thumb_url: thumbById.get(row?.imageId || row?.id) || "",
+      }))
+      .filter((row) => row.id);
 
-  const updateCountdown = () => {
-    if (!nextRefreshAt) return;
-    const remaining = Math.max(0, Math.ceil((nextRefreshAt - Date.now()) / 1000));
-    countdown = remaining;
-  };
-
-  const loadToplist = async ({ initial = false } = {}) => {
-    if (initial) {
-      state = "loading";
-    }
+  const hydrateThumbs = async () => {
     try {
-      const response = await fetch(
-        `${apiBaseUrl}/api/v1/images/top?limit=20&min=${minComparisons}`
-      );
+      const response = await fetch(`${apiBaseUrl}/api/v1/images/top?limit=100&min=${minComparisons}`);
       if (!response.ok) {
-        state = "error";
         return;
       }
       const data = await response.json();
-      items = Array.isArray(data) ? data : [];
-      state = "ready";
-      setNextRefresh();
-      updateCountdown();
-    } catch (err) {
-      state = "error";
+      const rows = Array.isArray(data) ? data : [];
+      for (const row of rows) {
+        if (row?.id) {
+          thumbById.set(row.id, row?.thumb_url || "");
+        }
+      }
+    } catch {
+      // keep rendering even if thumb hydration fails
     }
   };
 
-  const startCountdown = () => {
-    if (countdownTimer) return;
-    countdownTimer = setInterval(() => {
-      if (!nextRefreshAt) return;
-      updateCountdown();
-      if (countdown <= 0) {
-        loadToplist();
+  const subscribeToplist = () => {
+    if (unsubscribeToplist) {
+      unsubscribeToplist();
+    }
+
+    unsubscribeToplist = convex.onUpdate(
+      "voting:getTopRatings",
+      { limit: 20, minComparisons },
+      (rows) => {
+        items = mergeToplist(Array.isArray(rows) ? rows : []);
+        state = "ready";
+      },
+      () => {
+        state = "error";
       }
-    }, 1000);
+    );
   };
 
   onMount(async () => {
-    setNextRefresh();
-    updateCountdown();
-    startCountdown();
-    await loadToplist({ initial: true });
+    state = "loading";
+
+    unsubscribeConnection = convex.subscribeToConnectionState((next) => {
+      connection = next?.hasInflightRequests ? "syncing" : "live";
+    });
+
+    await hydrateThumbs();
+    subscribeToplist();
+
+    const fallback = setTimeout(async () => {
+      if (state !== "loading") return;
+      try {
+        const response = await fetch(`${apiBaseUrl}/api/v1/images/top?limit=20&min=${minComparisons}`);
+        if (!response.ok) {
+          state = "error";
+          return;
+        }
+        const data = await response.json();
+        items = mergeToplist(Array.isArray(data) ? data : []);
+        state = "ready";
+      } catch {
+        state = "error";
+      }
+    }, 2000);
+
+    return () => {
+      clearTimeout(fallback);
+    };
   });
 
   onDestroy(() => {
-    if (countdownTimer) {
-      clearInterval(countdownTimer);
+    if (unsubscribeToplist) {
+      unsubscribeToplist();
+      unsubscribeToplist = null;
+    }
+    if (unsubscribeConnection) {
+      unsubscribeConnection();
+      unsubscribeConnection = null;
     }
   });
 
-  $: countdownLabel = countdown === 1 ? "second" : "seconds";
+  $: statusText =
+    connection === "syncing"
+      ? "Syncing votes..."
+      : connection === "live"
+        ? "Live updates on"
+        : "Connecting...";
 </script>
 
 <div class="toplist-header">
   <div class="toplist-title">Ranked by pairwise wins</div>
-  <div class="toplist-countdown">Final votes tallied in {countdown} {countdownLabel}</div>
+  <div class="toplist-status">{statusText}</div>
 </div>
 
 {#if state === "loading"}
@@ -142,13 +180,14 @@
     color: var(--bg-ink);
   }
 
-  .toplist-countdown {
-    font-size: 16px;
+  .toplist-status {
+    font-size: 12px;
     font-weight: 700;
-    color: var(--bg-ink);
+    color: var(--ink-muted);
     text-transform: uppercase;
     letter-spacing: 0.12em;
   }
+
   .toplist {
     display: grid;
     gap: 12px;

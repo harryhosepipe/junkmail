@@ -1,10 +1,13 @@
 <script>
-  import { onMount } from "svelte";
+  import { onDestroy, onMount } from "svelte";
+  import { convex } from "../lib/convex";
 
   export let apiBaseUrl = "http://localhost:8787";
 
   let items = [];
   let state = "loading";
+  let baseItems = [];
+  let unsubscribeRatings = null;
 
   const placeholders = Array.from({ length: 6 });
 
@@ -69,19 +72,78 @@
     };
   };
 
+  const mergeWithRatings = (ratings = []) => {
+    const ratingById = new Map(
+      ratings.map((rating) => [
+        rating.imageId,
+        {
+          score: Number(rating?.score) || 0,
+          votes: Number(rating?.comparisonsCount) || 0,
+        },
+      ])
+    );
+
+    items = baseItems.map((item) => {
+      const rating = ratingById.get(item.id);
+      return {
+        ...item,
+        score: rating?.score ?? Number(item?.score) ?? 0,
+        votes: rating?.votes ?? Number(item?.votes) ?? 0,
+      };
+    });
+  };
+
+  const subscribeRatings = () => {
+    if (unsubscribeRatings) {
+      unsubscribeRatings();
+      unsubscribeRatings = null;
+    }
+
+    const imageIds = baseItems.map((item) => item.id).filter(Boolean);
+    if (!imageIds.length) {
+      items = [];
+      state = "ready";
+      return;
+    }
+
+    unsubscribeRatings = convex.onUpdate(
+      "voting:getRatingsByImageIds",
+      { imageIds },
+      (payload) => {
+        const ratings = Array.isArray(payload?.ratings) ? payload.ratings : [];
+        mergeWithRatings(ratings);
+        state = "ready";
+      },
+      () => {
+        state = "error";
+      }
+    );
+  };
+
   onMount(async () => {
     state = "loading";
     try {
-      const response = await fetch(`${apiBaseUrl}/api/v1/feed/home?limit=8`);
+      const response = await fetch(`${apiBaseUrl}/api/v1/images/recent?limit=8`);
       if (!response.ok) {
         state = "error";
         return;
       }
       const data = await response.json();
-      items = Array.isArray(data?.feed) ? data.feed : [];
-      state = "ready";
-    } catch (err) {
+      baseItems = Array.isArray(data?.items) ? data.items : [];
+      items = baseItems;
+      subscribeRatings();
+      if (!baseItems.length) {
+        state = "ready";
+      }
+    } catch {
       state = "error";
+    }
+  });
+
+  onDestroy(() => {
+    if (unsubscribeRatings) {
+      unsubscribeRatings();
+      unsubscribeRatings = null;
     }
   });
 </script>
