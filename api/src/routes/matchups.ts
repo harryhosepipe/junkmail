@@ -16,8 +16,10 @@ const VOTE_HASH_SALT = process.env.VOTE_HASH_SALT || "junkmail-dev-vote";
 
 const NEW_EXPOSURE_THRESHOLD = Number(process.env.MATCHUP_NEW_EXPOSURE) || 5;
 const CLOSE_SAMPLE_SIZE = Number(process.env.MATCHUP_CLOSE_SAMPLE) || 24;
+const CLOSE_CANDIDATE_PAIRS = Number(process.env.MATCHUP_CLOSE_CANDIDATE_PAIRS) || 6;
 const REPEAT_TTL_SECONDS = Number(process.env.MATCHUP_REPEAT_TTL_SECONDS) || 120;
 const MATCHUP_POOL_TTL_SECONDS = Number(process.env.MATCHUP_POOL_TTL_SECONDS) || 10;
+const MATCHUP_PAIR_COOLDOWN_MS = Number(process.env.MATCHUP_PAIR_COOLDOWN_MS) || 900;
 
 const WEIGHT_NEW = Number(process.env.MATCHUP_WEIGHT_NEW) || 0.45;
 const WEIGHT_CLOSE = Number(process.env.MATCHUP_WEIGHT_CLOSE) || 0.4;
@@ -67,16 +69,19 @@ const pickClosePair = <T extends { score: number }>(items: T[]) => {
   const pool = sampleItems(items, CLOSE_SAMPLE_SIZE);
   if (pool.length < 2) return null;
   const sorted = [...pool].sort((a, b) => a.score - b.score);
-  let bestIndex = 0;
-  let bestDiff = Math.abs(sorted[1].score - sorted[0].score);
-  for (let i = 1; i < sorted.length - 1; i += 1) {
-    const diff = Math.abs(sorted[i + 1].score - sorted[i].score);
-    if (diff < bestDiff) {
-      bestDiff = diff;
-      bestIndex = i;
-    }
+  const candidates: Array<{ a: T; b: T; diff: number }> = [];
+  for (let i = 0; i < sorted.length - 1; i += 1) {
+    candidates.push({
+      a: sorted[i],
+      b: sorted[i + 1],
+      diff: Math.abs(sorted[i + 1].score - sorted[i].score),
+    });
   }
-  return [sorted[bestIndex], sorted[bestIndex + 1]] as const;
+  if (!candidates.length) return null;
+  const ranked = candidates.sort((a, b) => a.diff - b.diff);
+  const top = ranked.slice(0, Math.max(1, CLOSE_CANDIDATE_PAIRS));
+  const picked = top[Math.floor(Math.random() * top.length)];
+  return [picked.a, picked.b] as const;
 };
 
 const pickWeightedReason = (options: Array<{ key: string; weight: number }>) => {
@@ -93,6 +98,26 @@ const pickWeightedReason = (options: Array<{ key: string; weight: number }>) => 
 const isSamePair = (a: string, b: string, prev?: { a: string; b: string } | null) => {
   if (!prev) return false;
   return (a === prev.a && b === prev.b) || (a === prev.b && b === prev.a);
+};
+
+const orderedPairKey = (a: string, b: string) => {
+  const [left, right] = [a, b].sort();
+  return `${left}:${right}`;
+};
+
+const claimGlobalPairCooldown = async (a: string, b: string) => {
+  if (MATCHUP_PAIR_COOLDOWN_MS <= 0) {
+    return true;
+  }
+
+  const key = `matchup:pair:${orderedPairKey(a, b)}`;
+  try {
+    const claimed = await redis.set(key, "1", "PX", MATCHUP_PAIR_COOLDOWN_MS, "NX");
+    return claimed === "OK";
+  } catch {
+    // Do not block matchups on cache failures.
+    return true;
+  }
 };
 
 type MatchupItem = {
@@ -219,11 +244,11 @@ export const createMatchupPayload = async (c: Context) => {
     return pickRandomPair(items);
   };
 
-  for (let attempt = 0; attempt < 4; attempt += 1) {
+  for (let attempt = 0; attempt < 12; attempt += 1) {
     const picked = pickByReason(reason);
     if (picked) {
       const [a, b] = picked;
-      if (!isSamePair(a.id, b.id, lastPair)) {
+      if (!isSamePair(a.id, b.id, lastPair) && (await claimGlobalPairCooldown(a.id, b.id))) {
         selected = picked as MatchupPair;
         break;
       }

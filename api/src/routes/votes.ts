@@ -8,7 +8,7 @@ import { images } from "../db/schema.js";
 import { ensureSameOrigin } from "../auth/csrf.js";
 import { generateToken } from "../auth/tokens.js";
 import { redis } from "../queue/connection.js";
-import { mutateConvexRecordVote } from "../convex/client.js";
+import { voteQueue } from "../queue/index.js";
 
 const votesRouter = new Hono();
 
@@ -134,14 +134,18 @@ votesRouter.post("/", async (c) => {
     return c.json({ error: { message: "Matchup unavailable" } }, 404);
   }
 
-  await mutateConvexRecordVote({
-    imageAId,
-    imageBId,
-    winnerId,
-    voterHash,
-    ipHash,
-    createdAt: Date.now(),
-  });
+  try {
+    await voteQueue.add("record", {
+      imageAId,
+      imageBId,
+      winnerId,
+      voterHash,
+      ipHash,
+      createdAt: Date.now(),
+    });
+  } catch (error) {
+    return c.json({ error: { message: "Vote queue unavailable. Try again." } }, 503);
+  }
 
   return c.json({ ok: true });
 });

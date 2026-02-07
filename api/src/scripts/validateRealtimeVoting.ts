@@ -1,5 +1,7 @@
 import "../env.js";
+import { Queue } from "bullmq";
 import { queryConvexRatingsByImageIds, queryConvexTopRatings } from "../convex/client.js";
+import { redis } from "../queue/connection.js";
 
 type MatchupPayload = {
   a: { id: string };
@@ -25,6 +27,9 @@ const PROBE_POLL_MS = Number(process.env.REALTIME_TEST_PROBE_POLL_MS) || 120;
 const DISCOVERY_ROUNDS = Number(process.env.REALTIME_TEST_DISCOVERY_ROUNDS) || 250;
 const LATENCY_P95_TARGET_MS = Number(process.env.REALTIME_TEST_P95_TARGET_MS) || 300;
 const UPDATE_P95_TARGET_MS = Number(process.env.REALTIME_TEST_UPDATE_P95_TARGET_MS) || 1500;
+const DRAIN_TIMEOUT_MS = Number(process.env.REALTIME_TEST_DRAIN_TIMEOUT_MS) || 30000;
+const DRAIN_POLL_MS = Number(process.env.REALTIME_TEST_DRAIN_POLL_MS) || 200;
+const voteQueue = new Queue("vote-writes", { connection: redis });
 
 const percentile = (values: number[], p: number) => {
   if (!values.length) return 0;
@@ -210,6 +215,37 @@ const ensureSortedToplist = async () => {
   };
 };
 
+const waitForVoteQueueDrain = async () => {
+  const startedAt = Date.now();
+  while (Date.now() - startedAt <= DRAIN_TIMEOUT_MS) {
+    const counts = await voteQueue.getJobCounts(
+      "waiting",
+      "active",
+      "delayed",
+      "prioritized",
+      "waiting-children",
+    );
+    const pending =
+      (counts.waiting || 0) +
+      (counts.active || 0) +
+      (counts.delayed || 0) +
+      (counts.prioritized || 0) +
+      ((counts as Record<string, number>)["waiting-children"] || 0);
+    if (pending === 0) {
+      return {
+        drained: true,
+        elapsedMs: Date.now() - startedAt,
+      };
+    }
+    await sleep(DRAIN_POLL_MS);
+  }
+
+  return {
+    drained: false,
+    elapsedMs: Date.now() - startedAt,
+  };
+};
+
 const run = async () => {
   const expectedAppearances = new Map<string, number>();
   const touchedIds = new Set<string>();
@@ -220,6 +256,7 @@ const run = async () => {
 
   const probe = await runProbeLatency(expectedAppearances, touchedIds);
   const load = await runConcurrentLoad(expectedAppearances, touchedIds);
+  const queueDrain = await waitForVoteQueueDrain();
   const postRows = await queryConvexRatingsByImageIds([...touchedIds]);
   const postByImage = new Map(postRows.map((row) => [row.imageId, row.comparisonsCount ?? 0]));
   const toplist = await ensureSortedToplist();
@@ -271,6 +308,12 @@ const run = async () => {
       target: 0,
     },
     {
+      name: "vote queue drained before verification",
+      ok: queueDrain.drained,
+      actual: queueDrain,
+      target: { drained: true, timeoutMs: DRAIN_TIMEOUT_MS },
+    },
+    {
       name: "toplist rows are score-sorted and unique",
       ok: toplist.sorted && toplist.duplicates.length === 0,
       actual: {
@@ -314,6 +357,7 @@ const run = async () => {
       failedVotes: load.failures,
       failedVoteStatusCounts: load.failureStatusCounts,
       touchedImages: touchedIds.size,
+      queueDrain,
       voteLatencyMs: {
         p50: percentile(load.latencies, 50),
         p95: voteP95,
@@ -335,6 +379,8 @@ const run = async () => {
   };
 
   console.log(JSON.stringify(result, null, 2));
+  await voteQueue.close();
+  redis.disconnect();
   if (!result.ok) {
     process.exit(1);
   }
@@ -342,6 +388,7 @@ const run = async () => {
 
 run().catch((error) => {
   const message = error instanceof Error ? error.message : "Realtime voting validation failed";
+  void voteQueue.close().then(() => redis.disconnect());
   console.error(JSON.stringify({ ok: false, error: message }, null, 2));
   process.exit(1);
 });

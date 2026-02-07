@@ -4,6 +4,7 @@ import { Worker } from "bullmq";
 import sharp from "sharp";
 import { db } from "../db/client.js";
 import { images } from "../db/schema.js";
+import { mutateConvexRecordVote } from "../convex/client.js";
 import { publicObjectUrl, s3Client, storageBucket } from "../storage/client.js";
 import { ImageFormat, ImageSize, variantKey } from "../storage/paths.js";
 import { redis } from "./connection.js";
@@ -113,4 +114,36 @@ const worker = new Worker(
 worker.on("failed", (job, err) => {
   const id = job?.id ?? "unknown";
   console.error(`[queue] image-processing job failed`, id, err);
+});
+
+const voteWorker = new Worker(
+  "vote-writes",
+  async (job) => {
+    const { imageAId, imageBId, winnerId, voterHash, ipHash, createdAt } = job.data as {
+      imageAId: string;
+      imageBId: string;
+      winnerId: string;
+      voterHash: string;
+      ipHash: string;
+      createdAt: number;
+    };
+
+    await mutateConvexRecordVote({
+      imageAId,
+      imageBId,
+      winnerId,
+      voterHash,
+      ipHash,
+      createdAt,
+    });
+  },
+  {
+    connection: redis,
+    concurrency: 1,
+  },
+);
+
+voteWorker.on("failed", (job, err) => {
+  const id = job?.id ?? "unknown";
+  console.error(`[queue] vote-writes job failed`, id, err);
 });
