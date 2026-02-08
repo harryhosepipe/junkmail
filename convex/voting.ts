@@ -1,11 +1,12 @@
 import { mutation, query } from "./_generated/server";
 import type { MutationCtx } from "./_generated/server";
 import { v } from "convex/values";
+import { env } from "./env";
 
-const LEARNING_RATE = Number(process.env.BRADLEY_TERRY_K) || 0.15;
-const INITIAL_SCORE = Number(process.env.RATING_INITIAL_SCORE) || 0;
-const INITIAL_UNCERTAINTY = Number(process.env.RATING_INITIAL_UNCERTAINTY) || 1;
-const MIN_UNCERTAINTY = Number(process.env.RATING_MIN_UNCERTAINTY) || 0.15;
+const LEARNING_RATE = env.BRADLEY_TERRY_K;
+const INITIAL_SCORE = env.RATING_INITIAL_SCORE;
+const INITIAL_UNCERTAINTY = env.RATING_INITIAL_UNCERTAINTY;
+const MIN_UNCERTAINTY = env.RATING_MIN_UNCERTAINTY;
 
 const updateUncertainty = (comparisonsCount: number) => {
   const next = 1 / Math.sqrt(comparisonsCount + 1);

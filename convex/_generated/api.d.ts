@@ -9,6 +9,7 @@
  */
 
 import type * as backfill from "../backfill.js";
+import type * as env from "../env.js";
 import type * as health from "../health.js";
 import type * as users from "../users.js";
 import type * as voting from "../voting.js";
@@ -21,6 +22,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   backfill: typeof backfill;
+  env: typeof env;
   health: typeof health;
   users: typeof users;
   voting: typeof voting;

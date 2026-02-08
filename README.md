@@ -46,6 +46,10 @@ Environment values used by the Convex check:
 - `CONVEX_ADMIN_KEY` for admin-authenticated server calls
 - `PUBLIC_CONVEX_URL` (optional) for browser usage; the web app defaults to same-origin `/convex` proxying to avoid mixed content when using a tunnel
 
+Convex function env policy:
+
+- Convex functions read runtime env directly (Convex limitation), but variable names are kept aligned with `packages/config` and `.env.example` (e.g. `BRADLEY_TERRY_K`, `RATING_INITIAL_SCORE`).
+
 Realtime voting validation
 
 ```bash

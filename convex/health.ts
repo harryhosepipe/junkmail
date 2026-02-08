@@ -1,4 +1,5 @@
 import { query } from "./_generated/server";
+import { env } from "./env";
 
 export const ping = query({
   args: {},
@@ -6,7 +7,7 @@ export const ping = query({
     return {
       ok: true,
       timestamp: Date.now(),
-      environment: process.env.NODE_ENV ?? "development",
+      environment: env.NODE_ENV,
     };
   },
 });
