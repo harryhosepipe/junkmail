@@ -7,7 +7,7 @@
 # - / -> Astro (web-dev container)
 # - /api/* -> API (api-dev container)
 # - /assets/* -> MinIO (minio container)
-http://web.localhost {
+(web_frontdoor) {
   handle /api/* {
     reverse_proxy api-dev:8787
   }
@@ -17,6 +17,16 @@ http://web.localhost {
   }
 
   reverse_proxy web-dev:4321
+}
+
+# Local stable hostname.
+http://web.localhost {
+  import web_frontdoor
+}
+
+# Cloudflare Tunnel quick URLs (random trycloudflare hostnames).
+http://*.trycloudflare.com {
+  import web_frontdoor
 }
 
 # Direct service hostnames (optional, but useful for debugging).
