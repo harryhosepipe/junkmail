@@ -3,7 +3,8 @@
   "private": true,
   "workspaces": [
     "web",
-    "api"
+    "api",
+    "packages/*"
   ],
   "scripts": {
     "lint": "eslint . --ext .js,.cjs,.mjs,.ts",
