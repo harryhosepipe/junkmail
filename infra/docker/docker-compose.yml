@@ -5,6 +5,36 @@ services:
       - "80:80"
     volumes:
       - ../caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+    # Allow reverse_proxy to reach host-run dev servers on Linux.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      WEB_UPSTREAM: host.docker.internal:4321
+      API_UPSTREAM: host.docker.internal:8787
+      MINIO_UPSTREAM: minio:9000
+      MINIO_CONSOLE_UPSTREAM: minio:9001
+      CONVEX_UPSTREAM: convex-backend:3210
+      CONVEX_SITE_UPSTREAM: convex-backend:3211
+    depends_on:
+      - convex-backend
+      - minio
+
+  # Alternative: run app dev servers inside Docker too.
+  # Enable via: docker compose --profile app up
+  caddy-docker:
+    image: caddy:2-alpine
+    profiles: ["app"]
+    ports:
+      - "80:80"
+    volumes:
+      - ../caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+    environment:
+      WEB_UPSTREAM: web-dev:4321
+      API_UPSTREAM: api-dev:8787
+      MINIO_UPSTREAM: minio:9000
+      MINIO_CONSOLE_UPSTREAM: minio:9001
+      CONVEX_UPSTREAM: convex-backend:3210
+      CONVEX_SITE_UPSTREAM: convex-backend:3211
     depends_on:
       - api-dev
       - web-dev
@@ -13,6 +43,7 @@ services:
 
   repo-deps:
     image: oven/bun:1
+    profiles: ["app"]
     user: "${DOCKER_UID:-1000}:${DOCKER_GID:-1000}"
     working_dir: /app
     volumes:
@@ -31,9 +62,13 @@ services:
       DO_NOT_REQUIRE_SSL: "1"
     volumes:
       - convex_data:/convex/data
+    ports:
+      - "3210:3210"
+      - "3211:3211"
 
   convex-dev:
     image: node:22-bookworm-slim
+    profiles: ["app"]
     user: "${DOCKER_UID:-1000}:${DOCKER_GID:-1000}"
     working_dir: /app
     volumes:
@@ -59,10 +94,11 @@ services:
     depends_on:
       - convex-backend
     ports:
-      - "6792:6791"
+      - "6791:6791"
 
   api-dev:
     image: node:22-bookworm-slim
+    profiles: ["app"]
     user: "${DOCKER_UID:-1000}:${DOCKER_GID:-1000}"
     working_dir: /app
     volumes:
@@ -104,6 +140,7 @@ services:
 
   web-dev:
     image: node:22-bookworm-slim
+    profiles: ["app"]
     user: "${DOCKER_UID:-1000}:${DOCKER_GID:-1000}"
     working_dir: /app
     volumes:
@@ -114,6 +151,9 @@ services:
     command: sh -lc "cd web && ../node_modules/.bin/astro dev --host 0.0.0.0 --port 4321"
     environment:
       API_BASE_URL: http://api-dev:8787
+      API_PROXY_TARGET: http://api-dev:8787
+      ASSETS_PROXY_TARGET: http://minio:9000
+      CONVEX_PROXY_TARGET: http://convex-backend:3210
     depends_on:
       repo-deps:
         condition: service_completed_successfully
@@ -122,6 +162,7 @@ services:
 
   worker-dev:
     image: node:22-bookworm-slim
+    profiles: ["app"]
     user: "${DOCKER_UID:-1000}:${DOCKER_GID:-1000}"
     working_dir: /app
     volumes:

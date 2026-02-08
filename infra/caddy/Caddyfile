@@ -4,19 +4,23 @@
 }
 
 # Single-origin dev front door:
-# - / -> Astro (web-dev container)
-# - /api/* -> API (api-dev container)
+# - / -> Astro (host dev server or web-dev container)
+# - /api/* -> API (host dev server or api-dev container)
 # - /assets/* -> MinIO (minio container)
+#
+# Upstreams are provided via env vars so the same Caddyfile works for:
+# - host-run app servers (bun run dev:all) + Docker infra
+# - Docker-run app servers (docker compose --profile app up)
 (web_frontdoor) {
   handle /api/* {
-    reverse_proxy api-dev:8787
+    reverse_proxy {env.API_UPSTREAM}
   }
 
   handle_path /assets/* {
-    reverse_proxy minio:9000
+    reverse_proxy {env.MINIO_UPSTREAM}
   }
 
-  reverse_proxy web-dev:4321
+  reverse_proxy {env.WEB_UPSTREAM}
 }
 
 # Local stable hostname.
@@ -31,21 +35,21 @@ http://*.trycloudflare.com {
 
 # Direct service hostnames (optional, but useful for debugging).
 http://api.localhost {
-  reverse_proxy api-dev:8787
+  reverse_proxy {env.API_UPSTREAM}
 }
 
 http://minio.localhost {
-  reverse_proxy minio:9000
+  reverse_proxy {env.MINIO_UPSTREAM}
 }
 
 http://minio-console.localhost {
-  reverse_proxy minio:9001
+  reverse_proxy {env.MINIO_CONSOLE_UPSTREAM}
 }
 
 http://convex.localhost {
-  reverse_proxy convex-backend:3210
+  reverse_proxy {env.CONVEX_UPSTREAM}
 }
 
 http://convex-site.localhost {
-  reverse_proxy convex-backend:3211
+  reverse_proxy {env.CONVEX_SITE_UPSTREAM}
 }

@@ -13,7 +13,12 @@ import { env } from "./env.js";
 export const createApp = () => {
   const app = new Hono();
   const api = new Hono();
-  const corsOrigin = env.CORS_ORIGIN ?? env.WEB_ORIGIN ?? env.WEB_BASE_URL ?? env.APP_ORIGIN ?? "http://web.localhost";
+  const corsOrigin =
+    env.CORS_ORIGIN ??
+    env.WEB_ORIGIN ??
+    env.WEB_BASE_URL ??
+    env.APP_ORIGIN ??
+    "http://web.localhost";
 
   app.use("*", logger());
 

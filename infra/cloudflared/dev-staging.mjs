@@ -60,12 +60,7 @@ function onceTrycloudflareUrl(proc, timeoutMs = 30_000) {
   });
 }
 
-const cloudflared = spawnPipe("cloudflared", [
-  "tunnel",
-  "--url",
-  TUNNEL_TARGET,
-  "--no-autoupdate",
-]);
+const cloudflared = spawnPipe("cloudflared", ["tunnel", "--url", TUNNEL_TARGET, "--no-autoupdate"]);
 
 // Mirror tunnel logs while we parse the URL once.
 cloudflared.stdout?.pipe(process.stdout);
@@ -115,4 +110,3 @@ try {
   console.error(`[staging] ${err instanceof Error ? err.message : String(err)}`);
   shutdown(1);
 }
-

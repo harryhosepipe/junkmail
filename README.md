@@ -25,13 +25,18 @@ If you prefer `environment.local`, that is loaded too.
 bun run dev
 ```
 
-This also starts the dev servers (API + web + worker) and Convex behind Caddy.
+This starts:
+
+- Infra in Docker (Postgres + Redis + MinIO + Convex + Caddy)
+- App dev servers on your host (API + web + worker)
 
 Visit:
 
-- Web: `http://web.localhost`
-- API (direct): `http://api.localhost`
-- MinIO (direct): `http://minio.localhost`
+- Web: `http://localhost:4321` (or `http://web.localhost` via Caddy)
+- API (direct): `http://localhost:8787` (or `http://api.localhost` via Caddy)
+- MinIO (direct): `http://localhost:9010` (or `http://minio.localhost` via Caddy)
+- Convex (direct): `http://localhost:3210` (or `http://convex.localhost` via Caddy)
+- Convex dashboard: `http://localhost:6791`
 
 Convex setup (required for realtime migration work)
 

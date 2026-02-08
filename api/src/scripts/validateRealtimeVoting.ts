@@ -20,7 +20,8 @@ type VoteStats = {
 getEnv();
 
 const API_BASE_URL = env.API_ORIGIN ?? env.API_BASE_URL ?? "http://web.localhost";
-const ORIGIN = env.WEB_ORIGIN ?? env.WEB_BASE_URL ?? env.APP_ORIGIN ?? env.CORS_ORIGIN ?? "http://web.localhost";
+const ORIGIN =
+  env.WEB_ORIGIN ?? env.WEB_BASE_URL ?? env.APP_ORIGIN ?? env.CORS_ORIGIN ?? "http://web.localhost";
 const CONCURRENT_USERS = env.REALTIME_TEST_USERS ?? 100;
 const VOTES_PER_USER = env.REALTIME_TEST_VOTES_PER_USER ?? 8;
 const PROBE_VOTES = env.REALTIME_TEST_PROBE_VOTES ?? 12;

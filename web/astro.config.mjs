@@ -2,6 +2,11 @@ import { defineConfig, envField } from "astro/config";
 import node from "@astrojs/node";
 import svelte from "@astrojs/svelte";
 
+const apiProxyTarget =
+  process.env.API_PROXY_TARGET ?? process.env.API_BASE_URL ?? "http://localhost:8787";
+const assetsProxyTarget = process.env.ASSETS_PROXY_TARGET ?? "http://localhost:9010";
+const convexProxyTarget = process.env.CONVEX_PROXY_TARGET ?? "http://localhost:3210";
+
 export default defineConfig({
   output: "static",
   integrations: [svelte()],
@@ -12,7 +17,11 @@ export default defineConfig({
     schema: {
       // Used by server-side fetches in `.astro` pages during dev/prerender.
       // In Docker Compose, this is overridden to the internal service URL (api-dev:8787).
-      API_BASE_URL: envField.string({ context: "server", access: "public", default: "http://api.localhost" }),
+      API_BASE_URL: envField.string({
+        context: "server",
+        access: "public",
+        default: "http://localhost:8787",
+      }),
     },
   },
   server: {
@@ -23,19 +32,19 @@ export default defineConfig({
     server: {
       proxy: {
         "/api": {
-          target: "http://api-dev:8787",
+          target: apiProxyTarget,
           changeOrigin: true,
           headers: {
             origin: "http://localhost:4321",
           },
         },
         "/assets": {
-          target: "http://minio:9000",
+          target: assetsProxyTarget,
           changeOrigin: true,
           rewrite: (path) => path.replace(/^\/assets/, ""),
         },
         "/convex": {
-          target: "http://convex-backend:3210",
+          target: convexProxyTarget,
           changeOrigin: true,
           ws: true,
           rewrite: (path) => path.replace(/^\/convex/, ""),

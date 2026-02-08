@@ -99,7 +99,11 @@ authRouter.get("/verify", async (c) => {
   const token = c.req.query("token");
   const next = c.req.query("next");
   const webBaseUrl =
-    env.WEB_ORIGIN ?? env.WEB_BASE_URL ?? env.APP_ORIGIN ?? env.CORS_ORIGIN ?? new URL(c.req.url).origin;
+    env.WEB_ORIGIN ??
+    env.WEB_BASE_URL ??
+    env.APP_ORIGIN ??
+    env.CORS_ORIGIN ??
+    new URL(c.req.url).origin;
 
   if (!token) {
     const errorUrl = new URL("/login", webBaseUrl);
