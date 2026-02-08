@@ -7,6 +7,7 @@ import { images, ratings, users } from "../db/schema.js";
 import { imageQueue } from "../queue/index.js";
 import { originalKey } from "../storage/paths.js";
 import { publicObjectUrl, s3Client, storageBucket } from "../storage/client.js";
+import { env } from "../env.js";
 
 const MAX_UPLOAD_BYTES = 15 * 1024 * 1024;
 
@@ -53,7 +54,7 @@ type TelegramUpdate = {
 };
 
 const parseAllowedChatIds = () => {
-  const raw = (process.env.TELEGRAM_ALLOWED_CHAT_IDS || "").trim();
+  const raw = (env.TELEGRAM_ALLOWED_CHAT_IDS || "").trim();
   if (!raw) return new Set<string>();
   return new Set(
     raw
@@ -85,7 +86,7 @@ const aliasFromTelegramUser = (user: TelegramUser) => {
   return `tg_${user.id}`;
 };
 
-const telegramToken = () => process.env.TELEGRAM_BOT_TOKEN || "";
+const telegramToken = () => env.TELEGRAM_BOT_TOKEN || "";
 
 const telegramApiBase = () => `https://api.telegram.org/bot${telegramToken()}`;
 const telegramFileBase = () => `https://api.telegram.org/file/bot${telegramToken()}`;
@@ -177,7 +178,7 @@ const resolveOrCreateTelegramUploader = async (sender: TelegramUser) => {
 const telegramRouter = new Hono();
 
 telegramRouter.post("/webhook", async (c) => {
-  const secretRequired = (process.env.TELEGRAM_WEBHOOK_SECRET_TOKEN || "").trim();
+  const secretRequired = (env.TELEGRAM_WEBHOOK_SECRET_TOKEN || "").trim();
   if (secretRequired) {
     const provided = c.req.header("x-telegram-bot-api-secret-token") || "";
     if (provided !== secretRequired) {

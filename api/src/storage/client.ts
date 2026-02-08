@@ -1,22 +1,24 @@
-import "../env.js";
 import { S3Client } from "@aws-sdk/client-s3";
+import { env, getEnv } from "../env.js";
 
-const endpoint = process.env.MINIO_ENDPOINT || "localhost";
-const port = process.env.MINIO_PORT || "9010";
-const useSsl = process.env.MINIO_USE_SSL === "true";
+getEnv();
+
+const endpoint = env.MINIO_ENDPOINT ?? "localhost";
+const port = String(env.MINIO_PORT ?? 9010);
+const useSsl = env.MINIO_USE_SSL ?? false;
 const protocol = useSsl ? "https" : "http";
 
-export const storageBucket = process.env.MINIO_BUCKET || "junkmail";
+export const storageBucket = env.MINIO_BUCKET ?? "junkmail";
 
-const publicBaseUrl = process.env.MINIO_PUBLIC_URL || `${protocol}://${endpoint}:${port}`;
+const publicBaseUrl = env.MINIO_PUBLIC_URL ?? `${protocol}://${endpoint}:${port}`;
 
 export const s3Client = new S3Client({
-  region: process.env.MINIO_REGION || "us-east-1",
+  region: env.MINIO_REGION ?? "us-east-1",
   endpoint: `${protocol}://${endpoint}:${port}`,
   forcePathStyle: true,
   credentials: {
-    accessKeyId: process.env.MINIO_ACCESS_KEY || "minio",
-    secretAccessKey: process.env.MINIO_SECRET_KEY || "minio123",
+    accessKeyId: env.MINIO_ACCESS_KEY ?? "minio",
+    secretAccessKey: env.MINIO_SECRET_KEY ?? "minio123",
   },
 });
 

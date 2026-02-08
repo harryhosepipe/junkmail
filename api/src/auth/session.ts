@@ -6,11 +6,12 @@ import { sessions } from "../db/schema.js";
 import { ensureSameOrigin } from "./csrf.js";
 import { generateToken, hashToken } from "./tokens.js";
 import { resolveAuthUserProfileById } from "./userProfile.js";
+import { env } from "../env.js";
 
 const SESSION_COOKIE_NAME = "jm_session";
-const SESSION_TTL_DAYS = Number(process.env.SESSION_TTL_DAYS) || 30;
+const SESSION_TTL_DAYS = env.SESSION_TTL_DAYS ?? 30;
 const SESSION_TTL_MS = SESSION_TTL_DAYS * 24 * 60 * 60 * 1000;
-const isProd = process.env.NODE_ENV === "production";
+const isProd = env.NODE_ENV === "production";
 
 export const createSession = async (userId: string) => {
   const token = generateToken();

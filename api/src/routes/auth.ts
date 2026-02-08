@@ -18,11 +18,12 @@ import { ensureSameOrigin } from "../auth/csrf.js";
 import { generateToken, hashToken } from "../auth/tokens.js";
 import { resolveInvitedUploaderByEmail } from "../auth/userProfile.js";
 import { queryConvexVoteCountForProfile, mutateConvexUpsertUserProfile } from "../convex/client.js";
+import { env } from "../env.js";
 
 const authRouter = new Hono();
-const MAGIC_LINK_TTL_MINUTES = Number(process.env.MAGIC_LINK_TTL_MINUTES) || 30;
+const MAGIC_LINK_TTL_MINUTES = env.MAGIC_LINK_TTL_MINUTES ?? 30;
 const VOTER_COOKIE_NAME = "jm_voter";
-const VOTE_HASH_SALT = process.env.VOTE_HASH_SALT || "junkmail-dev-vote";
+const VOTE_HASH_SALT = env.VOTE_HASH_SALT ?? "junkmail-dev-vote";
 const ALIAS_MIN_LENGTH = 2;
 const ALIAS_MAX_LENGTH = 32;
 
@@ -81,7 +82,7 @@ authRouter.post("/request-link", async (c) => {
 
   await db.insert(authTokens).values({ userId: invited.id, tokenHash, expiresAt });
 
-  const apiOrigin = process.env.API_BASE_URL || new URL(c.req.url).origin;
+  const apiOrigin = env.API_ORIGIN ?? env.API_BASE_URL ?? new URL(c.req.url).origin;
   const link = new URL("/api/v1/auth/verify", apiOrigin);
   link.searchParams.set("token", token);
 
@@ -98,7 +99,7 @@ authRouter.get("/verify", async (c) => {
   const token = c.req.query("token");
   const next = c.req.query("next");
   const webBaseUrl =
-    process.env.WEB_BASE_URL || process.env.CORS_ORIGIN || new URL(c.req.url).origin;
+    env.WEB_ORIGIN ?? env.WEB_BASE_URL ?? env.APP_ORIGIN ?? env.CORS_ORIGIN ?? new URL(c.req.url).origin;
 
   if (!token) {
     const errorUrl = new URL("/login", webBaseUrl);

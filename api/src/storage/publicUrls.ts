@@ -1,13 +1,14 @@
 import { storageBucket } from "./client.js";
+import { env } from "../env.js";
 
-const endpoint = process.env.MINIO_ENDPOINT || "localhost";
-const port = process.env.MINIO_PORT || "9010";
-const useSsl = process.env.MINIO_USE_SSL === "true";
+const endpoint = env.MINIO_ENDPOINT ?? "localhost";
+const port = String(env.MINIO_PORT ?? 9010);
+const useSsl = env.MINIO_USE_SSL ?? false;
 const protocol = useSsl ? "https" : "http";
 
 const minioDirectBase = `${protocol}://${endpoint}:${port}`;
-const configuredPublicBase = process.env.MINIO_PUBLIC_URL || minioDirectBase;
-const assetsProxyBase = (process.env.ASSETS_PROXY_BASE || "/assets").replace(/\/+$/, "");
+const configuredPublicBase = env.MINIO_PUBLIC_URL ?? minioDirectBase;
+const assetsProxyBase = (env.ASSETS_PROXY_BASE ?? "/assets").replace(/\/+$/, "");
 
 const toPathname = (rawUrl: string) => {
   if (!rawUrl) return "";

@@ -9,22 +9,23 @@ import { generateToken } from "../auth/tokens.js";
 import { redis } from "../queue/connection.js";
 import { queryConvexRatingsByImageIds } from "../convex/client.js";
 import { normalizePublicAssetData, normalizePublicAssetUrl } from "../storage/publicUrls.js";
+import { env } from "../env.js";
 
 const matchupsRouter = new Hono();
 
 const VOTER_COOKIE_NAME = "jm_voter";
-const VOTE_HASH_SALT = process.env.VOTE_HASH_SALT || "junkmail-dev-vote";
+const VOTE_HASH_SALT = env.VOTE_HASH_SALT ?? "junkmail-dev-vote";
 
-const NEW_EXPOSURE_THRESHOLD = Number(process.env.MATCHUP_NEW_EXPOSURE) || 5;
-const CLOSE_SAMPLE_SIZE = Number(process.env.MATCHUP_CLOSE_SAMPLE) || 24;
-const CLOSE_CANDIDATE_PAIRS = Number(process.env.MATCHUP_CLOSE_CANDIDATE_PAIRS) || 6;
-const REPEAT_TTL_SECONDS = Number(process.env.MATCHUP_REPEAT_TTL_SECONDS) || 120;
-const MATCHUP_POOL_TTL_SECONDS = Number(process.env.MATCHUP_POOL_TTL_SECONDS) || 10;
-const MATCHUP_PAIR_COOLDOWN_MS = Number(process.env.MATCHUP_PAIR_COOLDOWN_MS) || 900;
+const NEW_EXPOSURE_THRESHOLD = env.MATCHUP_NEW_EXPOSURE ?? 5;
+const CLOSE_SAMPLE_SIZE = env.MATCHUP_CLOSE_SAMPLE ?? 24;
+const CLOSE_CANDIDATE_PAIRS = env.MATCHUP_CLOSE_CANDIDATE_PAIRS ?? 6;
+const REPEAT_TTL_SECONDS = env.MATCHUP_REPEAT_TTL_SECONDS ?? 120;
+const MATCHUP_POOL_TTL_SECONDS = env.MATCHUP_POOL_TTL_SECONDS ?? 10;
+const MATCHUP_PAIR_COOLDOWN_MS = env.MATCHUP_PAIR_COOLDOWN_MS ?? 900;
 
-const WEIGHT_NEW = Number(process.env.MATCHUP_WEIGHT_NEW) || 0.45;
-const WEIGHT_CLOSE = Number(process.env.MATCHUP_WEIGHT_CLOSE) || 0.4;
-const WEIGHT_RANDOM = Number(process.env.MATCHUP_WEIGHT_RANDOM) || 0.15;
+const WEIGHT_NEW = env.MATCHUP_WEIGHT_NEW ?? 0.45;
+const WEIGHT_CLOSE = env.MATCHUP_WEIGHT_CLOSE ?? 0.4;
+const WEIGHT_RANDOM = env.MATCHUP_WEIGHT_RANDOM ?? 0.15;
 
 const hashValue = (value: string, salt: string) =>
   createHash("sha256").update(`${salt}:${value}`).digest("hex");
@@ -39,7 +40,7 @@ const getVoterId = (c: Context) => {
   setCookie(c, VOTER_COOKIE_NAME, token, {
     httpOnly: true,
     sameSite: "Lax",
-    secure: process.env.NODE_ENV === "production",
+    secure: env.NODE_ENV === "production",
     path: "/",
     maxAge: 60 * 60 * 24 * 365,
   });

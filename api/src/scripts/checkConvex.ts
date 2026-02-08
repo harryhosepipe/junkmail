@@ -1,7 +1,8 @@
-import "../env.js";
 import { queryConvexHealth } from "../convex/client.js";
+import { getEnv } from "../env.js";
 
 const run = async () => {
+  getEnv();
   const { url, result } = await queryConvexHealth();
   console.log(
     JSON.stringify(

@@ -8,11 +8,12 @@ import imagesRouter from "./routes/images.js";
 import matchupsRouter from "./routes/matchups.js";
 import telegramRouter from "./routes/telegram.js";
 import votesRouter from "./routes/votes.js";
+import { env } from "./env.js";
 
 export const createApp = () => {
   const app = new Hono();
   const api = new Hono();
-  const corsOrigin = process.env.CORS_ORIGIN || "http://localhost:4321";
+  const corsOrigin = env.CORS_ORIGIN ?? env.WEB_ORIGIN ?? env.WEB_BASE_URL ?? env.APP_ORIGIN ?? "http://web.localhost";
 
   app.use("*", logger());
 

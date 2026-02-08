@@ -1,14 +1,12 @@
 import { ConvexHttpClient } from "convex/browser";
 import { makeFunctionReference } from "convex/server";
+import { env } from "../env.js";
 
 export const resolveConvexUrl = () =>
-  process.env.CONVEX_URL ||
-  process.env.PUBLIC_CONVEX_URL ||
-  process.env.CONVEX_SELF_HOSTED_URL ||
-  "";
+  env.CONVEX_URL || env.PUBLIC_CONVEX_URL || env.CONVEX_SELF_HOSTED_URL || "";
 
 export const resolveConvexAdminKey = () =>
-  process.env.CONVEX_ADMIN_KEY || process.env.CONVEX_SELF_HOSTED_ADMIN_KEY || "";
+  env.CONVEX_ADMIN_KEY || env.CONVEX_SELF_HOSTED_ADMIN_KEY || "";
 
 type ConvexHealth = {
   ok: boolean;

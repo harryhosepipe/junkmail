@@ -1,8 +1,8 @@
-import "../env.js";
 import { DeleteObjectsCommand, ListObjectsV2Command } from "@aws-sdk/client-s3";
 import { s3Client, storageBucket } from "../storage/client.js";
 import { db, pool } from "./client.js";
 import { images, ratings, votes } from "./schema.js";
+import { getEnv } from "../env.js";
 
 const deleteAllObjects = async () => {
   let continuationToken: string | undefined;
@@ -38,6 +38,7 @@ const deleteAllObjects = async () => {
 };
 
 const run = async () => {
+  getEnv();
   console.info("Clearing database tables: votes, ratings, images");
   await db.delete(votes);
   await db.delete(ratings);

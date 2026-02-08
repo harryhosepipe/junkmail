@@ -1,9 +1,10 @@
 import type { Context } from "hono";
+import { env } from "../env.js";
 
 const allowedOrigins = new Set(
-  [process.env.WEB_BASE_URL, process.env.CORS_ORIGIN].filter(Boolean) as string[],
+  [env.WEB_ORIGIN, env.WEB_BASE_URL, env.APP_ORIGIN, env.CORS_ORIGIN].filter(Boolean) as string[],
 );
-const isProd = process.env.NODE_ENV === "production";
+const isProd = env.NODE_ENV === "production";
 
 const getOrigin = (c: Context) => {
   const origin = c.req.header("origin");

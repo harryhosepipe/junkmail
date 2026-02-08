@@ -3,12 +3,14 @@ type SendMagicLinkArgs = {
   link: string;
 };
 
-const provider = (process.env.EMAIL_PROVIDER || "console").toLowerCase();
-const from = process.env.EMAIL_FROM || "junkmail <noreply@example.com>";
+import { env } from "../env.js";
+
+const provider = (env.EMAIL_PROVIDER ?? "console").toLowerCase();
+const from = env.EMAIL_FROM ?? "junkmail <noreply@example.com>";
 
 export const sendMagicLinkEmail = async ({ to, link }: SendMagicLinkArgs) => {
   if (provider === "resend") {
-    const apiKey = process.env.EMAIL_API_KEY;
+    const apiKey = env.EMAIL_API_KEY;
     if (!apiKey) {
       throw new Error("EMAIL_API_KEY is required for Resend");
     }

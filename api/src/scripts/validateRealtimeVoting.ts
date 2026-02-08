@@ -1,7 +1,7 @@
-import "../env.js";
 import { Queue } from "bullmq";
 import { queryConvexRatingsByImageIds, queryConvexTopRatings } from "../convex/client.js";
 import { redis } from "../queue/connection.js";
+import { env, getEnv } from "../env.js";
 
 type MatchupPayload = {
   a: { id: string };
@@ -17,18 +17,20 @@ type VoteStats = {
   failureSamples: string[];
 };
 
-const API_BASE_URL = process.env.API_BASE_URL || "http://localhost:8787";
-const ORIGIN = process.env.WEB_BASE_URL || process.env.CORS_ORIGIN || "http://localhost:4321";
-const CONCURRENT_USERS = Number(process.env.REALTIME_TEST_USERS) || 100;
-const VOTES_PER_USER = Number(process.env.REALTIME_TEST_VOTES_PER_USER) || 8;
-const PROBE_VOTES = Number(process.env.REALTIME_TEST_PROBE_VOTES) || 12;
-const PROBE_TIMEOUT_MS = Number(process.env.REALTIME_TEST_PROBE_TIMEOUT_MS) || 5000;
-const PROBE_POLL_MS = Number(process.env.REALTIME_TEST_PROBE_POLL_MS) || 120;
-const DISCOVERY_ROUNDS = Number(process.env.REALTIME_TEST_DISCOVERY_ROUNDS) || 250;
-const LATENCY_P95_TARGET_MS = Number(process.env.REALTIME_TEST_P95_TARGET_MS) || 300;
-const UPDATE_P95_TARGET_MS = Number(process.env.REALTIME_TEST_UPDATE_P95_TARGET_MS) || 1500;
-const DRAIN_TIMEOUT_MS = Number(process.env.REALTIME_TEST_DRAIN_TIMEOUT_MS) || 30000;
-const DRAIN_POLL_MS = Number(process.env.REALTIME_TEST_DRAIN_POLL_MS) || 200;
+getEnv();
+
+const API_BASE_URL = env.API_ORIGIN ?? env.API_BASE_URL ?? "http://web.localhost";
+const ORIGIN = env.WEB_ORIGIN ?? env.WEB_BASE_URL ?? env.APP_ORIGIN ?? env.CORS_ORIGIN ?? "http://web.localhost";
+const CONCURRENT_USERS = env.REALTIME_TEST_USERS ?? 100;
+const VOTES_PER_USER = env.REALTIME_TEST_VOTES_PER_USER ?? 8;
+const PROBE_VOTES = env.REALTIME_TEST_PROBE_VOTES ?? 12;
+const PROBE_TIMEOUT_MS = env.REALTIME_TEST_PROBE_TIMEOUT_MS ?? 5000;
+const PROBE_POLL_MS = env.REALTIME_TEST_PROBE_POLL_MS ?? 120;
+const DISCOVERY_ROUNDS = env.REALTIME_TEST_DISCOVERY_ROUNDS ?? 250;
+const LATENCY_P95_TARGET_MS = env.REALTIME_TEST_P95_TARGET_MS ?? 300;
+const UPDATE_P95_TARGET_MS = env.REALTIME_TEST_UPDATE_P95_TARGET_MS ?? 1500;
+const DRAIN_TIMEOUT_MS = env.REALTIME_TEST_DRAIN_TIMEOUT_MS ?? 30000;
+const DRAIN_POLL_MS = env.REALTIME_TEST_DRAIN_POLL_MS ?? 200;
 const voteQueue = new Queue("vote-writes", { connection: redis });
 
 const percentile = (values: number[], p: number) => {

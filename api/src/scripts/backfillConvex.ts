@@ -10,7 +10,7 @@ import {
   mutateConvexUpsertUserProfile,
   queryConvexBackfillCounts,
 } from "../convex/client.js";
-import "../env.js";
+import { getEnv } from "../env.js";
 
 const toMillis = (value: Date | null | undefined) => {
   if (!value) return Date.now();
@@ -40,6 +40,7 @@ const clearInBatches = async (
 };
 
 const run = async () => {
+  getEnv();
   const [pgUsers, pgRatings, pgVotes] = await Promise.all([
     db.select().from(users),
     db.select().from(ratings),

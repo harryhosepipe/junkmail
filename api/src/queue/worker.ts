@@ -1,4 +1,3 @@
-import "../env.js";
 import { GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
 import { eq } from "drizzle-orm";
 import { Worker } from "bullmq";
@@ -9,6 +8,10 @@ import { mutateConvexRecordVote } from "../convex/client.js";
 import { publicObjectUrl, s3Client, storageBucket } from "../storage/client.js";
 import { ImageFormat, ImageSize, variantKey } from "../storage/paths.js";
 import { redis } from "./connection.js";
+import { getEnv } from "../env.js";
+
+// Fail fast if env is missing/invalid.
+getEnv();
 
 const sizes: Record<ImageSize, number> = {
   thumb: 320,

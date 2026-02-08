@@ -18,11 +18,12 @@ import { getSessionUser, requireUploader } from "../auth/session.js";
 import { ensureSameOrigin } from "../auth/csrf.js";
 import { queryConvexRatingsByImageIds, queryConvexTopRatings } from "../convex/client.js";
 import { resolveAuthUserProfileById } from "../auth/userProfile.js";
+import { env } from "../env.js";
 
 const MAX_UPLOAD_BYTES = 15 * 1024 * 1024;
 const ACCEPTED_TYPES = ["image/jpeg", "image/png"] as const;
-const TOPLIST_MIN_COMPARISONS = Number(process.env.TOPLIST_MIN_COMPARISONS) || 10;
-const TOPLIST_CACHE_SECONDS = Number(process.env.TOPLIST_CACHE_SECONDS) || 90;
+const TOPLIST_MIN_COMPARISONS = env.TOPLIST_MIN_COMPARISONS ?? 10;
+const TOPLIST_CACHE_SECONDS = env.TOPLIST_CACHE_SECONDS ?? 90;
 const COMMENT_MAX_LENGTH = 500;
 
 const imagesRouter = new Hono();
@@ -417,7 +418,7 @@ imagesRouter.post("/:id/comments", async (c) => {
 });
 
 imagesRouter.post("/:id/reprocess", async (c) => {
-  if (process.env.NODE_ENV === "production") {
+  if (env.NODE_ENV === "production") {
     return c.json({ error: { message: "Not available" } }, 404);
   }
 
