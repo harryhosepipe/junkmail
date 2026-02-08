@@ -61,7 +61,7 @@ export function loadEnv(options: LoadEnvOptions = {}): Env {
     defaultsFile: options.defaultsFile ?? resolve(rootDir, ".env.defaults"),
     localFile: options.localFile ?? resolve(rootDir, ".env.local"),
     stagingFile: options.stagingFile ?? resolve(rootDir, ".env.staging"),
-    productionFile: options.productionFile ?? resolve(rootDir, ".env.production")
+    productionFile: options.productionFile ?? resolve(rootDir, ".env.production"),
   };
 
   const appEnv = AppEnvSchema.catch("local").parse(process.env.APP_ENV ?? opts.appEnv);
@@ -74,7 +74,7 @@ export function loadEnv(options: LoadEnvOptions = {}): Env {
   const merged: Record<string, string | undefined> = {
     ...defaults,
     ...specific,
-    ...process.env
+    ...process.env,
   };
 
   // Zod expects strings. Strip undefined and keep only string values.
@@ -104,7 +104,7 @@ export const env: Env = new Proxy({} as Env, {
   get(_target, prop) {
     const e = getEnv();
     return (e as any)[prop];
-  }
+  },
 });
 
 export function assertAppEnv(value: unknown): AppEnv {

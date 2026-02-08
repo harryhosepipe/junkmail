@@ -108,8 +108,7 @@ export const EnvSchema = z.object({
   BRADLEY_TERRY_K: NumFromString.optional(),
   RATING_INITIAL_SCORE: NumFromString.optional(),
   RATING_INITIAL_UNCERTAINTY: NumFromString.optional(),
-  RATING_MIN_UNCERTAINTY: NumFromString.optional()
+  RATING_MIN_UNCERTAINTY: NumFromString.optional(),
 });
 
 export type Env = z.infer<typeof EnvSchema>;
-
