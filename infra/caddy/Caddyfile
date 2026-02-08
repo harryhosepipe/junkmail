@@ -1,0 +1,33 @@
+{
+  # Local dev runs over plain HTTP (no local CA / trust steps).
+  auto_https off
+}
+
+# Single-origin dev front door:
+# - / -> Astro (host dev server)
+# - /api/* -> API (host dev server)
+# - /assets/* -> MinIO (docker)
+http://web.localhost {
+  handle /api/* {
+    reverse_proxy api-dev:8787
+  }
+
+  handle_path /assets/* {
+    reverse_proxy minio:9000
+  }
+
+  reverse_proxy web-dev:4321
+}
+
+# Direct service hostnames (optional, but useful for debugging).
+http://api.localhost {
+  reverse_proxy api-dev:8787
+}
+
+http://minio.localhost {
+  reverse_proxy minio:9000
+}
+
+http://minio-console.localhost {
+  reverse_proxy minio:9001
+}

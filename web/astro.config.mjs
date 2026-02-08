@@ -9,7 +9,8 @@ export default defineConfig({
     mode: "standalone",
   }),
   server: {
-    allowedHosts: [".trycloudflare.com"],
+    // Caddy front door uses *.localhost for stable dev hostnames.
+    allowedHosts: [".trycloudflare.com", ".localhost"],
   },
   vite: {
     server: {

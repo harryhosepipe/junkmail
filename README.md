@@ -7,7 +7,7 @@ Public gallery of junkmail images with fast pairwise voting, invite-only uploads
 1. Install deps
 
 ```bash
-npm install
+bun install
 ```
 
 2. Copy env
@@ -19,18 +19,28 @@ cp .env.example .env.local
 The API and worker load `.env.local` automatically.
 If you prefer `environment.local`, that is loaded too.
 
-3. Run API and web
+3. Start local services (Postgres + Redis + MinIO + Caddy)
 
 ```bash
-npm run dev:api
-npm run dev:web
+docker compose up -d
 ```
+
+This also starts the dev servers:
+
+- Web (Astro): `web-dev` container
+- API (Hono): `api-dev` container
+
+Visit:
+
+- Web: `http://web.localhost`
+- API (direct): `http://api.localhost`
+- MinIO (direct): `http://minio.localhost`
 
 Convex setup (required for realtime migration work)
 
 ```bash
-npm run convex:codegen
-npm run convex:check
+bun run convex:codegen
+bun run convex:check
 ```
 
 Environment values used by the Convex check:
@@ -42,33 +52,28 @@ Environment values used by the Convex check:
 Realtime voting validation
 
 ```bash
-npm run validate:realtime -w api
+bun run validate:realtime -w api
 ```
 
 This simulates ~100 concurrent voters (`REALTIME_TEST_USERS`, default `100`), checks vote latency and propagation latency SLOs, and validates leaderboard consistency from Convex ratings.
 
-4. Start local services
+## Caddy Front Door (Stable Hostnames + Cloudflare Tunnel Friendly)
 
-```bash
-docker compose up -d
-```
+Caddy is the stable front door for local dev, so you can use consistent hostnames and tunnel a single origin.
 
-## Single-Origin Gateway (Cloudflare Tunnel Friendly)
+Routes:
 
-The web dev server now proxies API and image traffic so one public origin works end-to-end:
-
-- `/` -> Astro web (`localhost:4321`)
-- `/api/*` -> API (`localhost:8787`)
-- `/assets/*` -> MinIO (`localhost:9010`)
-
-This removes the need to rotate `PUBLIC_API_BASE_URL` or `MINIO_PUBLIC_URL` every time a random tunnel URL changes.
+- `http://web.localhost/` -> Astro web (`localhost:4321`)
+- `http://web.localhost/api/*` -> API (`localhost:8787`)
+- `http://web.localhost/assets/*` -> MinIO (`minio:9000`)
+- `http://api.localhost/` -> API (`localhost:8787`)
+- `http://minio.localhost/` -> MinIO (`minio:9000`)
 
 Run:
 
 ```bash
-npm run dev:api
-npm run dev:web
-cloudflared tunnel --url http://localhost:4321
+docker compose up -d
+cloudflared tunnel --url http://web.localhost
 ```
 
 Use the printed `https://...trycloudflare.com` URL. Voting and images should work through the same hostname.
