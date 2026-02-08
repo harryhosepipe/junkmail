@@ -1,5 +1,7 @@
 node_modules/
 dist/
+.env.staging
+.env.production
 .env.local
 .env
 .astro/

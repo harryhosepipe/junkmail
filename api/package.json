@@ -19,6 +19,7 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.713.0",
     "@hono/node-server": "^1.13.0",
+    "@repo/config": "file:../packages/config",
     "bullmq": "^5.40.0",
     "convex": "^1.31.7",
     "dotenv": "^16.4.7",
