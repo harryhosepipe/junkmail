@@ -8,7 +8,7 @@
   ],
   "scripts": {
     "dev": "bun run dev:infra && bun run dev:all",
-    "dev:infra": "docker compose up -d caddy postgres redis minio minio-init convex-backend convex-dashboard",
+    "dev:infra": "docker compose --profile host up -d caddy postgres redis minio minio-init convex-backend convex-dashboard",
     "dev:down": "docker compose down",
     "dev:ps": "docker compose ps",
     "dev:docker": "docker compose --profile app up",
