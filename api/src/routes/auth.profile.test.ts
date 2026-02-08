@@ -3,15 +3,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Hono } from "hono";
 
 const state = vi.hoisted(() => ({
-  sessionUser: null as
-    | null
-    | {
-        id: string;
-        email: string;
-        alias: string;
-        role: string;
-        createdAt: string;
-      },
+  sessionUser: null as null | {
+    id: string;
+    email: string;
+    alias: string;
+    role: string;
+    createdAt: string;
+  },
   uploadedImages: 0,
   voteCount: 0,
   updatedAlias: "",
@@ -121,9 +119,7 @@ describe("auth profile routes", () => {
     expect(body.profile.uploadedImages).toBe(7);
     expect(body.profile.votesCast).toBe(12);
 
-    const expectedHash = createHash("sha256")
-      .update("junkmail-dev-vote:abc123")
-      .digest("hex");
+    const expectedHash = createHash("sha256").update("junkmail-dev-vote:abc123").digest("hex");
     expect(queryConvexVoteCountForProfile).toHaveBeenCalledWith({
       authUserId: "user-1",
       voterHash: expectedHash,

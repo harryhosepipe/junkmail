@@ -26,6 +26,12 @@ export default defineConfig({
           changeOrigin: true,
           rewrite: (path) => path.replace(/^\/assets/, ""),
         },
+        "/convex": {
+          target: "http://localhost:3210",
+          changeOrigin: true,
+          ws: true,
+          rewrite: (path) => path.replace(/^\/convex/, ""),
+        },
       },
     },
   },

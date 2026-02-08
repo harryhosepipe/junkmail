@@ -1,4 +1,5 @@
 import {
+  bigint,
   doublePrecision,
   integer,
   jsonb,
@@ -14,6 +15,8 @@ export const users = pgTable("users", {
   alias: text("alias").notNull(),
   role: text("role").notNull(),
   inviteToken: text("invite_token").unique(),
+  telegramUserId: bigint("telegram_user_id", { mode: "number" }).unique(),
+  telegramUsername: text("telegram_username"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 

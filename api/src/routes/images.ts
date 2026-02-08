@@ -261,7 +261,10 @@ imagesRouter.post("/", requireUploader, async (c) => {
     },
   );
 
-  return c.json({ id: imageId, status: "processing", originalUrl: normalizePublicAssetUrl(originalUrl) }, 201);
+  return c.json(
+    { id: imageId, status: "processing", originalUrl: normalizePublicAssetUrl(originalUrl) },
+    201,
+  );
 });
 
 imagesRouter.get("/recent", async (c) => {
@@ -380,7 +383,10 @@ imagesRouter.post("/:id/comments", async (c) => {
     return c.json({ error: { message: "Comment cannot be empty." } }, 400);
   }
   if (text.length > COMMENT_MAX_LENGTH) {
-    return c.json({ error: { message: `Comment cannot exceed ${COMMENT_MAX_LENGTH} characters.` } }, 400);
+    return c.json(
+      { error: { message: `Comment cannot exceed ${COMMENT_MAX_LENGTH} characters.` } },
+      400,
+    );
   }
 
   const [comment] = await db

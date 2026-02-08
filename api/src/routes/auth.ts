@@ -169,11 +169,7 @@ authRouter.get("/profile", async (c) => {
   const voterHash = voterId ? hashValue(voterId, VOTE_HASH_SALT) : undefined;
 
   const [uploadStats, voteStats] = await Promise.all([
-    db
-      .select({ count: count() })
-      .from(images)
-      .where(eq(images.uploaderId, user.id))
-      .limit(1),
+    db.select({ count: count() }).from(images).where(eq(images.uploaderId, user.id)).limit(1),
     queryConvexVoteCountForProfile({ authUserId: user.id, voterHash }).catch(() => ({ count: 0 })),
   ]);
 

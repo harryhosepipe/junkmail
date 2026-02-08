@@ -1,6 +1,6 @@
 {
-  "id": "6e98d2a0-119c-4e30-86b0-9849e91f0c9f",
-  "prevId": "b279c72a-be1a-41a8-bcc9-5a138398a984",
+  "id": "815a37ff-10c0-496b-bc6a-d6646986ab80",
+  "prevId": "6e98d2a0-119c-4e30-86b0-9849e91f0c9f",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -358,6 +358,18 @@
           "primaryKey": false,
           "notNull": false
         },
+        "telegram_user_id": {
+          "name": "telegram_user_id",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "telegram_username": {
+          "name": "telegram_username",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp with time zone",
@@ -379,6 +391,11 @@
           "name": "users_invite_token_unique",
           "nullsNotDistinct": false,
           "columns": ["invite_token"]
+        },
+        "users_telegram_user_id_unique": {
+          "name": "users_telegram_user_id_unique",
+          "nullsNotDistinct": false,
+          "columns": ["telegram_user_id"]
         }
       },
       "policies": {},

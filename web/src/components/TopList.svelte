@@ -1,6 +1,6 @@
 <script>
   import { onDestroy, onMount } from "svelte";
-  import { convex } from "../lib/convex";
+  import { convex, realtimeEnabled } from "../lib/convex";
   import ImageDetailModal from "./ImageDetailModal.svelte";
 
   export let apiBaseUrl = "";
@@ -17,6 +17,7 @@
   let unsubscribeConnection = null;
   const thumbById = new Map();
   const knownTopIds = new Set();
+  let realtimeUnavailable = false;
 
   const placeholders = Array.from({ length: 8 });
 
@@ -58,9 +59,26 @@
     }
   };
 
+  const loadToplistFromApi = async () => {
+    const response = await fetch(`${apiBaseUrl}/api/v1/images/top?limit=20&min=${minComparisons}`);
+    if (!response.ok) {
+      throw new Error("Toplist unavailable");
+    }
+    const data = await response.json();
+    items = mergeToplist(Array.isArray(data) ? data : []);
+    state = "ready";
+  };
+
   const subscribeToplist = () => {
     if (unsubscribeToplist) {
       unsubscribeToplist();
+    }
+    if (!convex || !realtimeEnabled) {
+      realtimeUnavailable = true;
+      void loadToplistFromApi().catch(() => {
+        state = "error";
+      });
+      return;
     }
 
     unsubscribeToplist = convex.onUpdate(
@@ -68,10 +86,17 @@
       { limit: 20, minComparisons },
       (rows) => {
         items = mergeToplist(Array.isArray(rows) ? rows : []);
+        realtimeUnavailable = false;
         state = "ready";
       },
-      () => {
-        state = "error";
+      async () => {
+        // Realtime can be blocked on mobile tunnel sessions; fall back to API.
+        realtimeUnavailable = true;
+        try {
+          await loadToplistFromApi();
+        } catch {
+          state = "error";
+        }
       },
     );
   };
@@ -136,9 +161,14 @@
       window.addEventListener("popstate", handlePopstate);
     }
 
-    unsubscribeConnection = convex.subscribeToConnectionState((next) => {
-      connection = next?.hasInflightRequests ? "syncing" : "live";
-    });
+    if (convex && realtimeEnabled) {
+      unsubscribeConnection = convex.subscribeToConnectionState((next) => {
+        connection = next?.hasInflightRequests ? "syncing" : "live";
+      });
+    } else {
+      connection = "offline";
+      realtimeUnavailable = true;
+    }
 
     await hydrateThumbs();
     subscribeToplist();
@@ -146,16 +176,7 @@
     const fallback = setTimeout(async () => {
       if (state !== "loading") return;
       try {
-        const response = await fetch(
-          `${apiBaseUrl}/api/v1/images/top?limit=20&min=${minComparisons}`,
-        );
-        if (!response.ok) {
-          state = "error";
-          return;
-        }
-        const data = await response.json();
-        items = mergeToplist(Array.isArray(data) ? data : []);
-        state = "ready";
+        await loadToplistFromApi();
       } catch {
         state = "error";
       }
@@ -185,7 +206,9 @@
       ? "Syncing votes..."
       : connection === "live"
         ? "Live updates on"
-        : "Connecting...";
+        : connection === "offline"
+          ? "Live updates off"
+          : "Connecting...";
 </script>
 
 <div class="toplist-header">
@@ -211,6 +234,9 @@
 {:else if items.length === 0}
   <p class="subtle" style="margin-top: 12px;">No ranked images yet.</p>
 {:else}
+  {#if realtimeUnavailable}
+    <p class="subtle" style="margin-top: 12px;">Live updates offline. Showing latest toplist.</p>
+  {/if}
   <div class="toplist">
     {#each items as item, index}
       <a

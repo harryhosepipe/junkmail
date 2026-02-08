@@ -98,3 +98,14 @@ Common commands
 - `web/`: Astro frontend
 - `api/`: Hono API
 - Postgres + Redis + MinIO (local infra via docker-compose in phase 1)
+
+## Telegram Photo Ingest (Optional)
+
+You can ingest photos posted to a private Telegram group/channel via a bot webhook.
+
+1. Create a bot with `@BotFather`, add it to your private group.
+2. Set env vars (see `.env.example`):
+   - `TELEGRAM_BOT_TOKEN`
+   - `TELEGRAM_ALLOWED_CHAT_IDS` (comma-separated)
+   - `TELEGRAM_WEBHOOK_SECRET_TOKEN` (optional but recommended)
+3. Set the bot webhook to `API_BASE_URL/api/v1/telegram/webhook` and (if configured) pass the same secret token.

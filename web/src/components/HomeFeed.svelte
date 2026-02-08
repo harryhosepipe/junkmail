@@ -1,6 +1,6 @@
 <script>
   import { onDestroy, onMount } from "svelte";
-  import { convex } from "../lib/convex";
+  import { convex, realtimeEnabled } from "../lib/convex";
   import ImageDetailModal from "./ImageDetailModal.svelte";
 
   export let apiBaseUrl = "";
@@ -9,6 +9,7 @@
   let state = "loading";
   let baseItems = [];
   let unsubscribeRatings = null;
+  let realtimeUnavailable = false;
   let modalOpen = false;
   let modalImageId = "";
   let modalPushedHistory = false;
@@ -109,6 +110,12 @@
       state = "ready";
       return;
     }
+    if (!convex || !realtimeEnabled) {
+      mergeWithRatings([]);
+      realtimeUnavailable = true;
+      state = "ready";
+      return;
+    }
 
     unsubscribeRatings = convex.onUpdate(
       "voting:getRatingsByImageIds",
@@ -116,10 +123,14 @@
       (payload) => {
         const ratings = Array.isArray(payload?.ratings) ? payload.ratings : [];
         mergeWithRatings(ratings);
+        realtimeUnavailable = false;
         state = "ready";
       },
       () => {
-        state = "error";
+        // Keep feed visible if realtime fails (common for mobile tunnel sessions).
+        mergeWithRatings([]);
+        realtimeUnavailable = true;
+        state = "ready";
       },
     );
   };
@@ -229,6 +240,9 @@
 {:else if items.length === 0}
   <p class="subtle" style="margin-top: 12px;">No uploads yet.</p>
 {:else}
+  {#if realtimeUnavailable}
+    <p class="subtle" style="margin-top: 12px;">Live ratings offline. Showing latest uploads.</p>
+  {/if}
   <div class="grid" style="margin-top: 16px;">
     {#each items as item}
       {@const sources = getImageSources(item)}

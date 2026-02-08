@@ -16,6 +16,12 @@
   let prefetchedAssetsReady = Promise.resolve();
   let celebrateResetTimer = null;
   const celebrationMinVisibleMs = 220;
+  const swipeThresholdPx = 72;
+  let swipePointerId = null;
+  let swipeStartX = 0;
+  let swipeDeltaX = 0;
+  let isSwiping = false;
+  let suppressTapUntil = 0;
 
   const confettiPieces = [
     { x: -52, y: -56, hue: 12, delay: 0 },
@@ -226,6 +232,68 @@
     }
   };
 
+  const resetSwipe = () => {
+    swipePointerId = null;
+    swipeStartX = 0;
+    swipeDeltaX = 0;
+    isSwiping = false;
+  };
+
+  const handleSwipePointerDown = (event) => {
+    if (event.pointerType !== "touch" || busy || state !== "ready" || !matchup) return;
+    swipePointerId = event.pointerId;
+    swipeStartX = event.clientX;
+    swipeDeltaX = 0;
+    isSwiping = true;
+    event.currentTarget?.setPointerCapture?.(event.pointerId);
+  };
+
+  const handleSwipePointerMove = (event) => {
+    if (!isSwiping || event.pointerId !== swipePointerId || busy || state !== "ready") return;
+    swipeDeltaX = event.clientX - swipeStartX;
+  };
+
+  const handleSwipePointerEnd = (event) => {
+    if (!isSwiping || event.pointerId !== swipePointerId) return;
+    const finalDelta = swipeDeltaX;
+    resetSwipe();
+    if (Math.abs(finalDelta) < swipeThresholdPx) return;
+    suppressTapUntil = Date.now() + 320;
+    if (finalDelta < 0) {
+      submitVote(matchup?.a?.id);
+      return;
+    }
+    submitVote(matchup?.b?.id);
+  };
+
+  const handleSwipePointerCancel = (event) => {
+    if (event.pointerId !== swipePointerId) return;
+    resetSwipe();
+  };
+
+  const handleCardTap = (event, winnerId) => {
+    if (Date.now() < suppressTapUntil) {
+      event.preventDefault();
+      return;
+    }
+    submitVote(winnerId);
+  };
+
+  const cardDragStyle = (index) => {
+    if (!isSwiping || !swipeDeltaX) return "";
+    const amount = Math.abs(swipeDeltaX);
+    const intensity = Math.min(1, amount / swipeThresholdPx);
+    const targetIndex = swipeDeltaX < 0 ? 0 : 1;
+    if (index === targetIndex) {
+      const lift = Math.min(14, amount * 0.12);
+      return `transform: translateY(-${lift}px) scale(${(1 + intensity * 0.02).toFixed(3)});`;
+    }
+    const drift = Math.min(16, amount * 0.08);
+    const direction = swipeDeltaX < 0 ? 1 : -1;
+    const opacity = Math.max(0.62, 1 - intensity * 0.35);
+    return `transform: translateX(${(direction * drift).toFixed(1)}px) scale(${(1 - intensity * 0.025).toFixed(3)}); opacity:${opacity.toFixed(3)};`;
+  };
+
   const handleKeydown = (event) => {
     if (busy || state !== "ready" || !matchup || event.repeat) return;
     const tag = event.target?.tagName?.toLowerCase();
@@ -257,6 +325,7 @@
       clearTimeout(celebrateResetTimer);
       celebrateResetTimer = null;
     }
+    resetSwipe();
   });
 </script>
 
@@ -297,7 +366,7 @@
   <div class="vote-header">
     <div class="vote-kicker">No ties. Pick one.</div>
     <div class="vote-shortcuts vote-shortcuts-desktop">A / L or Left / Right</div>
-    <div class="vote-shortcuts vote-shortcuts-mobile">Tap A or B to vote</div>
+    <div class="vote-shortcuts vote-shortcuts-mobile">Tap A/B or swipe</div>
     <div class="vote-feedback">
       {#if statusMessage}
         <div class="vote-status" role="status" aria-live="polite">{statusMessage}</div>
@@ -307,49 +376,61 @@
       {/if}
     </div>
   </div>
-  <div class="vote-grid" data-state={busy ? "busy" : "ready"}>
-    {#each [matchup?.a, matchup?.b] as item, index}
-      <button
-        class="vote-card live"
-        class:selected={lastChoice === item?.id}
-        class:pending={busy}
-        class:refreshing={loadingNext}
-        type="button"
-        disabled={!item || busy}
-        aria-label={`Vote ${index === 0 ? "A" : "B"}`}
-        on:click={() => submitVote(item?.id)}
-      >
-        <div class="vote-key">{index === 0 ? "A" : "B"}</div>
-        <div class="vote-image">
-          {#if pickImageUrl(item)}
-            <img src={pickImageUrl(item)} alt={item?.title || "Junkmail matchup"} />
-          {:else}
-            <div class="vote-placeholder">Processing</div>
+  <div
+    class="vote-swipe-surface"
+    data-swiping={isSwiping ? "true" : "false"}
+    data-direction={swipeDeltaX < -8 ? "left" : swipeDeltaX > 8 ? "right" : "idle"}
+    on:pointerdown={handleSwipePointerDown}
+    on:pointermove={handleSwipePointerMove}
+    on:pointerup={handleSwipePointerEnd}
+    on:pointercancel={handleSwipePointerCancel}
+  >
+    <div class="vote-swipe-hint">Swipe left for A, right for B</div>
+    <div class="vote-grid" data-state={busy ? "busy" : "ready"}>
+      {#each [matchup?.a, matchup?.b] as item, index}
+        <button
+          class="vote-card live"
+          class:selected={lastChoice === item?.id}
+          class:pending={busy}
+          class:refreshing={loadingNext}
+          type="button"
+          disabled={!item || busy}
+          aria-label={`Vote ${index === 0 ? "A" : "B"}`}
+          style={cardDragStyle(index)}
+          on:click={(event) => handleCardTap(event, item?.id)}
+        >
+          <div class="vote-key">{index === 0 ? "A" : "B"}</div>
+          <div class="vote-image">
+            {#if pickImageUrl(item)}
+              <img src={pickImageUrl(item)} alt={item?.title || "Junkmail matchup"} />
+            {:else}
+              <div class="vote-placeholder">Processing</div>
+            {/if}
+          </div>
+          <div class="vote-meta">
+            <div class="vote-title">{item?.title || "Untitled"}</div>
+            <div class="vote-subtle">
+              {busy
+                ? lastChoice === item?.id
+                  ? "Locked in"
+                  : "Waiting..."
+                : `Vote ${index === 0 ? "A" : "B"}`}
+            </div>
+          </div>
+          {#if celebrateChoiceId === item?.id}
+            <div class="vote-celebrate" aria-hidden="true">
+              <div class="vote-stamp">WINNER</div>
+              {#each confettiPieces as piece}
+                <span
+                  class="vote-confetti"
+                  style={`--confetti-x:${piece.x}px;--confetti-y:${piece.y}px;--confetti-hue:${piece.hue};--confetti-delay:${piece.delay}ms;`}
+                ></span>
+              {/each}
+            </div>
           {/if}
-        </div>
-        <div class="vote-meta">
-          <div class="vote-title">{item?.title || "Untitled"}</div>
-          <div class="vote-subtle">
-            {busy
-              ? lastChoice === item?.id
-                ? "Locked in"
-                : "Waiting..."
-              : `Vote ${index === 0 ? "A" : "B"}`}
-          </div>
-        </div>
-        {#if celebrateChoiceId === item?.id}
-          <div class="vote-celebrate" aria-hidden="true">
-            <div class="vote-stamp">WINNER</div>
-            {#each confettiPieces as piece}
-              <span
-                class="vote-confetti"
-                style={`--confetti-x:${piece.x}px;--confetti-y:${piece.y}px;--confetti-hue:${piece.hue};--confetti-delay:${piece.delay}ms;`}
-              ></span>
-            {/each}
-          </div>
-        {/if}
-      </button>
-    {/each}
+        </button>
+      {/each}
+    </div>
   </div>
 {/if}
 
@@ -396,6 +477,14 @@
   .vote-error {
     display: grid;
     gap: 12px;
+  }
+
+  .vote-swipe-surface {
+    touch-action: pan-y;
+  }
+
+  .vote-swipe-hint {
+    display: none;
   }
 
   .vote-retry {
@@ -636,9 +725,24 @@
       font-size: 11px;
     }
 
+    .vote-swipe-hint {
+      display: block;
+      margin-bottom: 8px;
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--ink-muted);
+    }
+
     .vote-grid {
       grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 10px;
+    }
+
+    .vote-swipe-surface[data-swiping="true"][data-direction="left"] .vote-card.live:first-child,
+    .vote-swipe-surface[data-swiping="true"][data-direction="right"] .vote-card.live:last-child {
+      border-color: var(--accent);
+      box-shadow: 0 16px 28px -20px rgba(212, 90, 60, 0.45);
     }
 
     .vote-card.live {

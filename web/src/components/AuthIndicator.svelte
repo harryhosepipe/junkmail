@@ -13,11 +13,12 @@
     return "Junklord";
   };
 
-  let label = initialUser?.email || initialUser?.alias
-    ? profileLabel(initialUser)
-    : initialUser
-      ? "Junklord"
-      : "Visitor";
+  let label =
+    initialUser?.email || initialUser?.alias
+      ? profileLabel(initialUser)
+      : initialUser
+        ? "Junklord"
+        : "Visitor";
   let state = initialUser ? "authed" : "guest";
 
   const setIndicator = (text, nextState) => {

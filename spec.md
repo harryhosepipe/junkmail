@@ -100,6 +100,13 @@ Use Bradley-Terry pairwise ranking.
 - Serve with responsive srcset and lazy loading
 - Max file size: 10-15MB
 
+### Telegram Ingest (Optional)
+
+- A Telegram bot can be added to a private group/channel; members post images directly to the group.
+- API receives updates via a webhook (`/api/v1/telegram/webhook`), downloads the Telegram file, stores it as an original in MinIO, and enqueues the existing image-processing job.
+- Uploads are attributed to the Telegram sender via `users.telegram_user_id` (users auto-provisioned if missing).
+- Security: allowlist chat IDs (`TELEGRAM_ALLOWED_CHAT_IDS`) and optionally require `X-Telegram-Bot-Api-Secret-Token`.
+
 ## Data Model (Minimal)
 
 ### users

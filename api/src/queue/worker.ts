@@ -118,14 +118,14 @@ const voteWorker = new Worker(
   async (job) => {
     const { imageAId, imageBId, winnerId, voterHash, voterAuthUserId, ipHash, createdAt } =
       job.data as {
-      imageAId: string;
-      imageBId: string;
-      winnerId: string;
-      voterHash: string;
-      voterAuthUserId?: string;
-      ipHash: string;
-      createdAt: number;
-    };
+        imageAId: string;
+        imageBId: string;
+        winnerId: string;
+        voterHash: string;
+        voterAuthUserId?: string;
+        ipHash: string;
+        createdAt: number;
+      };
 
     await mutateConvexRecordVote({
       imageAId,
