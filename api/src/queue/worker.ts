@@ -1,3 +1,4 @@
+import "../env.js";
 import { GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
 import { eq } from "drizzle-orm";
 import { Worker } from "bullmq";
