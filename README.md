@@ -25,10 +25,7 @@ If you prefer `environment.local`, that is loaded too.
 docker compose up -d
 ```
 
-This also starts the dev servers:
-
-- Web (Astro): `web-dev` container
-- API (Hono): `api-dev` container
+This also starts the dev servers (API + web) behind Caddy.
 
 Visit:
 

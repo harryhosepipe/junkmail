@@ -19,8 +19,6 @@ services:
     command: sh -lc "bun install"
     restart: "no"
 
-  # Dev servers live in containers so the Caddy front door can always reach them,
-  # regardless of whether Docker is Desktop/WSL/etc.
   api-dev:
     image: node:22-bookworm-slim
     user: "${DOCKER_UID:-1000}:${DOCKER_GID:-1000}"
@@ -31,7 +29,6 @@ services:
     environment:
       APP_ENV: local
       PORT: "8787"
-      # Containers must use service DNS names, not localhost.
       DATABASE_URL: postgres://junkmail:junkmail@postgres:5432/junkmail
       REDIS_URL: redis://redis:6379
       MINIO_ENDPOINT: minio
@@ -61,13 +58,42 @@ services:
     command: sh -lc "cd web && ../node_modules/.bin/astro dev --host 0.0.0.0 --port 4321"
     environment:
       APP_ENV: local
-      # SSR calls should hit API over the docker network; browser calls hit Caddy.
       API_BASE_URL: http://api-dev:8787
       PUBLIC_API_BASE_URL: http://web.localhost
+      PUBLIC_DISABLE_REALTIME: "true"
     depends_on:
       repo-deps:
         condition: service_completed_successfully
       api-dev:
+        condition: service_started
+
+  worker-dev:
+    image: node:22-bookworm-slim
+    user: "${DOCKER_UID:-1000}:${DOCKER_GID:-1000}"
+    working_dir: /app
+    volumes:
+      - ../../:/app
+    command: sh -lc "cd api && ../node_modules/.bin/tsx src/queue/worker.ts"
+    environment:
+      APP_ENV: local
+      DATABASE_URL: postgres://junkmail:junkmail@postgres:5432/junkmail
+      REDIS_URL: redis://redis:6379
+      MINIO_ENDPOINT: minio
+      MINIO_PORT: "9000"
+      MINIO_USE_SSL: "false"
+      MINIO_PUBLIC_URL: http://web.localhost/assets
+      WEB_BASE_URL: http://web.localhost
+      API_BASE_URL: http://web.localhost
+      PUBLIC_API_BASE_URL: http://web.localhost
+      CORS_ORIGIN: http://web.localhost
+    depends_on:
+      repo-deps:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_started
+      redis:
+        condition: service_started
+      minio:
         condition: service_started
 
   postgres:

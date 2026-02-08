@@ -4,9 +4,9 @@
 }
 
 # Single-origin dev front door:
-# - / -> Astro (host dev server)
-# - /api/* -> API (host dev server)
-# - /assets/* -> MinIO (docker)
+# - / -> Astro (web-dev container)
+# - /api/* -> API (api-dev container)
+# - /assets/* -> MinIO (minio container)
 http://web.localhost {
   handle /api/* {
     reverse_proxy api-dev:8787

@@ -1,5 +1,8 @@
 import { ConvexHttpClient } from "convex/browser";
 import { makeFunctionReference } from "convex/server";
+import { desc, eq, gte, inArray } from "drizzle-orm";
+import { db } from "../db/client.js";
+import { ratings, votes } from "../db/schema.js";
 
 export const resolveConvexUrl = () =>
   process.env.CONVEX_URL ||
@@ -201,14 +204,146 @@ export const queryConvexRatingsByImageIds = async (imageIds: string[]) => {
   if (!imageIds.length) {
     return [] as ConvexRating[];
   }
-  const { client } = createConvexClient();
-  const result = await client.query(ratingsByImageIdsRef, { imageIds });
-  return result.ratings || [];
+
+  try {
+    const { client } = createConvexClient();
+    const result = await client.query(ratingsByImageIdsRef, { imageIds });
+    return result.ratings || [];
+  } catch {
+    const uniqueIds = [...new Set(imageIds)].slice(0, 500);
+    const rows = uniqueIds.length
+      ? await db
+          .select({
+            imageId: ratings.imageId,
+            score: ratings.score,
+            uncertainty: ratings.uncertainty,
+            comparisonsCount: ratings.comparisonsCount,
+            updatedAt: ratings.updatedAt,
+          })
+          .from(ratings)
+          .where(inArray(ratings.imageId, uniqueIds))
+      : [];
+    const byId = new Map(rows.map((row) => [row.imageId, row]));
+    const initialScore = Number(process.env.RATING_INITIAL_SCORE) || 0;
+    const initialUncertainty = Number(process.env.RATING_INITIAL_UNCERTAINTY) || 1;
+    return uniqueIds.map((imageId) => {
+      const row = byId.get(imageId);
+      return {
+        imageId,
+        score: row?.score ?? initialScore,
+        uncertainty: row?.uncertainty ?? initialUncertainty,
+        comparisonsCount: row?.comparisonsCount ?? 0,
+        updatedAt: row?.updatedAt ? new Date(row.updatedAt).getTime() : 0,
+      } satisfies ConvexRating;
+    });
+  }
 };
 
 export const mutateConvexRecordVote = async (args: RecordVoteArgs) => {
-  const { client } = createConvexClient();
-  return client.mutation(recordVoteRef, args);
+  try {
+    const { client } = createConvexClient();
+    return await client.mutation(recordVoteRef, args);
+  } catch {
+    const learningRate = Number(process.env.BRADLEY_TERRY_K) || 0.15;
+    const initialScore = Number(process.env.RATING_INITIAL_SCORE) || 0;
+    const initialUncertainty = Number(process.env.RATING_INITIAL_UNCERTAINTY) || 1;
+    const minUncertainty = Number(process.env.RATING_MIN_UNCERTAINTY) || 0.15;
+
+    const updateUncertainty = (comparisonsCount: number) => {
+      const next = 1 / Math.sqrt(comparisonsCount + 1);
+      return Math.max(minUncertainty, next);
+    };
+
+    const now = args.createdAt ?? Date.now();
+
+    await db.transaction(async (tx) => {
+      // Ensure ratings rows exist.
+      await tx
+        .insert(ratings)
+        .values([
+          {
+            imageId: args.imageAId,
+            score: initialScore,
+            uncertainty: initialUncertainty,
+            comparisonsCount: 0,
+            updatedAt: new Date(now),
+          },
+          {
+            imageId: args.imageBId,
+            score: initialScore,
+            uncertainty: initialUncertainty,
+            comparisonsCount: 0,
+            updatedAt: new Date(now),
+          },
+        ])
+        .onConflictDoNothing();
+
+      const current = await tx
+        .select({
+          imageId: ratings.imageId,
+          score: ratings.score,
+          uncertainty: ratings.uncertainty,
+          comparisonsCount: ratings.comparisonsCount,
+        })
+        .from(ratings)
+        .where(inArray(ratings.imageId, [args.imageAId, args.imageBId]));
+
+      const byId = new Map(current.map((row) => [row.imageId, row]));
+      const ratingA = byId.get(args.imageAId) ?? {
+        imageId: args.imageAId,
+        score: initialScore,
+        uncertainty: initialUncertainty,
+        comparisonsCount: 0,
+      };
+      const ratingB = byId.get(args.imageBId) ?? {
+        imageId: args.imageBId,
+        score: initialScore,
+        uncertainty: initialUncertainty,
+        comparisonsCount: 0,
+      };
+
+      const scoreA = ratingA.score;
+      const scoreB = ratingB.score;
+      const probabilityA = 1 / (1 + Math.exp(-(scoreA - scoreB)));
+      const outcomeA = args.winnerId === args.imageAId ? 1 : 0;
+      const deltaA = learningRate * (outcomeA - probabilityA);
+      const deltaB = -deltaA;
+
+      const nextComparisonsA = (ratingA.comparisonsCount ?? 0) + 1;
+      const nextComparisonsB = (ratingB.comparisonsCount ?? 0) + 1;
+
+      await tx
+        .update(ratings)
+        .set({
+          score: scoreA + deltaA,
+          comparisonsCount: nextComparisonsA,
+          uncertainty: updateUncertainty(nextComparisonsA),
+          updatedAt: new Date(now),
+        })
+        .where(eq(ratings.imageId, args.imageAId));
+
+      await tx
+        .update(ratings)
+        .set({
+          score: scoreB + deltaB,
+          comparisonsCount: nextComparisonsB,
+          uncertainty: updateUncertainty(nextComparisonsB),
+          updatedAt: new Date(now),
+        })
+        .where(eq(ratings.imageId, args.imageBId));
+
+      await tx.insert(votes).values({
+        imageAId: args.imageAId,
+        imageBId: args.imageBId,
+        winnerId: args.winnerId,
+        voterHash: args.voterHash,
+        ipHash: args.ipHash,
+        createdAt: new Date(now),
+      });
+    });
+
+    return { ok: true };
+  }
 };
 
 export const isConvexOptimisticConcurrencyError = (error: unknown) => {
@@ -217,8 +352,31 @@ export const isConvexOptimisticConcurrencyError = (error: unknown) => {
 };
 
 export const queryConvexTopRatings = async (args: TopRatingsArgs) => {
-  const { client } = createConvexClient();
-  return client.query(topRatingsRef, args);
+  try {
+    const { client } = createConvexClient();
+    return await client.query(topRatingsRef, args);
+  } catch {
+    const safeLimit = Math.max(1, Math.min(Math.floor(args.limit), 200));
+    const minComparisons = Math.max(0, Math.floor(args.minComparisons));
+    const rows = await db
+      .select({
+        imageId: ratings.imageId,
+        score: ratings.score,
+        uncertainty: ratings.uncertainty,
+        comparisonsCount: ratings.comparisonsCount,
+      })
+      .from(ratings)
+      .where(gte(ratings.comparisonsCount, minComparisons))
+      .orderBy(desc(ratings.score))
+      .limit(safeLimit);
+
+    return rows.map((row) => ({
+      imageId: row.imageId,
+      score: row.score,
+      uncertainty: row.uncertainty,
+      comparisonsCount: row.comparisonsCount,
+    }));
+  }
 };
 
 export const queryConvexVoteCountByAuthUserId = async (authUserId: string) => {

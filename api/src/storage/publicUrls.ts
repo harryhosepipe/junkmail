@@ -36,7 +36,13 @@ const shouldRewriteToProxy = (rawUrl: string, pathname: string) => {
 
   try {
     const parsed = new URL(rawUrl);
-    const knownBases = [configuredPublicBase, minioDirectBase]
+    // Include common local-dev origins so older stored URLs still rewrite to /assets/*.
+    const legacyBases = [
+      "http://localhost:9010",
+      "http://127.0.0.1:9010",
+      "http://minio.localhost",
+    ];
+    const knownBases = [configuredPublicBase, minioDirectBase, ...legacyBases]
       .map((value) => {
         try {
           return new URL(value).origin;
