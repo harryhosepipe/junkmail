@@ -25,7 +25,7 @@ If you prefer `environment.local`, that is loaded too.
 docker compose up -d
 ```
 
-This also starts the dev servers (API + web) behind Caddy.
+This also starts the dev servers (API + web + worker) and Convex behind Caddy.
 
 Visit:
 
@@ -65,6 +65,8 @@ Routes:
 - `http://web.localhost/assets/*` -> MinIO (`minio:9000`)
 - `http://api.localhost/` -> API (`localhost:8787`)
 - `http://minio.localhost/` -> MinIO (`minio:9000`)
+- `http://convex.localhost/` -> Convex (`convex-backend:3210`)
+- Convex dashboard: `http://localhost:6791`
 
 Run:
 

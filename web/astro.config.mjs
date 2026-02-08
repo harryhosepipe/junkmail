@@ -16,19 +16,19 @@ export default defineConfig({
     server: {
       proxy: {
         "/api": {
-          target: "http://localhost:8787",
+          target: "http://api-dev:8787",
           changeOrigin: true,
           headers: {
             origin: "http://localhost:4321",
           },
         },
         "/assets": {
-          target: "http://localhost:9010",
+          target: "http://minio:9000",
           changeOrigin: true,
           rewrite: (path) => path.replace(/^\/assets/, ""),
         },
         "/convex": {
-          target: "http://localhost:3210",
+          target: "http://convex-backend:3210",
           changeOrigin: true,
           ws: true,
           rewrite: (path) => path.replace(/^\/convex/, ""),

@@ -8,6 +8,7 @@ services:
     depends_on:
       - api-dev
       - web-dev
+      - convex-backend
       - minio
 
   repo-deps:
@@ -19,29 +20,78 @@ services:
     command: sh -lc "bun install"
     restart: "no"
 
+  convex-backend:
+    image: ghcr.io/get-convex/convex-backend:latest
+    env_file:
+      - ../../.env.local
+    environment:
+      # Used for generating URLs in Convex responses/UI.
+      CONVEX_CLOUD_ORIGIN: http://convex.localhost
+      CONVEX_SITE_ORIGIN: http://convex-site.localhost
+      DO_NOT_REQUIRE_SSL: "1"
+    volumes:
+      - convex_data:/convex/data
+
+  convex-dev:
+    image: node:22-bookworm-slim
+    user: "${DOCKER_UID:-1000}:${DOCKER_GID:-1000}"
+    working_dir: /app
+    volumes:
+      - ../../:/app
+    env_file:
+      - ../../.env.local
+    environment:
+      CONVEX_SELF_HOSTED_URL: http://convex-backend:3210
+    command: >
+      sh -lc "./node_modules/.bin/convex dev
+      --url \"$$CONVEX_SELF_HOSTED_URL\"
+      --admin-key \"$$CONVEX_SELF_HOSTED_ADMIN_KEY\""
+    depends_on:
+      repo-deps:
+        condition: service_completed_successfully
+      convex-backend:
+        condition: service_started
+
+  convex-dashboard:
+    image: ghcr.io/get-convex/convex-dashboard:latest
+    environment:
+      NEXT_PUBLIC_DEPLOYMENT_URL: http://convex.localhost
+    depends_on:
+      - convex-backend
+    ports:
+      - "6792:6791"
+
   api-dev:
     image: node:22-bookworm-slim
     user: "${DOCKER_UID:-1000}:${DOCKER_GID:-1000}"
     working_dir: /app
     volumes:
       - ../../:/app
+    env_file:
+      - ../../.env.defaults
+      - ../../.env.local
     command: sh -lc "cd api && ../node_modules/.bin/tsx watch src/index.ts"
     environment:
-      APP_ENV: local
       PORT: "8787"
       DATABASE_URL: postgres://junkmail:junkmail@postgres:5432/junkmail
       REDIS_URL: redis://redis:6379
       MINIO_ENDPOINT: minio
       MINIO_PORT: "9000"
       MINIO_USE_SSL: "false"
-      MINIO_PUBLIC_URL: http://web.localhost/assets
+      MINIO_PUBLIC_URL: http://minio.localhost
       WEB_BASE_URL: http://web.localhost
       API_BASE_URL: http://web.localhost
       PUBLIC_API_BASE_URL: http://web.localhost
       CORS_ORIGIN: http://web.localhost
+      CONVEX_URL: http://convex-backend:3210
+      CONVEX_SELF_HOSTED_URL: http://convex-backend:3210
     depends_on:
       repo-deps:
         condition: service_completed_successfully
+      convex-backend:
+        condition: service_started
+      convex-dev:
+        condition: service_started
       postgres:
         condition: service_started
       redis:
@@ -55,12 +105,14 @@ services:
     working_dir: /app
     volumes:
       - ../../:/app
+    env_file:
+      - ../../.env.defaults
+      - ../../.env.local
     command: sh -lc "cd web && ../node_modules/.bin/astro dev --host 0.0.0.0 --port 4321"
     environment:
-      APP_ENV: local
       API_BASE_URL: http://api-dev:8787
       PUBLIC_API_BASE_URL: http://web.localhost
-      PUBLIC_DISABLE_REALTIME: "true"
+      PUBLIC_CONVEX_URL: http://convex.localhost
     depends_on:
       repo-deps:
         condition: service_completed_successfully
@@ -73,22 +125,28 @@ services:
     working_dir: /app
     volumes:
       - ../../:/app
+    env_file:
+      - ../../.env.defaults
+      - ../../.env.local
     command: sh -lc "cd api && ../node_modules/.bin/tsx src/queue/worker.ts"
     environment:
-      APP_ENV: local
       DATABASE_URL: postgres://junkmail:junkmail@postgres:5432/junkmail
       REDIS_URL: redis://redis:6379
       MINIO_ENDPOINT: minio
       MINIO_PORT: "9000"
       MINIO_USE_SSL: "false"
-      MINIO_PUBLIC_URL: http://web.localhost/assets
+      MINIO_PUBLIC_URL: http://minio.localhost
       WEB_BASE_URL: http://web.localhost
       API_BASE_URL: http://web.localhost
       PUBLIC_API_BASE_URL: http://web.localhost
       CORS_ORIGIN: http://web.localhost
+      CONVEX_URL: http://convex-backend:3210
+      CONVEX_SELF_HOSTED_URL: http://convex-backend:3210
     depends_on:
       repo-deps:
         condition: service_completed_successfully
+      convex-backend:
+        condition: service_started
       postgres:
         condition: service_started
       redis:
@@ -142,3 +200,4 @@ volumes:
   postgres_data:
   redis_data:
   minio_data:
+  convex_data:

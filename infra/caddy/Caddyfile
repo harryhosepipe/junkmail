@@ -31,3 +31,11 @@ http://minio.localhost {
 http://minio-console.localhost {
   reverse_proxy minio:9001
 }
+
+http://convex.localhost {
+  reverse_proxy convex-backend:3210
+}
+
+http://convex-site.localhost {
+  reverse_proxy convex-backend:3211
+}
