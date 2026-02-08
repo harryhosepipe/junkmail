@@ -111,8 +111,6 @@ services:
     command: sh -lc "cd web && ../node_modules/.bin/astro dev --host 0.0.0.0 --port 4321"
     environment:
       API_BASE_URL: http://api-dev:8787
-      PUBLIC_API_BASE_URL: http://web.localhost
-      PUBLIC_CONVEX_URL: http://convex.localhost
     depends_on:
       repo-deps:
         condition: service_completed_successfully

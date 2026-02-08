@@ -2,7 +2,6 @@
 import "../styles/global.css";
 import { ClientRouter } from "astro:transitions";
 import AuthIndicator from "../components/AuthIndicator.svelte";
-import { publicApiBaseUrl } from "../lib/apiBase";
 
 const {
   title = "Junkmail",
@@ -32,7 +31,6 @@ const {
           <a href="/login">Login</a>
         </nav>
         <AuthIndicator
-          apiBaseUrl={publicApiBaseUrl}
           initialUser={authUser}
           client:load
           transition:persist

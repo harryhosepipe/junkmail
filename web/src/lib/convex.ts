@@ -1,15 +1,10 @@
 import { ConvexClient } from "convex/browser";
 
-const configuredUrl = import.meta.env.PUBLIC_CONVEX_URL;
-const proxiedUrl =
-  typeof window !== "undefined" ? `${window.location.origin}/convex` : "http://localhost:3210";
+// Always use the same-origin proxy to avoid mixed-content issues when sharing the app over a tunnel (HTTPS page).
+// `/convex` is forwarded by the dev server (vite proxy) to the Convex backend.
+const proxiedUrl = typeof window !== "undefined" ? `${window.location.origin}/convex` : "";
 
-const pageProtocol = typeof window !== "undefined" ? window.location.protocol : "";
-const isSecurePage = pageProtocol === "https:";
-const isMixedContentRisk = isSecurePage && Boolean(configuredUrl?.startsWith("http://"));
-const deploymentUrl = !configuredUrl || isMixedContentRisk ? proxiedUrl : configuredUrl;
-
-export const realtimeEnabled = Boolean(deploymentUrl);
+export const realtimeEnabled = Boolean(proxiedUrl);
 export const realtimeDisabledReason = "";
 
-export const convex = realtimeEnabled ? new ConvexClient(deploymentUrl) : null;
+export const convex = realtimeEnabled ? new ConvexClient(proxiedUrl) : null;

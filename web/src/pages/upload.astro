@@ -1,7 +1,7 @@
 ---
 import Base from "../layouts/Base.astro";
 import UploadForm from "../components/UploadForm.svelte";
-import { publicApiBaseUrl, serverApiBaseUrl } from "../lib/apiBase";
+import { serverApiBaseUrl } from "../lib/apiBase.server";
 
 export const prerender = false;
 const cookieHeader = Astro.request.headers.get("cookie") ?? "";
@@ -31,6 +31,6 @@ if (cookieHeader) {
   </section>
 
   <section class="panel" style="margin-top: 24px;">
-    <UploadForm apiBaseUrl={publicApiBaseUrl} initialUser={authUser} client:load />
+    <UploadForm initialUser={authUser} client:load />
   </section>
 </Base>

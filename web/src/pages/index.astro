@@ -2,7 +2,6 @@
 import Base from "../layouts/Base.astro";
 import HomeFeed from "../components/HomeFeed.svelte";
 import VoteModule from "../components/VoteModule.svelte";
-import { publicApiBaseUrl } from "../lib/apiBase";
 
 export const prerender = true;
 ---
@@ -23,12 +22,12 @@ export const prerender = true;
   <section class="panel" style="margin-top: 28px;">
     <div class="headline" style="font-size: 22px;">Pick one</div>
     <div style="margin-top: 16px;">
-      <VoteModule apiBaseUrl={publicApiBaseUrl} client:load />
+      <VoteModule client:load />
     </div>
   </section>
 
   <section class="panel" style="margin-top: 24px;">
     <div class="headline" style="font-size: 22px;">Fresh + Top mix</div>
-    <HomeFeed apiBaseUrl={publicApiBaseUrl} client:load />
+    <HomeFeed client:load />
   </section>
 </Base>

@@ -44,7 +44,7 @@ Environment values used by the Convex check:
 
 - `CONVEX_URL` for server-side calls
 - `CONVEX_ADMIN_KEY` for admin-authenticated server calls
-- `PUBLIC_CONVEX_URL` for browser usage
+- `PUBLIC_CONVEX_URL` (optional) for browser usage; the web app defaults to same-origin `/convex` proxying to avoid mixed content when using a tunnel
 
 Realtime voting validation
 

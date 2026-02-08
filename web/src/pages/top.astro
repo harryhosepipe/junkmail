@@ -1,7 +1,6 @@
 ---
 import Base from "../layouts/Base.astro";
 import TopList from "../components/TopList.svelte";
-import { publicApiBaseUrl } from "../lib/apiBase";
 
 export const prerender = true;
 ---
@@ -13,6 +12,6 @@ export const prerender = true;
   </section>
 
   <section class="panel" style="margin-top: 24px;">
-    <TopList apiBaseUrl={publicApiBaseUrl} client:visible />
+    <TopList client:visible />
   </section>
 </Base>
