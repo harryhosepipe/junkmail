@@ -73,16 +73,19 @@ services:
     command: sh -lc "cd api && ../node_modules/.bin/tsx watch src/index.ts"
     environment:
       PORT: "8787"
+      APP_ORIGIN: ${APP_ORIGIN:-http://web.localhost}
+      WEB_ORIGIN: ${APP_ORIGIN:-http://web.localhost}
+      API_ORIGIN: ${APP_ORIGIN:-http://web.localhost}
       DATABASE_URL: postgres://junkmail:junkmail@postgres:5432/junkmail
       REDIS_URL: redis://redis:6379
       MINIO_ENDPOINT: minio
       MINIO_PORT: "9000"
       MINIO_USE_SSL: "false"
       MINIO_PUBLIC_URL: http://minio.localhost
-      WEB_BASE_URL: http://web.localhost
-      API_BASE_URL: http://web.localhost
-      PUBLIC_API_BASE_URL: http://web.localhost
-      CORS_ORIGIN: http://web.localhost
+      WEB_BASE_URL: ${APP_ORIGIN:-http://web.localhost}
+      API_BASE_URL: ${APP_ORIGIN:-http://web.localhost}
+      PUBLIC_API_BASE_URL: ${APP_ORIGIN:-http://web.localhost}
+      CORS_ORIGIN: ${APP_ORIGIN:-http://web.localhost}
       CONVEX_URL: http://convex-backend:3210
       CONVEX_SELF_HOSTED_URL: http://convex-backend:3210
     depends_on:
@@ -128,16 +131,19 @@ services:
       - ../../.env.local
     command: sh -lc "cd api && ../node_modules/.bin/tsx watch src/queue/worker.ts"
     environment:
+      APP_ORIGIN: ${APP_ORIGIN:-http://web.localhost}
+      WEB_ORIGIN: ${APP_ORIGIN:-http://web.localhost}
+      API_ORIGIN: ${APP_ORIGIN:-http://web.localhost}
       DATABASE_URL: postgres://junkmail:junkmail@postgres:5432/junkmail
       REDIS_URL: redis://redis:6379
       MINIO_ENDPOINT: minio
       MINIO_PORT: "9000"
       MINIO_USE_SSL: "false"
       MINIO_PUBLIC_URL: http://minio.localhost
-      WEB_BASE_URL: http://web.localhost
-      API_BASE_URL: http://web.localhost
-      PUBLIC_API_BASE_URL: http://web.localhost
-      CORS_ORIGIN: http://web.localhost
+      WEB_BASE_URL: ${APP_ORIGIN:-http://web.localhost}
+      API_BASE_URL: ${APP_ORIGIN:-http://web.localhost}
+      PUBLIC_API_BASE_URL: ${APP_ORIGIN:-http://web.localhost}
+      CORS_ORIGIN: ${APP_ORIGIN:-http://web.localhost}
       CONVEX_URL: http://convex-backend:3210
       CONVEX_SELF_HOSTED_URL: http://convex-backend:3210
     depends_on:

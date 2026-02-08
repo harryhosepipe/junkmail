@@ -74,7 +74,7 @@ Run:
 bun run dev:staging
 ```
 
-Use the printed `https://...trycloudflare.com` URL. Voting and images should work through the same hostname.
+This starts a quick `trycloudflare.com` tunnel to Caddy (the single entrypoint), prints the public URL, and boots the compose stack with `APP_ORIGIN` set to that URL.
 
 ## Local Infrastructure
 
