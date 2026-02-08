@@ -128,7 +128,7 @@ services:
     env_file:
       - ../../.env.defaults
       - ../../.env.local
-    command: sh -lc "cd api && ../node_modules/.bin/tsx src/queue/worker.ts"
+    command: sh -lc "cd api && ../node_modules/.bin/tsx watch src/queue/worker.ts"
     environment:
       DATABASE_URL: postgres://junkmail:junkmail@postgres:5432/junkmail
       REDIS_URL: redis://redis:6379

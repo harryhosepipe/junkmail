@@ -22,7 +22,7 @@ If you prefer `environment.local`, that is loaded too.
 3. Start local services (Postgres + Redis + MinIO + Caddy)
 
 ```bash
-docker compose up -d
+bun run dev
 ```
 
 This also starts the dev servers (API + web + worker) and Convex behind Caddy.
@@ -71,8 +71,7 @@ Routes:
 Run:
 
 ```bash
-docker compose up -d
-cloudflared tunnel --url http://web.localhost
+bun run dev:staging
 ```
 
 Use the printed `https://...trycloudflare.com` URL. Voting and images should work through the same hostname.

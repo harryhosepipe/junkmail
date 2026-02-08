@@ -7,6 +7,10 @@
     "packages/*"
   ],
   "scripts": {
+    "dev": "docker compose up",
+    "dev:down": "docker compose down",
+    "dev:ps": "docker compose ps",
+    "dev:staging": "concurrently -n dev,tunnel \"bun run dev\" \"cloudflared tunnel --url http://web.localhost\"",
     "lint": "eslint . --ext .js,.cjs,.mjs,.ts",
     "format": "prettier -w .",
     "format:check": "prettier --check .",
