@@ -30,6 +30,13 @@ This starts:
 - Infra in Docker (Postgres + Redis + MinIO + Convex + Caddy)
 - App dev servers on your host (API + web + worker)
 
+API + worker only (host-run)
+
+```bash
+bun run dev:infra
+bun run dev:api-worker
+```
+
 Visit:
 
 - Web: `http://localhost:4321` (or `http://web.localhost` via Caddy)

@@ -25,6 +25,7 @@
     "dev:web": "bun run --cwd web dev",
     "dev:api": "bun run --cwd api dev",
     "dev:worker": "bun run --cwd api worker",
+    "dev:api-worker": "concurrently -n api,worker \"bun run dev:api\" \"bun run dev:worker\"",
     "dev:all": "concurrently -n api,web,worker \"bun run dev:api\" \"bun run dev:web\" \"bun run dev:worker\""
   },
   "devDependencies": {
