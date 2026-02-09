@@ -67,12 +67,16 @@ cloudflared.stdout?.pipe(process.stdout);
 cloudflared.stderr?.pipe(process.stderr);
 
 let compose = null;
+let apps = null;
 let shuttingDown = false;
 
 function shutdown(exitCode = 0) {
   if (shuttingDown) return;
   shuttingDown = true;
 
+  if (apps && apps.exitCode == null) {
+    apps.kill("SIGINT");
+  }
   if (compose && compose.exitCode == null) {
     compose.kill("SIGINT");
   }
@@ -102,10 +106,36 @@ try {
 
   console.log("");
   console.log(`[staging] trycloudflare URL: ${publicUrl}`);
-  console.log(`[staging] starting compose stack (Caddy entrypoint on :80)`);
+  console.log(`[staging] starting infra (Caddy entrypoint on :80)`);
 
-  compose = spawnInherit("docker", ["compose", "up"], { env });
-  compose.once("exit", (code) => shutdown(code ?? 0));
+  compose = spawnInherit(
+    "docker",
+    [
+      "compose",
+      "--profile",
+      "host",
+      "up",
+      "-d",
+      "caddy",
+      "postgres",
+      "redis",
+      "minio",
+      "minio-init",
+      "convex-backend",
+      "convex-dashboard",
+    ],
+    { env },
+  );
+
+  compose.once("exit", (code) => {
+    if (code !== 0) {
+      shutdown(code ?? 1);
+    } else {
+      console.log(`[staging] starting apps (web + api + worker) on host`);
+      apps = spawnInherit("bun", ["run", "dev:apps"], { env });
+      apps.once("exit", (appsCode) => shutdown(appsCode ?? 0));
+    }
+  });
 } catch (err) {
   console.error(`[staging] ${err instanceof Error ? err.message : String(err)}`);
   shutdown(1);
