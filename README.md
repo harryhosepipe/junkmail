@@ -123,6 +123,12 @@ Common commands
 - Stop services: `docker compose down`
 - View status: `docker compose ps`
 
+Session-end (ship)
+
+```bash
+make ship
+```
+
 ## Architecture Overview
 
 - `web/`: Astro frontend
