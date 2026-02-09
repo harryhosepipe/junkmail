@@ -41,7 +41,9 @@ if [[ $status -eq 0 && "${1:-}" == "close" ]]; then
   # This wrapper must never affect bd output or exit status.
   if [[ -w /dev/tty ]]; then
     (
-      if command -v play-wav >/dev/null 2>&1; then
+      if [[ -x "$wrapper_dir/play-wav" ]]; then
+        "$wrapper_dir/play-wav" >/dev/null 2>&1 || printf '\a' > /dev/tty
+      elif command -v play-wav >/dev/null 2>&1; then
         play-wav >/dev/null 2>&1 || printf '\a' > /dev/tty
       else
         printf '\a' > /dev/tty
