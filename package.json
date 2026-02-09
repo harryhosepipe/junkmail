@@ -10,19 +10,13 @@
     "dev": "bun run dev:infra && bun run dev:apps",
     "dev:infra": "docker compose --profile host up -d caddy postgres redis minio minio-init convex-backend convex-dashboard",
     "dev:apps": "concurrently -n api,web,worker \"bun --cwd api dev\" \"bun --cwd web dev\" \"bun --cwd api worker\"",
-    "dev:down": "docker compose down",
-    "dev:ps": "docker compose ps",
     "dev:docker": "docker compose --profile app up",
     "dev:staging": "node infra/cloudflared/dev-staging.mjs",
-    "lint": "eslint . --ext .js,.cjs,.mjs,.ts",
-    "format": "prettier -w .",
-    "format:check": "prettier --check .",
-    "typecheck": "bun run --cwd packages/config typecheck && bun run --cwd api typecheck && bun run --cwd web typecheck",
-    "test": "bun run --cwd api test",
-    "convex:dev": "bunx convex dev",
-    "convex:deploy": "bunx convex deploy",
     "convex:codegen": "bunx convex codegen",
-    "convex:check": "bun --cwd api convex:check"
+    "convex:check": "bun --cwd api convex:check",
+    "check": "prettier --check . && eslint . --ext .js,.cjs,.mjs,.ts && bun run --cwd packages/config typecheck && bun run --cwd api typecheck && bun run --cwd web typecheck",
+    "fmt": "prettier -w .",
+    "test": "bun run --cwd api test"
   },
   "devDependencies": {
     "@eslint/js": "^9.18.0",

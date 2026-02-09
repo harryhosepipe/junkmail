@@ -119,9 +119,17 @@ Credentials (dev)
 
 Common commands
 
-- Start services: `docker compose up -d`
-- Stop services: `docker compose down`
-- View status: `docker compose ps`
+- Start services: `make infra-up` (or `docker compose up -d`)
+- Stop services: `make infra-down` (or `docker compose down`)
+- View status: `make infra-ps` (or `docker compose ps`)
+
+Quality
+
+```bash
+bun run check
+bun run test
+bun run fmt
+```
 
 Session-end (ship)
 
