@@ -16,7 +16,6 @@ export default defineConfig({
   env: {
     schema: {
       // Used by server-side fetches in `.astro` pages during dev/prerender.
-      // In Docker Compose, this is overridden to the internal service URL (api-dev:8787).
       API_BASE_URL: envField.string({
         context: "server",
         access: "public",

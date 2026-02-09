@@ -37,11 +37,17 @@ status=$?
 
 # "Task completed" maps to a successful `bd close ...`.
 if [[ $status -eq 0 && "${1:-}" == "close" ]]; then
-  if command -v play-wav >/dev/null 2>&1; then
-    # Never let the notification affect command output or exit status.
-    play-wav >/dev/null 2>&1 &
+  # Try to play a WAV if available; fall back to a terminal bell.
+  # This wrapper must never affect bd output or exit status.
+  if [[ -w /dev/tty ]]; then
+    (
+      if command -v play-wav >/dev/null 2>&1; then
+        play-wav >/dev/null 2>&1 || printf '\a' > /dev/tty
+      else
+        printf '\a' > /dev/tty
+      fi
+    ) >/dev/null 2>&1 &
   fi
 fi
 
 exit "$status"
-

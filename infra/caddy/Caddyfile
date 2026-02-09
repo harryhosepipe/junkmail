@@ -4,13 +4,12 @@
 }
 
 # Single-origin dev front door:
-# - / -> Astro (host dev server or web-dev container)
-# - /api/* -> API (host dev server or api-dev container)
+# - / -> Astro (host dev server)
+# - /api/* -> API (host dev server)
 # - /assets/* -> MinIO (minio container)
 #
 # Upstreams are provided via env vars so the same Caddyfile works for:
 # - host-run app servers (bun run dev:all) + Docker infra
-# - Docker-run app servers (docker compose --profile app up)
 (web_frontdoor) {
   handle /api/* {
     reverse_proxy {env.API_UPSTREAM}
