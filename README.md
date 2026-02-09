@@ -50,12 +50,6 @@ Visit:
 - Convex (direct): `http://localhost:3210` (or `http://convex.localhost` via Caddy)
 - Convex dashboard: `http://localhost:6791`
 
-Docker-only mode (optional)
-
-```bash
-bun run dev:docker
-```
-
 Convex setup (required for realtime migration work)
 
 ```bash
