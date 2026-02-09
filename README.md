@@ -97,6 +97,8 @@ bun run dev:staging
 
 This starts a quick `trycloudflare.com` tunnel to Caddy (the single entrypoint), prints the public URL, starts the local infra stack, and then starts the host app dev servers (web + api + worker) with `APP_ORIGIN` set to that URL.
 
+On WSL2 + Docker Desktop, the script also sets `DEV_UPSTREAM_HOST` to your WSL VM IP so Caddy (in Docker) can reach the host-run dev servers.
+
 ## Local Infrastructure
 
 Ports

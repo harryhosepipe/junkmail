@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { spawn } from "node:child_process";
+import os from "node:os";
 import process from "node:process";
 
 const TUNNEL_TARGET = process.env.TUNNEL_TARGET ?? "http://web.localhost";
@@ -70,6 +71,23 @@ let compose = null;
 let apps = null;
 let shuttingDown = false;
 
+function resolveDevUpstreamHost() {
+  const explicit = process.env.DEV_UPSTREAM_HOST;
+  if (explicit) return explicit;
+
+  // On WSL2, Docker containers can reach the WSL VM via its private IPv4 address.
+  // This avoids relying on host.docker.internal, which often routes to Windows instead.
+  const interfaces = os.networkInterfaces();
+  const candidates = []
+    .concat(...Object.values(interfaces))
+    .filter(Boolean)
+    .filter((entry) => entry.family === "IPv4" && !entry.internal)
+    .map((entry) => entry.address);
+
+  // Heuristic: prefer the first non-internal IPv4 (WSL typically exposes one on eth0).
+  return candidates[0] || "";
+}
+
 function shutdown(exitCode = 0) {
   if (shuttingDown) return;
   shuttingDown = true;
@@ -92,9 +110,11 @@ process.on("SIGTERM", () => shutdown(143));
 
 try {
   const publicUrl = await onceTrycloudflareUrl(cloudflared);
+  const devUpstreamHost = resolveDevUpstreamHost();
   // One public origin. Caddy routes /api/* and /assets/* under the same host.
   const env = {
     ...process.env,
+    ...(devUpstreamHost ? { DEV_UPSTREAM_HOST: devUpstreamHost } : {}),
     APP_ORIGIN: publicUrl,
     WEB_ORIGIN: publicUrl,
     API_ORIGIN: publicUrl,
@@ -106,6 +126,9 @@ try {
 
   console.log("");
   console.log(`[staging] trycloudflare URL: ${publicUrl}`);
+  if (devUpstreamHost) {
+    console.log(`[staging] DEV_UPSTREAM_HOST: ${devUpstreamHost}`);
+  }
   console.log(`[staging] starting infra (Caddy entrypoint on :80)`);
 
   compose = spawnInherit(

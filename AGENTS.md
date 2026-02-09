@@ -1,15 +1,15 @@
 # Agent Instructions
 
-This project uses **bd** (beads) for issue tracking. Run `bd onboard` to get started.
+This project uses **bd** (beads) for issue tracking. Run `./bin/bd onboard` to get started.
 
 ## Quick Reference
 
 ```bash
-bd ready              # Find available work
-bd show <id>          # View issue details
-bd update <id> --status in_progress  # Claim work
-bd close <id>         # Complete work
-bd sync               # Sync with git
+./bin/bd ready              # Find available work
+./bin/bd show <id>          # View issue details
+./bin/bd update <id> --status in_progress  # Claim work
+./bin/bd close <id>         # Complete work (plays ~/.local/bin/play-wav on success)
+./bin/bd sync               # Sync with git
 ```
 
 ## Landing the Plane (Session Completion)
@@ -24,7 +24,7 @@ bd sync               # Sync with git
 4. **PUSH TO REMOTE** - This is MANDATORY:
    ```bash
    git pull --rebase
-   bd sync
+   ./bin/bd sync
    git push
    git status  # MUST show "up to date with origin"
    ```
@@ -58,27 +58,27 @@ bd sync               # Sync with git
 **Check for ready work:**
 
 ```bash
-bd ready --json
+./bin/bd ready --json
 ```
 
 **Create new issues:**
 
 ```bash
-bd create "Issue title" --description="Detailed context" -t bug|feature|task -p 0-4 --json
-bd create "Issue title" --description="What this issue is about" -p 1 --deps discovered-from:bd-123 --json
+./bin/bd create "Issue title" --description="Detailed context" -t bug|feature|task -p 0-4 --json
+./bin/bd create "Issue title" --description="What this issue is about" -p 1 --deps discovered-from:bd-123 --json
 ```
 
 **Claim and update:**
 
 ```bash
-bd update bd-42 --status in_progress --json
-bd update bd-42 --priority 1 --json
+./bin/bd update bd-42 --status in_progress --json
+./bin/bd update bd-42 --priority 1 --json
 ```
 
 **Complete work:**
 
 ```bash
-bd close bd-42 --reason "Completed" --json
+./bin/bd close bd-42 --reason "Completed" --json
 ```
 
 ### Issue Types
@@ -99,12 +99,12 @@ bd close bd-42 --reason "Completed" --json
 
 ### Workflow for AI Agents
 
-1. **Check ready work**: `bd ready` shows unblocked issues
-2. **Claim your task**: `bd update <id> --status in_progress`
+1. **Check ready work**: `./bin/bd ready` shows unblocked issues
+2. **Claim your task**: `./bin/bd update <id> --status in_progress`
 3. **Work on it**: Implement, test, document
 4. **Discover new work?** Create linked issue:
-   - `bd create "Found bug" --description="Details about what was found" -p 1 --deps discovered-from:<parent-id>`
-5. **Complete**: `bd close <id> --reason "Done"`
+   - `./bin/bd create "Found bug" --description="Details about what was found" -p 1 --deps discovered-from:<parent-id>`
+5. **Complete**: `./bin/bd close <id> --reason "Done"`
 
 ### Auto-Sync
 
@@ -119,7 +119,7 @@ bd automatically syncs with git:
 - ✅ Use bd for ALL task tracking
 - ✅ Always use `--json` flag for programmatic use
 - ✅ Link discovered work with `discovered-from` dependencies
-- ✅ Check `bd ready` before asking "what should I work on?"
+- ✅ Check `./bin/bd ready` before asking "what should I work on?"
 - ❌ Do NOT create markdown TODO lists
 - ❌ Do NOT use external issue trackers
 - ❌ Do NOT duplicate tracking systems
