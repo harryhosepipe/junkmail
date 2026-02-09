@@ -30,11 +30,16 @@ This starts:
 - Infra in Docker (Postgres + Redis + MinIO + Convex + Caddy)
 - App dev servers on your host (API + web + worker)
 
-API + worker only (host-run)
+Run only some services (host-run)
 
 ```bash
 bun run dev:infra
-bun run dev:api-worker
+
+# API
+bun --cwd api dev
+
+# Worker
+bun --cwd api worker
 ```
 
 Visit:

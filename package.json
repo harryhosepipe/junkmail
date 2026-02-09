@@ -7,8 +7,9 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "bun run dev:infra && bun run dev:all",
+    "dev": "bun run dev:infra && bun run dev:apps",
     "dev:infra": "docker compose --profile host up -d caddy postgres redis minio minio-init convex-backend convex-dashboard",
+    "dev:apps": "concurrently -n api,web,worker \"bun --cwd api dev\" \"bun --cwd web dev\" \"bun --cwd api worker\"",
     "dev:down": "docker compose down",
     "dev:ps": "docker compose ps",
     "dev:docker": "docker compose --profile app up",
@@ -21,12 +22,7 @@
     "convex:dev": "bunx convex dev",
     "convex:deploy": "bunx convex deploy",
     "convex:codegen": "bunx convex codegen",
-    "convex:check": "bun run --cwd api convex:check",
-    "dev:web": "bun run --cwd web dev",
-    "dev:api": "bun run --cwd api dev",
-    "dev:worker": "bun run --cwd api worker",
-    "dev:api-worker": "concurrently -n api,worker \"bun run dev:api\" \"bun run dev:worker\"",
-    "dev:all": "concurrently -n api,web,worker \"bun run dev:api\" \"bun run dev:web\" \"bun run dev:worker\""
+    "convex:check": "bun --cwd api convex:check"
   },
   "devDependencies": {
     "@eslint/js": "^9.18.0",
