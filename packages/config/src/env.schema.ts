@@ -25,12 +25,14 @@ export const EnvSchema = z.object({
   API_ORIGIN: z.string().url().optional(),
   API_BASE_URL: z.string().url().optional(), // legacy name (migrate to API_ORIGIN)
   WEB_BASE_URL: z.string().url().optional(), // legacy name (migrate to WEB_ORIGIN)
+  PUBLIC_API_BASE_URL: z.string().url().optional(), // legacy public API alias
   CORS_ORIGIN: z.string().optional(), // legacy API setting
 
   // Convex
   CONVEX_URL: z.string().url().optional(),
   PUBLIC_CONVEX_URL: z.string().url().optional(),
   CONVEX_SELF_HOSTED_URL: z.string().url().optional(),
+  CONVEX_SITE_URL: z.string().url().optional(),
   CONVEX_ADMIN_KEY: z.string().optional(),
   CONVEX_SELF_HOSTED_ADMIN_KEY: z.string().optional(),
 

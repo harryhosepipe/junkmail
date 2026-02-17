@@ -73,6 +73,12 @@ bun run test
 bun run fmt
 ```
 
+`bun run check` includes env guardrails:
+
+- Direct `process.env` usage is blocked outside approved env loader/config files.
+- Escape hatches are allowed for test and migration files.
+- `.env.example` keys must stay aligned with `packages/config/src/env.schema.ts`.
+
 ## Caddy + Staging Tunnel
 
 Caddy routes one origin for local and tunnel usage:
