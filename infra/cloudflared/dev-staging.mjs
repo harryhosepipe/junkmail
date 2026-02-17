@@ -142,7 +142,6 @@ try {
       "caddy",
       "redis",
       "minio",
-      "minio-init",
       "convex-backend",
       "convex-dashboard",
     ],

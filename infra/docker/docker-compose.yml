@@ -67,6 +67,7 @@ services:
 
   minio-init:
     image: minio/mc:latest
+    profiles: ["bootstrap"]
     depends_on:
       - minio
     entrypoint: >

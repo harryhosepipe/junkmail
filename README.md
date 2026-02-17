@@ -30,6 +30,12 @@ This starts:
 - Infra in Docker (Redis + MinIO + Convex + Caddy)
 - App dev servers on your host (API + web + worker)
 
+If this is your first run (or after wiping Docker volumes), initialize the MinIO bucket once:
+
+```bash
+bun run dev:infra:init-storage
+```
+
 Run only some services (host-run)
 
 ```bash
