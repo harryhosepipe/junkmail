@@ -62,6 +62,11 @@ export const normalizePublicAssetUrl = (rawUrl: string) => {
   if (!rawUrl || typeof rawUrl !== "string") return rawUrl;
   const pathname = toPathname(rawUrl);
   if (!pathname) return rawUrl;
+  const proxiedPrefix = `${assetsProxyBase}/${storageBucket}/`;
+  if (pathname.startsWith(proxiedPrefix)) {
+    // Prefer origin-relative asset paths so UI works across localhost and tunnel origins.
+    return pathname;
+  }
   if (!shouldRewriteToProxy(rawUrl, pathname)) {
     return rawUrl;
   }
