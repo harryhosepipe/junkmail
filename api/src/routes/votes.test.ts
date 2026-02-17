@@ -173,4 +173,74 @@ describe("votes route", () => {
     expect(body.acceptedForScoring).toBe(true);
     expect(mutateConvexProjectVoteEvent).toHaveBeenCalledTimes(1);
   });
+
+  it("records invalid token votes but does not score them", async () => {
+    state.validation = {
+      acceptedForScoring: false,
+      validationStatus: "rejected_invalid_token",
+      rejectionReason: "token_not_found",
+    };
+
+    const app = createTestApp();
+    const response = await app.request("http://localhost/api/v1/votes", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        cookie: "jm_voter=voter-2",
+      },
+      body: JSON.stringify({
+        image_a_id: "img-a",
+        image_b_id: "img-b",
+        winner_id: "img-b",
+        matchup_token: "bad-token",
+      }),
+    });
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.acceptedForScoring).toBe(false);
+    expect(body.validationStatus).toBe("rejected_invalid_token");
+    expect(queueAdd).not.toHaveBeenCalled();
+    expect(mutateConvexCreateVoteEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        validationStatus: "rejected_invalid_token",
+        rejectionReason: "token_not_found",
+      }),
+    );
+  });
+
+  it("records expired token votes but does not score them", async () => {
+    state.validation = {
+      acceptedForScoring: false,
+      validationStatus: "rejected_expired",
+      rejectionReason: "token_expired",
+    };
+
+    const app = createTestApp();
+    const response = await app.request("http://localhost/api/v1/votes", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        cookie: "jm_voter=voter-3",
+      },
+      body: JSON.stringify({
+        image_a_id: "img-a",
+        image_b_id: "img-b",
+        winner_id: "img-a",
+        matchup_token: "expired-token",
+      }),
+    });
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.acceptedForScoring).toBe(false);
+    expect(body.validationStatus).toBe("rejected_expired");
+    expect(queueAdd).not.toHaveBeenCalled();
+    expect(mutateConvexCreateVoteEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        validationStatus: "rejected_expired",
+        rejectionReason: "token_expired",
+      }),
+    );
+  });
 });
