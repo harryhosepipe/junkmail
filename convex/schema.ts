@@ -45,7 +45,7 @@ export default defineSchema({
     .index("by_comparisons", ["comparisonsCount"])
     .index("by_updated_at", ["updatedAt"]),
   votes: defineTable({
-    voteEventId: v.string(),
+    voteEventId: v.optional(v.string()),
     matchupTokenId: v.optional(v.string()),
     imageAId: v.string(),
     imageBId: v.string(),
