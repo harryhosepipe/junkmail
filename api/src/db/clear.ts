@@ -1,7 +1,14 @@
 import { DeleteObjectsCommand, ListObjectsV2Command } from "@aws-sdk/client-s3";
 import { s3Client, storageBucket } from "../storage/client.js";
-import { db, pool } from "./client.js";
-import { authTokens, sessions, users } from "./schema.js";
+import {
+  mutateConvexBackfillClearAuthTokensBatch,
+  mutateConvexBackfillClearImageCommentsBatch,
+  mutateConvexBackfillClearImagesBatch,
+  mutateConvexBackfillClearImageRatingsBatch,
+  mutateConvexBackfillClearSessionsBatch,
+  mutateConvexBackfillClearUserProfilesBatch,
+  mutateConvexBackfillClearVotesBatch,
+} from "../convex/client.js";
 import { getEnv } from "../env.js";
 
 const deleteAllObjects = async () => {
@@ -37,12 +44,27 @@ const deleteAllObjects = async () => {
   return deleted;
 };
 
+const clearInBatches = async (
+  clearBatch: (args: { limit?: number }) => Promise<{ deleted: number; hasMore: boolean }>,
+  limit = 256,
+) => {
+  let hasMore = true;
+  while (hasMore) {
+    const result = await clearBatch({ limit });
+    hasMore = result.hasMore;
+  }
+};
+
 const run = async () => {
   getEnv();
-  console.info("Clearing auth database tables: auth_tokens, sessions, users");
-  await db.delete(authTokens);
-  await db.delete(sessions);
-  await db.delete(users);
+  console.info("Clearing Convex tables");
+  await clearInBatches(mutateConvexBackfillClearImageCommentsBatch);
+  await clearInBatches(mutateConvexBackfillClearImagesBatch);
+  await clearInBatches(mutateConvexBackfillClearVotesBatch);
+  await clearInBatches(mutateConvexBackfillClearImageRatingsBatch);
+  await clearInBatches(mutateConvexBackfillClearSessionsBatch);
+  await clearInBatches(mutateConvexBackfillClearAuthTokensBatch);
+  await clearInBatches(mutateConvexBackfillClearUserProfilesBatch);
 
   console.info(`Clearing objects from bucket "${storageBucket}"`);
   const deletedObjects = await deleteAllObjects();
@@ -50,9 +72,7 @@ const run = async () => {
 };
 
 run()
-  .then(() => pool.end())
-  .catch(async (err) => {
+  .catch((err) => {
     console.error("Clear failed", err);
-    await pool.end();
     process.exitCode = 1;
   });

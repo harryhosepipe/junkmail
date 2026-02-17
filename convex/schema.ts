@@ -8,11 +8,32 @@ export default defineSchema({
     emailLower: v.string(),
     alias: v.string(),
     role: v.string(),
+    inviteToken: v.optional(v.string()),
+    telegramUserId: v.optional(v.number()),
+    telegramUsername: v.optional(v.string()),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
     .index("by_auth_user_id", ["authUserId"])
-    .index("by_email_lower", ["emailLower"]),
+    .index("by_email_lower", ["emailLower"])
+    .index("by_telegram_user_id", ["telegramUserId"]),
+  authTokens: defineTable({
+    tokenHash: v.string(),
+    userAuthUserId: v.string(),
+    expiresAt: v.number(),
+    usedAt: v.optional(v.number()),
+    createdAt: v.number(),
+  })
+    .index("by_token_hash", ["tokenHash"])
+    .index("by_user_auth_user_id", ["userAuthUserId"]),
+  sessions: defineTable({
+    tokenHash: v.string(),
+    userAuthUserId: v.string(),
+    expiresAt: v.number(),
+    createdAt: v.number(),
+  })
+    .index("by_token_hash", ["tokenHash"])
+    .index("by_user_auth_user_id", ["userAuthUserId"]),
   imageRatings: defineTable({
     imageId: v.string(),
     score: v.number(),

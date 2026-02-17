@@ -11,8 +11,6 @@
     "convex:check": "tsx src/scripts/checkConvex.ts",
     "convex:backfill": "tsx src/scripts/backfillConvex.ts",
     "validate:realtime": "tsx src/scripts/validateRealtimeVoting.ts",
-    "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate",
     "db:seed": "tsx src/db/seed.ts",
     "worker": "tsx src/queue/worker.ts"
   },
@@ -22,16 +20,12 @@
     "@repo/config": "workspace:*",
     "bullmq": "^5.40.0",
     "convex": "^1.31.7",
-    "drizzle-orm": "^0.38.2",
     "hono": "^4.6.4",
     "ioredis": "^5.5.0",
-    "pg": "^8.13.1",
     "sharp": "^0.33.5"
   },
   "devDependencies": {
     "@types/node": "^22.13.1",
-    "@types/pg": "^8.11.10",
-    "drizzle-kit": "^0.30.2",
     "tsx": "^4.19.2",
     "typescript": "^5.7.3",
     "vitest": "^4.0.18"

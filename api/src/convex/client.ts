@@ -57,6 +57,9 @@ export type ConvexUserProfile = {
   email: string;
   alias: string;
   role: string;
+  inviteToken?: string;
+  telegramUserId?: number;
+  telegramUsername?: string;
   createdAt: number;
   updatedAt: number;
 };
@@ -66,6 +69,9 @@ type UpsertUserProfileArgs = {
   email: string;
   alias: string;
   role: string;
+  inviteToken?: string;
+  telegramUserId?: number;
+  telegramUsername?: string;
   createdAt?: number;
   updatedAt?: number;
 };
@@ -111,6 +117,8 @@ type BackfillInsertImageCommentArgs = {
 
 type BackfillCounts = {
   userProfiles: number;
+  authTokens: number;
+  sessions: number;
   imageRatings: number;
   votes: number;
   images: number;
@@ -183,11 +191,35 @@ const userProfileByAuthIdRef = makeFunctionReference<
   { authUserId: string },
   ConvexUserProfile | null
 >("users:getByAuthUserId");
+const userProfileByTelegramIdRef = makeFunctionReference<
+  "query",
+  { telegramUserId: number },
+  ConvexUserProfile | null
+>("users:getByTelegramUserId");
 const upsertUserProfileRef = makeFunctionReference<
   "mutation",
   UpsertUserProfileArgs,
   { ok: boolean }
 >("users:upsertByAuthUserId");
+const updateUserAliasRef = makeFunctionReference<
+  "mutation",
+  { authUserId: string; alias: string; updatedAt?: number },
+  { ok: boolean }
+>("users:updateAlias");
+const upsertTelegramUserRef = makeFunctionReference<
+  "mutation",
+  {
+    telegramUserId: number;
+    email: string;
+    alias: string;
+    role: string;
+    telegramUsername?: string;
+    inviteToken?: string;
+    createdAt?: number;
+    updatedAt?: number;
+  },
+  { authUserId: string }
+>("users:upsertTelegramUser");
 const backfillClearVotesBatchRef = makeFunctionReference<
   "mutation",
   BackfillClearBatchArgs,
@@ -203,6 +235,16 @@ const backfillClearUserProfilesBatchRef = makeFunctionReference<
   BackfillClearBatchArgs,
   BackfillClearBatchResult
 >("backfill:clearUserProfilesBatch");
+const backfillClearAuthTokensBatchRef = makeFunctionReference<
+  "mutation",
+  BackfillClearBatchArgs,
+  BackfillClearBatchResult
+>("backfill:clearAuthTokensBatch");
+const backfillClearSessionsBatchRef = makeFunctionReference<
+  "mutation",
+  BackfillClearBatchArgs,
+  BackfillClearBatchResult
+>("backfill:clearSessionsBatch");
 const backfillClearImagesBatchRef = makeFunctionReference<
   "mutation",
   BackfillClearBatchArgs,
@@ -307,6 +349,36 @@ const setImageProcessingResultRef = makeFunctionReference<
   },
   { ok: boolean }
 >("content:setImageProcessingResult");
+const createAuthTokenRef = makeFunctionReference<
+  "mutation",
+  {
+    tokenHash: string;
+    userAuthUserId: string;
+    expiresAt: number;
+    createdAt?: number;
+  },
+  { ok: boolean }
+>("auth:createAuthToken");
+const consumeAuthTokenRef = makeFunctionReference<
+  "mutation",
+  { tokenHash: string; now?: number },
+  { userAuthUserId: string } | null
+>("auth:consumeAuthToken");
+const createSessionRef = makeFunctionReference<
+  "mutation",
+  { tokenHash: string; userAuthUserId: string; expiresAt: number; createdAt?: number },
+  { ok: boolean }
+>("auth:createSession");
+const deleteSessionByTokenHashRef = makeFunctionReference<
+  "mutation",
+  { tokenHash: string },
+  { ok: boolean }
+>("auth:deleteSessionByTokenHash");
+const getSessionUserAuthUserIdRef = makeFunctionReference<
+  "query",
+  { tokenHash: string; now?: number },
+  { userAuthUserId: string } | null
+>("auth:getSessionUserAuthUserId");
 
 const createConvexClient = () => {
   const url = resolveConvexUrl();
@@ -380,9 +452,37 @@ export const queryConvexUserProfileByAuthUserId = async (authUserId: string) => 
   return client.query(userProfileByAuthIdRef, { authUserId });
 };
 
+export const queryConvexUserProfileByTelegramUserId = async (telegramUserId: number) => {
+  const { client } = createConvexClient();
+  return client.query(userProfileByTelegramIdRef, { telegramUserId });
+};
+
 export const mutateConvexUpsertUserProfile = async (args: UpsertUserProfileArgs) => {
   const { client } = createConvexClient();
   return client.mutation(upsertUserProfileRef, args);
+};
+
+export const mutateConvexUpdateUserAlias = async (args: {
+  authUserId: string;
+  alias: string;
+  updatedAt?: number;
+}) => {
+  const { client } = createConvexClient();
+  return client.mutation(updateUserAliasRef, args);
+};
+
+export const mutateConvexUpsertTelegramUser = async (args: {
+  telegramUserId: number;
+  email: string;
+  alias: string;
+  role: string;
+  telegramUsername?: string;
+  inviteToken?: string;
+  createdAt?: number;
+  updatedAt?: number;
+}) => {
+  const { client } = createConvexClient();
+  return client.mutation(upsertTelegramUserRef, args);
 };
 
 export const mutateConvexBackfillClearVotesBatch = async (args: BackfillClearBatchArgs) => {
@@ -398,6 +498,16 @@ export const mutateConvexBackfillClearImageRatingsBatch = async (args: BackfillC
 export const mutateConvexBackfillClearUserProfilesBatch = async (args: BackfillClearBatchArgs) => {
   const { client } = createConvexClient();
   return client.mutation(backfillClearUserProfilesBatchRef, args);
+};
+
+export const mutateConvexBackfillClearAuthTokensBatch = async (args: BackfillClearBatchArgs) => {
+  const { client } = createConvexClient();
+  return client.mutation(backfillClearAuthTokensBatchRef, args);
+};
+
+export const mutateConvexBackfillClearSessionsBatch = async (args: BackfillClearBatchArgs) => {
+  const { client } = createConvexClient();
+  return client.mutation(backfillClearSessionsBatchRef, args);
 };
 
 export const mutateConvexBackfillClearImagesBatch = async (args: BackfillClearBatchArgs) => {
@@ -518,4 +628,39 @@ export const mutateConvexSetImageProcessingResult = async (args: {
 }) => {
   const { client } = createConvexClient();
   return client.mutation(setImageProcessingResultRef, args);
+};
+
+export const mutateConvexCreateAuthToken = async (args: {
+  tokenHash: string;
+  userAuthUserId: string;
+  expiresAt: number;
+  createdAt?: number;
+}) => {
+  const { client } = createConvexClient();
+  return client.mutation(createAuthTokenRef, args);
+};
+
+export const mutateConvexConsumeAuthToken = async (args: { tokenHash: string; now?: number }) => {
+  const { client } = createConvexClient();
+  return client.mutation(consumeAuthTokenRef, args);
+};
+
+export const mutateConvexCreateSession = async (args: {
+  tokenHash: string;
+  userAuthUserId: string;
+  expiresAt: number;
+  createdAt?: number;
+}) => {
+  const { client } = createConvexClient();
+  return client.mutation(createSessionRef, args);
+};
+
+export const mutateConvexDeleteSessionByTokenHash = async (args: { tokenHash: string }) => {
+  const { client } = createConvexClient();
+  return client.mutation(deleteSessionByTokenHashRef, args);
+};
+
+export const queryConvexSessionUserAuthUserId = async (args: { tokenHash: string; now?: number }) => {
+  const { client } = createConvexClient();
+  return client.query(getSessionUserAuthUserIdRef, args);
 };

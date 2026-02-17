@@ -38,9 +38,6 @@ export const EnvSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).optional(),
   PORT: NumFromString.optional(),
 
-  // Postgres
-  DATABASE_URL: z.string().optional(),
-
   // Redis / BullMQ
   REDIS_URL: z.string().optional(),
 

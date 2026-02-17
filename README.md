@@ -19,7 +19,7 @@ cp .env.example .env.local
 The API and worker load `.env.local` automatically.
 If you prefer `environment.local`, that is loaded too.
 
-3. Start local services (Postgres + Redis + MinIO + Caddy)
+3. Start local services (Redis + MinIO + Convex + Caddy)
 
 ```bash
 bun run dev
@@ -27,7 +27,7 @@ bun run dev
 
 This starts:
 
-- Infra in Docker (Postgres + Redis + MinIO + Convex + Caddy)
+- Infra in Docker (Redis + MinIO + Convex + Caddy)
 - App dev servers on your host (API + web + worker)
 
 Run only some services (host-run)
@@ -103,14 +103,12 @@ On WSL2 + Docker Desktop, the script also sets `DEV_UPSTREAM_HOST` to your WSL V
 
 Ports
 
-- Postgres: 5433
 - Redis: 6379
 - MinIO API: 9010
 - MinIO Console: 9011
 
 Credentials (dev)
 
-- Postgres: user `junkmail`, password `junkmail`, db `junkmail`
 - MinIO: access key `minio`, secret key `minio123`, bucket `junkmail`
 
 Common commands
@@ -137,7 +135,7 @@ make ship
 
 - `web/`: Astro frontend
 - `api/`: Hono API
-- Postgres + Redis + MinIO (local infra via docker-compose in phase 1)
+- Redis + MinIO + Convex (local infra via docker-compose)
 
 ## Telegram Photo Ingest (Optional)
 

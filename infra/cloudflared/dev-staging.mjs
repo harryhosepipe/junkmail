@@ -140,7 +140,6 @@ try {
       "up",
       "-d",
       "caddy",
-      "postgres",
       "redis",
       "minio",
       "minio-init",

@@ -1,47 +1,21 @@
-import { eq } from "drizzle-orm";
-import { db, pool } from "./client.js";
-import { users } from "./schema.js";
 import { mutateConvexUpsertUserProfile } from "../convex/client.js";
+import { getEnv } from "../env.js";
 
 const run = async () => {
-  await db
-    .insert(users)
-    .values({
-      email: "uploader@example.com",
-      alias: "uploader",
-      role: "uploader",
-      inviteToken: "invite-dev",
-    })
-    .onConflictDoNothing();
+  getEnv();
 
-  const uploadedBy = await db
-    .select({ id: users.id })
-    .from(users)
-    .where(eq(users.email, "uploader@example.com"))
-    .limit(1);
+  await mutateConvexUpsertUserProfile({
+    authUserId: "seed-uploader",
+    email: "uploader@example.com",
+    alias: "uploader",
+    role: "uploader",
+    inviteToken: "invite-dev",
+  });
 
-  const uploaderId = uploadedBy[0]?.id;
-  if (!uploaderId) {
-    throw new Error("Seed failed: uploader user missing");
-  }
-
-  try {
-    await mutateConvexUpsertUserProfile({
-      authUserId: uploaderId,
-      email: "uploader@example.com",
-      alias: "uploader",
-      role: "uploader",
-    });
-  } catch {
-    // Local seed still works when Convex is not configured.
-  }
-
-  console.info(`Seeded auth user: ${uploaderId}`);
+  console.info("Seeded Convex uploader user: seed-uploader");
 };
 
-run()
-  .then(() => pool.end())
-  .catch(async (err) => {
-    await pool.end();
-    throw err;
-  });
+run().catch((error) => {
+  console.error("Seed failed", error);
+  process.exitCode = 1;
+});

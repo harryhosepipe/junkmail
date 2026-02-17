@@ -46,17 +46,6 @@ services:
     ports:
       - "6791:6791"
 
-  postgres:
-    image: postgres:16
-    environment:
-      POSTGRES_USER: junkmail
-      POSTGRES_PASSWORD: junkmail
-      POSTGRES_DB: junkmail
-    ports:
-      - "5433:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-
   redis:
     image: redis:7
     ports:
@@ -89,7 +78,6 @@ services:
       "
 
 volumes:
-  postgres_data:
   redis_data:
   minio_data:
   convex_data:

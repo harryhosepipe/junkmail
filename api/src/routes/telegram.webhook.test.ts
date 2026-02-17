@@ -3,41 +3,18 @@ import { Hono } from "hono";
 
 const state = vi.hoisted(() => ({
   selectedUserId: "user-1",
-  insertedUserValues: null as null | Record<string, unknown>,
+  telegramUpsertValues: null as null | Record<string, unknown>,
   convexUpsertValues: null as null | Record<string, unknown>,
   queuedJob: null as null | Record<string, unknown>,
   s3PutCount: 0,
 }));
 
 const mutateConvexUpsertImageContent = vi.hoisted(() => vi.fn());
-
-vi.mock("../db/client.js", () => ({
-  db: {
-    select: vi.fn(() => ({
-      from: vi.fn(() => ({
-        where: vi.fn(() => ({
-          limit: vi.fn(async () => []),
-        })),
-      })),
-    })),
-    update: vi.fn(() => ({
-      set: vi.fn(() => ({
-        where: vi.fn(async () => undefined),
-      })),
-    })),
-    insert: vi.fn(() => ({
-      values: vi.fn((values: Record<string, unknown>) => {
-        state.insertedUserValues = values;
-        return {
-          returning: vi.fn(async () => [{ id: state.selectedUserId }]),
-        };
-      }),
-    })),
-  },
-}));
+const mutateConvexUpsertTelegramUser = vi.hoisted(() => vi.fn());
 
 vi.mock("../convex/client.js", () => ({
   mutateConvexUpsertImageContent,
+  mutateConvexUpsertTelegramUser,
 }));
 
 vi.mock("../queue/index.js", () => ({
@@ -71,10 +48,14 @@ const createTestApp = () => {
 describe("telegram webhook", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    state.insertedUserValues = null;
+    state.telegramUpsertValues = null;
     state.convexUpsertValues = null;
     state.queuedJob = null;
     state.s3PutCount = 0;
+    mutateConvexUpsertTelegramUser.mockImplementation(async (values) => {
+      state.telegramUpsertValues = values;
+      return { authUserId: state.selectedUserId };
+    });
     mutateConvexUpsertImageContent.mockImplementation(async (values) => {
       state.convexUpsertValues = values;
       return { ok: true };
@@ -122,7 +103,7 @@ describe("telegram webhook", () => {
     });
 
     expect(response.status).toBe(201);
-    expect(state.insertedUserValues).toMatchObject({
+    expect(state.telegramUpsertValues).toMatchObject({
       email: "tg-777@telegram.local",
       role: "uploader",
       telegramUserId: 777,

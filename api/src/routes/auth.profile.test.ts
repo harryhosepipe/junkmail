@@ -12,36 +12,14 @@ const state = vi.hoisted(() => ({
   },
   uploadedImages: 0,
   voteCount: 0,
-  updatedAlias: "",
 }));
 
 const queryConvexVoteCountForProfile = vi.hoisted(() => vi.fn());
 const queryConvexUploaderImageCount = vi.hoisted(() => vi.fn());
 const mutateConvexUpsertUserProfile = vi.hoisted(() => vi.fn());
+const mutateConvexUpdateUserAlias = vi.hoisted(() => vi.fn());
 const getSessionUser = vi.hoisted(() => vi.fn());
 const ensureSameOrigin = vi.hoisted(() => vi.fn());
-
-vi.mock("../db/client.js", () => ({
-  db: {
-    select: vi.fn(() => ({
-      from: vi.fn(() => ({
-        where: vi.fn(() => ({
-          limit: vi.fn(async () => [{ count: state.uploadedImages }]),
-        })),
-      })),
-    })),
-    update: vi.fn(() => ({
-      set: vi.fn((values: { alias?: string }) => {
-        state.updatedAlias = values.alias ?? "";
-        return {
-          where: vi.fn(async () => undefined),
-        };
-      }),
-    })),
-    insert: vi.fn(),
-    delete: vi.fn(),
-  },
-}));
 
 vi.mock("../auth/session.js", () => ({
   getSessionUser,
@@ -67,7 +45,10 @@ vi.mock("../auth/userProfile.js", () => ({
 vi.mock("../convex/client.js", () => ({
   queryConvexUploaderImageCount,
   queryConvexVoteCountForProfile,
+  mutateConvexUpdateUserAlias,
   mutateConvexUpsertUserProfile,
+  mutateConvexConsumeAuthToken: vi.fn(),
+  mutateConvexCreateAuthToken: vi.fn(),
 }));
 
 import authRouter from "./auth.js";
@@ -84,11 +65,11 @@ describe("auth profile routes", () => {
     state.sessionUser = null;
     state.uploadedImages = 0;
     state.voteCount = 0;
-    state.updatedAlias = "";
     ensureSameOrigin.mockReturnValue(null);
     getSessionUser.mockImplementation(async () => state.sessionUser);
     queryConvexUploaderImageCount.mockImplementation(async () => ({ count: state.uploadedImages }));
     queryConvexVoteCountForProfile.mockImplementation(async () => ({ count: state.voteCount }));
+    mutateConvexUpdateUserAlias.mockResolvedValue({ ok: true });
     mutateConvexUpsertUserProfile.mockResolvedValue({ ok: true });
   });
 
@@ -172,7 +153,10 @@ describe("auth profile routes", () => {
     expect(response.status).toBe(200);
     const body = await response.json();
     expect(body.profile.alias).toBe("new_alias");
-    expect(state.updatedAlias).toBe("new_alias");
+    expect(mutateConvexUpdateUserAlias).toHaveBeenCalledWith({
+      authUserId: "user-2",
+      alias: "new_alias",
+    });
     expect(mutateConvexUpsertUserProfile).toHaveBeenCalledWith({
       authUserId: "user-2",
       email: "edit@example.com",

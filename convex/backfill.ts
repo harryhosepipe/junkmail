@@ -46,6 +46,30 @@ export const clearUserProfilesBatch = mutation({
   },
 });
 
+export const clearAuthTokensBatch = mutation({
+  args: {
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const limit = resolveBatchSize(args.limit);
+    const rows = await ctx.db.query("authTokens").take(limit);
+    await Promise.all(rows.map((row) => ctx.db.delete(row._id)));
+    return { deleted: rows.length, hasMore: rows.length === limit };
+  },
+});
+
+export const clearSessionsBatch = mutation({
+  args: {
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const limit = resolveBatchSize(args.limit);
+    const rows = await ctx.db.query("sessions").take(limit);
+    await Promise.all(rows.map((row) => ctx.db.delete(row._id)));
+    return { deleted: rows.length, hasMore: rows.length === limit };
+  },
+});
+
 export const clearImagesBatch = mutation({
   args: {
     limit: v.optional(v.number()),
@@ -179,16 +203,21 @@ export const insertImageComment = mutation({
 export const getCounts = query({
   args: {},
   handler: async (ctx) => {
-    const [userProfiles, imageRatings, votes, images, imageComments] = await Promise.all([
+    const [userProfiles, authTokens, sessions, imageRatings, votes, images, imageComments] =
+      await Promise.all([
       ctx.db.query("userProfiles").collect(),
+      ctx.db.query("authTokens").collect(),
+      ctx.db.query("sessions").collect(),
       ctx.db.query("imageRatings").collect(),
       ctx.db.query("votes").collect(),
       ctx.db.query("images").collect(),
       ctx.db.query("imageComments").collect(),
-    ]);
+      ]);
 
     return {
       userProfiles: userProfiles.length,
+      authTokens: authTokens.length,
+      sessions: sessions.length,
       imageRatings: imageRatings.length,
       votes: votes.length,
       images: images.length,

@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as auth from "../auth.js";
 import type * as backfill from "../backfill.js";
 import type * as content from "../content.js";
 import type * as env from "../env.js";
@@ -22,6 +23,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  auth: typeof auth;
   backfill: typeof backfill;
   content: typeof content;
   env: typeof env;

@@ -1,9 +1,6 @@
 import { Hono } from "hono";
 import type { Context } from "hono";
 import { createHash } from "crypto";
-import { and, eq, gt, isNull } from "drizzle-orm";
-import { db } from "../db/client.js";
-import { authTokens, users } from "../db/schema.js";
 import { getCookie } from "hono/cookie";
 import { sendMagicLinkEmail } from "../auth/email.js";
 import {
@@ -18,6 +15,9 @@ import { ensureSameOrigin } from "../auth/csrf.js";
 import { generateToken, hashToken } from "../auth/tokens.js";
 import { resolveInvitedUploaderByEmail } from "../auth/userProfile.js";
 import {
+  mutateConvexConsumeAuthToken,
+  mutateConvexCreateAuthToken,
+  mutateConvexUpdateUserAlias,
   mutateConvexUpsertUserProfile,
   queryConvexUploaderImageCount,
   queryConvexVoteCountForProfile,
@@ -84,7 +84,11 @@ authRouter.post("/request-link", async (c) => {
   const tokenHash = hashToken(token);
   const expiresAt = new Date(Date.now() + MAGIC_LINK_TTL_MINUTES * 60 * 1000);
 
-  await db.insert(authTokens).values({ userId: invited.id, tokenHash, expiresAt });
+  await mutateConvexCreateAuthToken({
+    tokenHash,
+    userAuthUserId: invited.id,
+    expiresAt: expiresAt.getTime(),
+  });
 
   const apiOrigin = env.API_ORIGIN ?? env.API_BASE_URL ?? new URL(c.req.url).origin;
   const link = new URL("/api/v1/auth/verify", apiOrigin);
@@ -116,28 +120,15 @@ authRouter.get("/verify", async (c) => {
   }
 
   const tokenHash = hashToken(token);
-  const now = new Date();
-  const result = await db
-    .select({ id: authTokens.id, userId: authTokens.userId })
-    .from(authTokens)
-    .where(
-      and(
-        eq(authTokens.tokenHash, tokenHash),
-        isNull(authTokens.usedAt),
-        gt(authTokens.expiresAt, now),
-      ),
-    )
-    .limit(1);
+  const consumed = await mutateConvexConsumeAuthToken({ tokenHash, now: Date.now() });
 
-  if (!result[0]) {
+  if (!consumed) {
     const errorUrl = new URL("/login", webBaseUrl);
     errorUrl.searchParams.set("error", "invalid");
     return c.redirect(errorUrl.toString(), 302);
   }
 
-  await db.update(authTokens).set({ usedAt: now }).where(eq(authTokens.id, result[0].id));
-
-  const session = await createSession(result[0].userId);
+  const session = await createSession(consumed.userAuthUserId);
   setSessionCookie(c, session.token, session.expiresAt);
 
   const redirectUrl = new URL(safeNextPath(next), webBaseUrl);
@@ -234,18 +225,16 @@ authRouter.patch("/profile", async (c) => {
     );
   }
 
-  await db.update(users).set({ alias }).where(eq(users.id, user.id));
-
-  try {
-    await mutateConvexUpsertUserProfile({
-      authUserId: user.id,
-      email: user.email,
-      alias,
-      role: user.role,
-    });
-  } catch {
-    // Keep profile updates working if Convex sync is unavailable.
-  }
+  await mutateConvexUpdateUserAlias({
+    authUserId: user.id,
+    alias,
+  });
+  await mutateConvexUpsertUserProfile({
+    authUserId: user.id,
+    email: user.email,
+    alias,
+    role: user.role,
+  });
 
   return c.json({ ok: true, profile: { ...user, alias } });
 });

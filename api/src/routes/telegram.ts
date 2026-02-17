@@ -1,13 +1,10 @@
 import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { randomUUID } from "crypto";
-import { eq } from "drizzle-orm";
 import { Hono } from "hono";
-import { db } from "../db/client.js";
-import { users } from "../db/schema.js";
 import { imageQueue } from "../queue/index.js";
 import { originalKey } from "../storage/paths.js";
 import { publicObjectUrl, s3Client, storageBucket } from "../storage/client.js";
-import { mutateConvexUpsertImageContent } from "../convex/client.js";
+import { mutateConvexUpsertImageContent, mutateConvexUpsertTelegramUser } from "../convex/client.js";
 import { env } from "../env.js";
 
 const MAX_UPLOAD_BYTES = 15 * 1024 * 1024;
@@ -141,39 +138,16 @@ const downloadTelegramFile = async (filePath: string) => {
 };
 
 const resolveOrCreateTelegramUploader = async (sender: TelegramUser) => {
-  const existing = await db
-    .select({ id: users.id })
-    .from(users)
-    .where(eq(users.telegramUserId, sender.id))
-    .limit(1);
-
-  if (existing[0]?.id) {
-    // Keep username fresh if present.
-    if (sender.username) {
-      await db
-        .update(users)
-        .set({ telegramUsername: sender.username })
-        .where(eq(users.id, existing[0].id));
-    }
-    return existing[0].id;
-  }
-
   const email = `tg-${sender.id}@telegram.local`;
   const alias = aliasFromTelegramUser(sender);
-
-  const inserted = await db
-    .insert(users)
-    .values({
-      email,
-      alias,
-      role: "uploader",
-      inviteToken: null,
-      telegramUserId: sender.id,
-      telegramUsername: sender.username || null,
-    })
-    .returning({ id: users.id });
-
-  return inserted[0]?.id as string;
+  const result = await mutateConvexUpsertTelegramUser({
+    telegramUserId: sender.id,
+    email,
+    alias,
+    role: "uploader",
+    telegramUsername: sender.username || undefined,
+  });
+  return result.authUserId;
 };
 
 const telegramRouter = new Hono();

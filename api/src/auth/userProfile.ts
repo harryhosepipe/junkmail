@@ -1,6 +1,3 @@
-import { and, eq } from "drizzle-orm";
-import { db } from "../db/client.js";
-import { users } from "../db/schema.js";
 import {
   mutateConvexUpsertUserProfile,
   queryConvexUserProfileByAuthUserId,
@@ -32,100 +29,28 @@ const mapConvexProfile = (profile: ConvexUserProfile): AuthUserProfile => ({
   createdAt: new Date(profile.createdAt).toISOString(),
 });
 
-const upsertConvexFromPostgres = async (user: {
-  id: string;
-  email: string;
-  alias: string;
-  role: string;
-  createdAt?: Date;
-}) => {
-  try {
-    await mutateConvexUpsertUserProfile({
-      authUserId: user.id,
-      email: user.email,
-      alias: user.alias,
-      role: user.role,
-      createdAt: user.createdAt?.getTime(),
-    });
-  } catch {
-    // Keep auth paths resilient if Convex is unavailable.
-  }
-};
-
 export const resolveAuthUserProfileById = async (authUserId: string) => {
-  try {
-    const convex = await queryConvexUserProfileByAuthUserId(authUserId);
-    if (convex) {
-      return mapConvexProfile(convex);
-    }
-  } catch {
-    // Fall back to Postgres below.
-  }
-
-  const result = await db
-    .select({
-      id: users.id,
-      email: users.email,
-      alias: users.alias,
-      role: users.role,
-      createdAt: users.createdAt,
-    })
-    .from(users)
-    .where(eq(users.id, authUserId))
-    .limit(1);
-
-  const user = result[0];
-  if (!user) {
+  const convex = await queryConvexUserProfileByAuthUserId(authUserId);
+  if (!convex) {
     return null;
   }
-
-  await upsertConvexFromPostgres(user);
-  return {
-    id: user.id,
-    email: user.email,
-    alias: user.alias,
-    role: user.role,
-    createdAt: user.createdAt.toISOString(),
-  } satisfies AuthUserProfile;
+  return mapConvexProfile(convex);
 };
 
 export const resolveInvitedUploaderByEmail = async (email: string) => {
   const emailLower = email.toLowerCase();
-  try {
-    const convex = await queryConvexUserProfileByEmail(emailLower);
-    if (convex?.role === "uploader") {
-      return mapConvexProfile(convex);
-    }
-    if (convex) {
-      return null;
-    }
-  } catch {
-    // Fall back to Postgres lookup below.
-  }
-
-  const result = await db
-    .select({
-      id: users.id,
-      email: users.email,
-      alias: users.alias,
-      role: users.role,
-      createdAt: users.createdAt,
-    })
-    .from(users)
-    .where(and(eq(users.email, emailLower), eq(users.role, "uploader")))
-    .limit(1);
-
-  const user = result[0];
-  if (!user) {
+  const convex = await queryConvexUserProfileByEmail(emailLower);
+  if (convex?.role !== "uploader") {
     return null;
   }
+  return mapConvexProfile(convex);
+};
 
-  await upsertConvexFromPostgres(user);
-  return {
-    id: user.id,
-    email: user.email,
-    alias: user.alias,
-    role: user.role,
-    createdAt: user.createdAt.toISOString(),
-  } satisfies AuthUserProfile;
+export const ensureAuthUserProfile = async (args: {
+  authUserId: string;
+  email: string;
+  alias: string;
+  role: string;
+}) => {
+  await mutateConvexUpsertUserProfile(args);
 };

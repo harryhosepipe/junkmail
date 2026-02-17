@@ -1,11 +1,9 @@
 import type { Context, Next } from "hono";
 import { getCookie, setCookie, deleteCookie } from "hono/cookie";
-import { and, eq, gt } from "drizzle-orm";
-import { db } from "../db/client.js";
-import { sessions } from "../db/schema.js";
 import { ensureSameOrigin } from "./csrf.js";
 import { generateToken, hashToken } from "./tokens.js";
 import { resolveAuthUserProfileById } from "./userProfile.js";
+import { mutateConvexCreateSession, mutateConvexDeleteSessionByTokenHash, queryConvexSessionUserAuthUserId } from "../convex/client.js";
 import { env } from "../env.js";
 
 const SESSION_COOKIE_NAME = "jm_session";
@@ -18,7 +16,11 @@ export const createSession = async (userId: string) => {
   const tokenHash = hashToken(token);
   const expiresAt = new Date(Date.now() + SESSION_TTL_MS);
 
-  await db.insert(sessions).values({ userId, tokenHash, expiresAt });
+  await mutateConvexCreateSession({
+    tokenHash,
+    userAuthUserId: userId,
+    expiresAt: expiresAt.getTime(),
+  });
 
   return { token, expiresAt };
 };
@@ -41,7 +43,7 @@ export const getSessionToken = (c: Context) => getCookie(c, SESSION_COOKIE_NAME)
 
 export const deleteSession = async (token: string) => {
   const tokenHash = hashToken(token);
-  await db.delete(sessions).where(eq(sessions.tokenHash, tokenHash));
+  await mutateConvexDeleteSessionByTokenHash({ tokenHash });
 };
 
 export const getSessionUser = async (c: Context) => {
@@ -51,13 +53,8 @@ export const getSessionUser = async (c: Context) => {
   }
 
   const tokenHash = hashToken(token);
-  const result = await db
-    .select({ userId: sessions.userId })
-    .from(sessions)
-    .where(and(eq(sessions.tokenHash, tokenHash), gt(sessions.expiresAt, new Date())))
-    .limit(1);
-
-  const authUserId = result[0]?.userId;
+  const session = await queryConvexSessionUserAuthUserId({ tokenHash });
+  const authUserId = session?.userAuthUserId;
   if (!authUserId) {
     return null;
   }

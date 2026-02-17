@@ -24,19 +24,6 @@ const getSessionUser = vi.hoisted(() => vi.fn());
 const queryConvexImageById = vi.hoisted(() => vi.fn());
 const mutateConvexCreateImageComment = vi.hoisted(() => vi.fn());
 
-vi.mock("../db/client.js", () => ({
-  db: {
-    select: vi.fn(() => ({
-      from: vi.fn(() => ({
-        where: vi.fn(() => ({
-          limit: vi.fn(async () => (state.imageExists ? [{ id: "image-1" }] : [])),
-        })),
-      })),
-    })),
-    insert: vi.fn(),
-  },
-}));
-
 vi.mock("../auth/session.js", () => ({
   getSessionUser,
   requireUploader: vi.fn(),
