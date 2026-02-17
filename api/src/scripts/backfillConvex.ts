@@ -1,11 +1,15 @@
-import { asc } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import { db, pool } from "../db/client.js";
-import { ratings, users, votes } from "../db/schema.js";
+import { imageComments, images, ratings, users, votes } from "../db/schema.js";
 import {
+  mutateConvexBackfillClearImageCommentsBatch,
+  mutateConvexBackfillClearImagesBatch,
   mutateConvexBackfillClearImageRatingsBatch,
   mutateConvexBackfillClearUserProfilesBatch,
   mutateConvexBackfillClearVotesBatch,
+  mutateConvexBackfillInsertImageComment,
   mutateConvexBackfillInsertVote,
+  mutateConvexBackfillUpsertImage,
   mutateConvexBackfillUpsertImageRating,
   mutateConvexUpsertUserProfile,
   queryConvexBackfillCounts,
@@ -41,12 +45,27 @@ const clearInBatches = async (
 
 const run = async () => {
   getEnv();
-  const [pgUsers, pgRatings, pgVotes] = await Promise.all([
+  const [pgUsers, pgRatings, pgVotes, pgImages, pgComments] = await Promise.all([
     db.select().from(users),
     db.select().from(ratings),
     db.select().from(votes).orderBy(asc(votes.createdAt)),
+    db.select().from(images).orderBy(asc(images.createdAt)),
+    db
+      .select({
+        id: imageComments.id,
+        imageId: imageComments.imageId,
+        body: imageComments.body,
+        createdAt: imageComments.createdAt,
+        userId: imageComments.userId,
+        userAlias: users.alias,
+      })
+      .from(imageComments)
+      .innerJoin(users, eq(imageComments.userId, users.id))
+      .orderBy(asc(imageComments.createdAt)),
   ]);
 
+  await clearInBatches(mutateConvexBackfillClearImageCommentsBatch);
+  await clearInBatches(mutateConvexBackfillClearImagesBatch);
   await clearInBatches(mutateConvexBackfillClearVotesBatch);
   await clearInBatches(mutateConvexBackfillClearImageRatingsBatch);
   await clearInBatches(mutateConvexBackfillClearUserProfilesBatch);
@@ -76,6 +95,25 @@ const run = async () => {
     );
   }
 
+  for (const imageChunk of chunked(pgImages, 50)) {
+    await Promise.all(
+      imageChunk.map((image) =>
+        mutateConvexBackfillUpsertImage({
+          imageId: image.id,
+          uploaderAuthUserId: image.uploaderId,
+          title: image.title ?? undefined,
+          description: image.description ?? undefined,
+          status: image.status,
+          originalUrl: image.originalUrl,
+          variantUrls: image.variantUrls,
+          createdAt: toMillis(image.createdAt),
+          updatedAt: toMillis(image.createdAt),
+          publishedAt: image.status === "public" ? toMillis(image.createdAt) : undefined,
+        }),
+      ),
+    );
+  }
+
   for (const voteChunk of chunked(pgVotes, 50)) {
     await Promise.all(
       voteChunk.map((vote) =>
@@ -91,12 +129,29 @@ const run = async () => {
     );
   }
 
+  for (const commentChunk of chunked(pgComments, 50)) {
+    await Promise.all(
+      commentChunk.map((comment) =>
+        mutateConvexBackfillInsertImageComment({
+          commentId: comment.id,
+          imageId: comment.imageId,
+          userAuthUserId: comment.userId,
+          userAlias: comment.userAlias,
+          body: comment.body,
+          createdAt: toMillis(comment.createdAt),
+        }),
+      ),
+    );
+  }
+
   const counts = await queryConvexBackfillCounts();
   const summary = {
     postgres: {
       users: pgUsers.length,
       imageRatings: pgRatings.length,
       votes: pgVotes.length,
+      images: pgImages.length,
+      imageComments: pgComments.length,
     },
     convex: counts,
   };
@@ -104,7 +159,9 @@ const run = async () => {
   const countsMatch =
     summary.postgres.users === summary.convex.userProfiles &&
     summary.postgres.imageRatings === summary.convex.imageRatings &&
-    summary.postgres.votes === summary.convex.votes;
+    summary.postgres.votes === summary.convex.votes &&
+    summary.postgres.images === summary.convex.images &&
+    summary.postgres.imageComments === summary.convex.imageComments;
 
   console.log(JSON.stringify({ ok: countsMatch, summary }, null, 2));
 

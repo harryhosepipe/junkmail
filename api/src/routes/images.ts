@@ -1,6 +1,6 @@
 import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { randomUUID } from "crypto";
-import { and, asc, desc, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray } from "drizzle-orm";
 import { Hono } from "hono";
 import type { Context } from "hono";
 import { db } from "../db/client.js";
@@ -16,7 +16,11 @@ import {
 } from "../storage/publicUrls.js";
 import { getSessionUser, requireUploader } from "../auth/session.js";
 import { ensureSameOrigin } from "../auth/csrf.js";
-import { queryConvexRatingsByImageIds, queryConvexTopRatings } from "../convex/client.js";
+import {
+  queryConvexRatingsByImageIds,
+  queryConvexRecentPublicImages,
+  queryConvexTopRatings,
+} from "../convex/client.js";
 import { resolveAuthUserProfileById } from "../auth/userProfile.js";
 import { env } from "../env.js";
 
@@ -76,22 +80,9 @@ const pickThumbUrl = (variantUrls: unknown) => {
 };
 
 export const fetchRecentImages = async (limit: number) => {
-  const rows = await db
-    .select({
-      id: images.id,
-      title: images.title,
-      description: images.description,
-      status: images.status,
-      originalUrl: images.originalUrl,
-      variantUrls: images.variantUrls,
-      createdAt: images.createdAt,
-    })
-    .from(images)
-    .where(eq(images.status, "public"))
-    .orderBy(desc(images.createdAt))
-    .limit(limit);
+  const rows = await queryConvexRecentPublicImages(limit);
 
-  const ratingRows = await queryConvexRatingsByImageIds(rows.map((row) => row.id));
+  const ratingRows = await queryConvexRatingsByImageIds(rows.map((row) => row.imageId));
   const ratingByImageId = new Map(
     ratingRows.map((rating) => [
       rating.imageId,
@@ -104,11 +95,15 @@ export const fetchRecentImages = async (limit: number) => {
 
   return rows.map(
     (row): ImageCard => ({
-      ...row,
-      originalUrl: normalizePublicAssetUrl(row.originalUrl),
+      id: row.imageId,
+      title: row.title ?? null,
+      description: row.description ?? null,
+      status: row.status,
+      originalUrl: normalizePublicAssetUrl(row.originalUrl || ""),
       variantUrls: normalizePublicAssetData(row.variantUrls),
-      score: ratingByImageId.get(row.id)?.score ?? 0,
-      votes: ratingByImageId.get(row.id)?.comparisonsCount ?? 0,
+      createdAt: new Date(row.createdAt),
+      score: ratingByImageId.get(row.imageId)?.score ?? 0,
+      votes: ratingByImageId.get(row.imageId)?.comparisonsCount ?? 0,
     }),
   );
 };

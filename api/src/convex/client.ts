@@ -87,10 +87,34 @@ type BackfillInsertVoteArgs = {
   createdAt: number;
 };
 
+type BackfillUpsertImageArgs = {
+  imageId: string;
+  uploaderAuthUserId: string;
+  title?: string;
+  description?: string;
+  status: string;
+  originalUrl?: string;
+  variantUrls?: unknown;
+  createdAt: number;
+  updatedAt: number;
+  publishedAt?: number;
+};
+
+type BackfillInsertImageCommentArgs = {
+  commentId: string;
+  imageId: string;
+  userAuthUserId: string;
+  userAlias: string;
+  body: string;
+  createdAt: number;
+};
+
 type BackfillCounts = {
   userProfiles: number;
   imageRatings: number;
   votes: number;
+  images: number;
+  imageComments: number;
 };
 
 type BackfillClearBatchArgs = {
@@ -100,6 +124,20 @@ type BackfillClearBatchArgs = {
 type BackfillClearBatchResult = {
   deleted: number;
   hasMore: boolean;
+};
+
+export type ConvexImageContent = {
+  imageId: string;
+  uploaderAuthUserId: string;
+  title?: string;
+  description?: string;
+  status: string;
+  originalUrl?: string;
+  originalStorageId?: string;
+  variantUrls?: unknown;
+  createdAt: number;
+  updatedAt: number;
+  publishedAt?: number;
 };
 
 const healthPingRef = makeFunctionReference<"query", Record<string, never>, ConvexHealth>(
@@ -156,19 +194,44 @@ const backfillClearUserProfilesBatchRef = makeFunctionReference<
   BackfillClearBatchArgs,
   BackfillClearBatchResult
 >("backfill:clearUserProfilesBatch");
+const backfillClearImagesBatchRef = makeFunctionReference<
+  "mutation",
+  BackfillClearBatchArgs,
+  BackfillClearBatchResult
+>("backfill:clearImagesBatch");
+const backfillClearImageCommentsBatchRef = makeFunctionReference<
+  "mutation",
+  BackfillClearBatchArgs,
+  BackfillClearBatchResult
+>("backfill:clearImageCommentsBatch");
 const backfillUpsertImageRatingRef = makeFunctionReference<
   "mutation",
   BackfillUpsertImageRatingArgs,
   { ok: boolean }
 >("backfill:upsertImageRating");
+const backfillUpsertImageRef = makeFunctionReference<
+  "mutation",
+  BackfillUpsertImageArgs,
+  { ok: boolean }
+>("backfill:upsertImage");
 const backfillInsertVoteRef = makeFunctionReference<
   "mutation",
   BackfillInsertVoteArgs,
   { ok: boolean }
 >("backfill:insertVote");
+const backfillInsertImageCommentRef = makeFunctionReference<
+  "mutation",
+  BackfillInsertImageCommentArgs,
+  { ok: boolean }
+>("backfill:insertImageComment");
 const backfillGetCountsRef = makeFunctionReference<"query", Record<string, never>, BackfillCounts>(
   "backfill:getCounts",
 );
+const recentPublicImagesRef = makeFunctionReference<
+  "query",
+  { limit?: number },
+  ConvexImageContent[]
+>("content:listRecentPublicImages");
 
 const createConvexClient = () => {
   const url = resolveConvexUrl();
@@ -262,6 +325,16 @@ export const mutateConvexBackfillClearUserProfilesBatch = async (args: BackfillC
   return client.mutation(backfillClearUserProfilesBatchRef, args);
 };
 
+export const mutateConvexBackfillClearImagesBatch = async (args: BackfillClearBatchArgs) => {
+  const { client } = createConvexClient();
+  return client.mutation(backfillClearImagesBatchRef, args);
+};
+
+export const mutateConvexBackfillClearImageCommentsBatch = async (args: BackfillClearBatchArgs) => {
+  const { client } = createConvexClient();
+  return client.mutation(backfillClearImageCommentsBatchRef, args);
+};
+
 export const mutateConvexBackfillUpsertImageRating = async (
   args: BackfillUpsertImageRatingArgs,
 ) => {
@@ -269,12 +342,29 @@ export const mutateConvexBackfillUpsertImageRating = async (
   return client.mutation(backfillUpsertImageRatingRef, args);
 };
 
+export const mutateConvexBackfillUpsertImage = async (args: BackfillUpsertImageArgs) => {
+  const { client } = createConvexClient();
+  return client.mutation(backfillUpsertImageRef, args);
+};
+
 export const mutateConvexBackfillInsertVote = async (args: BackfillInsertVoteArgs) => {
   const { client } = createConvexClient();
   return client.mutation(backfillInsertVoteRef, args);
 };
 
+export const mutateConvexBackfillInsertImageComment = async (
+  args: BackfillInsertImageCommentArgs,
+) => {
+  const { client } = createConvexClient();
+  return client.mutation(backfillInsertImageCommentRef, args);
+};
+
 export const queryConvexBackfillCounts = async () => {
   const { client } = createConvexClient();
   return client.query(backfillGetCountsRef, {});
+};
+
+export const queryConvexRecentPublicImages = async (limit?: number) => {
+  const { client } = createConvexClient();
+  return client.query(recentPublicImagesRef, { limit });
 };
