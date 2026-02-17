@@ -243,4 +243,52 @@ describe("votes route", () => {
       }),
     );
   });
+
+  it("handles replay race: one accepted and one replay for same token", async () => {
+    mutateConvexValidateAndConsumeMatchupToken
+      .mockResolvedValueOnce({
+        acceptedForScoring: true,
+        validationStatus: "accepted",
+        rejectionReason: null,
+      })
+      .mockResolvedValueOnce({
+        acceptedForScoring: false,
+        validationStatus: "rejected_replay",
+        rejectionReason: "token_replayed",
+      });
+
+    const app = createTestApp();
+    const req = {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        cookie: "jm_voter=voter-race",
+      },
+      body: JSON.stringify({
+        image_a_id: "img-a",
+        image_b_id: "img-b",
+        winner_id: "img-a",
+        matchup_token: "same-token",
+      }),
+    } as const;
+
+    const [resA, resB] = await Promise.all([
+      app.request("http://localhost/api/v1/votes", req),
+      app.request("http://localhost/api/v1/votes", req),
+    ]);
+
+    expect(resA.status).toBe(200);
+    expect(resB.status).toBe(200);
+
+    const [bodyA, bodyB] = await Promise.all([resA.json(), resB.json()]);
+    const acceptedCount = [bodyA, bodyB].filter((body) => body.acceptedForScoring).length;
+    const replayCount = [bodyA, bodyB].filter(
+      (body) => body.validationStatus === "rejected_replay",
+    ).length;
+
+    expect(acceptedCount).toBe(1);
+    expect(replayCount).toBe(1);
+    expect(queueAdd).toHaveBeenCalledTimes(1);
+    expect(mutateConvexCreateVoteEvent).toHaveBeenCalledTimes(2);
+  });
 });
