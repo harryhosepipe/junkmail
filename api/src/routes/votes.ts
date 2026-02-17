@@ -2,14 +2,12 @@ import { createHash } from "crypto";
 import { Hono } from "hono";
 import type { Context } from "hono";
 import { getCookie, setCookie } from "hono/cookie";
-import { inArray } from "drizzle-orm";
-import { db } from "../db/client.js";
-import { images } from "../db/schema.js";
 import { ensureSameOrigin } from "../auth/csrf.js";
 import { generateToken } from "../auth/tokens.js";
 import { getSessionUser } from "../auth/session.js";
 import { redis } from "../queue/connection.js";
 import { voteQueue } from "../queue/index.js";
+import { queryConvexPublicImagesByIds } from "../convex/client.js";
 import { env } from "../env.js";
 
 const votesRouter = new Hono();
@@ -128,13 +126,13 @@ votesRouter.post("/", async (c) => {
     );
   }
 
-  const imageRows = await db
-    .select({ id: images.id, status: images.status })
-    .from(images)
-    .where(inArray(images.id, [imageAId, imageBId]));
-
-  if (imageRows.length !== 2 || imageRows.some((row) => row.status !== "public")) {
-    return c.json({ error: { message: "Matchup unavailable" } }, 404);
+  try {
+    const imageRows = await queryConvexPublicImagesByIds([imageAId, imageBId]);
+    if (imageRows.length !== 2) {
+      return c.json({ error: { message: "Matchup unavailable" } }, 404);
+    }
+  } catch {
+    return c.json({ error: { message: "Matchup lookup unavailable. Try again." } }, 503);
   }
 
   try {
