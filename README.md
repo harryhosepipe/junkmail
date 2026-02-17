@@ -1,155 +1,119 @@
 # Junkmail
 
-Public gallery of junkmail images with fast pairwise voting, invite-only uploads, and SEO-first public pages.
+Public gallery of junkmail images with invite-only uploads, pairwise voting, and Convex-backed runtime data.
 
-## Local Development
+## Stack
 
-1. Install deps
+- `web/`: Astro frontend
+- `api/`: Hono API + BullMQ worker
+- Infra: Redis + MinIO + Convex (Docker Compose)
+- Front door: Caddy (Docker, optional for local hostnames/tunnel)
+
+No Postgres is used by the runtime.
+
+For a short setup path, see `docs/QUICKSTART.md`.
+
+## Quick Start
+
+1. Install dependencies:
 
 ```bash
 bun install
 ```
 
-2. Copy env
+2. Create local env:
 
 ```bash
 cp .env.example .env.local
 ```
 
-The API and worker load `.env.local` automatically.
-If you prefer `environment.local`, that is loaded too.
-
-3. Start local services (Redis + MinIO + Convex + Caddy)
+3. Start everything:
 
 ```bash
 bun run dev
 ```
 
-This starts:
+This runs Docker infra plus host dev servers (`api`, `web`, `worker`).
 
-- Infra in Docker (Redis + MinIO + Convex + Caddy)
-- App dev servers on your host (API + web + worker)
-
-If this is your first run (or after wiping Docker volumes), initialize the MinIO bucket once:
+4. First run only (or after Docker volume reset), initialize storage bucket:
 
 ```bash
 bun run dev:infra:init-storage
 ```
 
-Run only some services (host-run)
+Open:
+
+- Web (recommended): `http://localhost:4321`
+- API direct: `http://localhost:8787`
+- MinIO API: `http://localhost:9010`
+- MinIO Console: `http://localhost:9011`
+- Convex backend: `http://localhost:3210`
+- Convex dashboard: `http://localhost:6791`
+
+## Dev Commands
 
 ```bash
+# Infra only (docker)
 bun run dev:infra
 
-# API
+# Apps only (host)
+bun run dev:apps
+
+# API / worker
 bun --cwd api dev
-
-# Worker
 bun --cwd api worker:dev
-```
 
-Visit:
-
-- Web: `http://localhost:4321` (or `http://web.localhost` via Caddy)
-- API (direct): `http://localhost:8787` (or `http://api.localhost` via Caddy)
-- MinIO (direct): `http://localhost:9010` (or `http://minio.localhost` via Caddy)
-- Convex (direct): `http://localhost:3210` (or `http://convex.localhost` via Caddy)
-- Convex dashboard: `http://localhost:6791`
-
-Convex setup (required for realtime migration work)
-
-```bash
+# Convex checks
 bun run convex:codegen
 bun run convex:check
-```
 
-Environment values used by the Convex check:
-
-- `CONVEX_URL` for server-side calls
-- `CONVEX_ADMIN_KEY` for admin-authenticated server calls
-- `PUBLIC_CONVEX_URL` (optional) for browser usage; the web app defaults to same-origin `/convex` proxying to avoid mixed content when using a tunnel
-
-Convex function env policy:
-
-- Convex functions read runtime env directly (Convex limitation), but variable names are kept aligned with `packages/config` and `.env.example` (e.g. `BRADLEY_TERRY_K`, `RATING_INITIAL_SCORE`).
-
-Realtime voting validation
-
-```bash
-bun run validate:realtime -w api
-```
-
-This simulates ~100 concurrent voters (`REALTIME_TEST_USERS`, default `100`), checks vote latency and propagation latency SLOs, and validates leaderboard consistency from Convex ratings.
-
-## Caddy Front Door (Stable Hostnames + Cloudflare Tunnel Friendly)
-
-Caddy is the stable front door for local dev, so you can use consistent hostnames and tunnel a single origin.
-
-Routes:
-
-- `http://web.localhost/` -> Astro web (`localhost:4321`)
-- `http://web.localhost/api/*` -> API (`localhost:8787`)
-- `http://web.localhost/assets/*` -> MinIO (`minio:9000`)
-- `http://api.localhost/` -> API (`localhost:8787`)
-- `http://minio.localhost/` -> MinIO (`minio:9000`)
-- `http://convex.localhost/` -> Convex (`convex-backend:3210`)
-- Convex dashboard: `http://localhost:6791`
-
-Run:
-
-```bash
-bun run dev:staging
-```
-
-This starts a quick `trycloudflare.com` tunnel to Caddy (the single entrypoint), prints the public URL, starts the local infra stack, and then starts the host app dev servers (web + api + worker) with `APP_ORIGIN` set to that URL.
-
-On WSL2 + Docker Desktop, the script also sets `DEV_UPSTREAM_HOST` to your WSL VM IP so Caddy (in Docker) can reach the host-run dev servers.
-
-## Local Infrastructure
-
-Ports
-
-- Redis: 6379
-- MinIO API: 9010
-- MinIO Console: 9011
-
-Credentials (dev)
-
-- MinIO: access key `minio`, secret key `minio123`, bucket `junkmail`
-
-Common commands
-
-- Start services: `make infra-up` (or `docker compose up -d`)
-- Stop services: `make infra-down` (or `docker compose down`)
-- View status: `make infra-ps` (or `docker compose ps`)
-
-Quality
-
-```bash
+# Quality
 bun run check
 bun run test
 bun run fmt
 ```
 
-Session-end (ship)
+## Caddy + Staging Tunnel
+
+Caddy routes one origin for local and tunnel usage:
+
+- `http://web.localhost/` -> web (`localhost:4321`)
+- `http://web.localhost/api/*` -> API (`localhost:8787`)
+- `http://web.localhost/assets/*` -> MinIO (`minio:9000`)
+- `http://convex.localhost/` -> Convex backend (`convex-backend:3210`)
+
+Start tunnel workflow:
 
 ```bash
-make ship
+bun run dev:staging
 ```
 
-## Architecture Overview
+This creates a `trycloudflare.com` URL and starts infra + apps with origin env vars aligned to that URL.
 
-- `web/`: Astro frontend
-- `api/`: Hono API
-- Redis + MinIO + Convex (local infra via docker-compose)
+## WSL2 + Docker Desktop Note
+
+If Caddy in Docker cannot reach host-run API/web, `web.localhost` routes may return `502`.
+
+Use direct localhost origins in `.env.local` for auth links:
+
+```dotenv
+WEB_ORIGIN=http://localhost:4321
+API_ORIGIN=http://localhost:8787
+CORS_ORIGIN=http://localhost:4321
+```
+
+Then restart API/worker and request a new magic link.
+
+## HTTPS in Local Dev
+
+Current local setup is HTTP only. If secure local HTTPS is needed, track follow-up issue `junkmail-w77` (Caddy local CA trust workflow for Windows/WSL2).
 
 ## Telegram Photo Ingest (Optional)
 
-You can ingest photos posted to a private Telegram group/channel via a bot webhook.
-
-1. Create a bot with `@BotFather`, add it to your private group.
-2. Set env vars (see `.env.example`):
+1. Create a bot with `@BotFather`, add it to your private group/channel.
+2. Set `.env.local` values:
    - `TELEGRAM_BOT_TOKEN`
-   - `TELEGRAM_ALLOWED_CHAT_IDS` (comma-separated)
-   - `TELEGRAM_WEBHOOK_SECRET_TOKEN` (optional but recommended)
-3. Set the bot webhook to `API_BASE_URL/api/v1/telegram/webhook` and (if configured) pass the same secret token.
+   - `TELEGRAM_ALLOWED_CHAT_IDS`
+   - `TELEGRAM_WEBHOOK_SECRET_TOKEN` (recommended)
+3. Set webhook to:
+   - `${API_ORIGIN}/api/v1/telegram/webhook`
