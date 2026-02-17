@@ -143,7 +143,7 @@
     }
   };
 
-  const sendVote = async ({ imageAId, imageBId, winnerId, seed }) => {
+  const sendVote = async ({ imageAId, imageBId, winnerId, matchupToken }) => {
     const response = await fetch(`${apiBaseUrl}/api/v1/votes`, {
       method: "POST",
       headers: {
@@ -154,7 +154,7 @@
         image_a_id: imageAId,
         image_b_id: imageBId,
         winner_id: winnerId,
-        seed,
+        matchup_token: matchupToken,
       }),
     });
 
@@ -191,7 +191,7 @@
       imageAId,
       imageBId,
       winnerId,
-      seed: matchup?.seed,
+      matchupToken: matchup?.matchup_token,
     }).catch((err) => {
       errorMessage = err?.message || "Vote failed. Please try again.";
     });

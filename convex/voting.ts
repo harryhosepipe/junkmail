@@ -8,6 +8,16 @@ const INITIAL_SCORE = env.RATING_INITIAL_SCORE;
 const INITIAL_UNCERTAINTY = env.RATING_INITIAL_UNCERTAINTY;
 const MIN_UNCERTAINTY = env.RATING_MIN_UNCERTAINTY;
 
+export const TOKEN_VALIDATION_ACCEPTED = "accepted";
+export const TOKEN_VALIDATION_INVALID = "rejected_invalid_token";
+export const TOKEN_VALIDATION_EXPIRED = "rejected_expired";
+export const TOKEN_VALIDATION_REPLAY = "rejected_replay";
+export const TOKEN_VALIDATION_MISMATCH = "rejected_mismatch";
+
+export const PROJECTION_PENDING = "pending";
+export const PROJECTION_APPLIED = "applied";
+export const PROJECTION_SKIPPED = "skipped";
+
 const updateUncertainty = (comparisonsCount: number) => {
   const next = 1 / Math.sqrt(comparisonsCount + 1);
   return Math.max(MIN_UNCERTAINTY, next);
@@ -41,38 +51,186 @@ const loadOrCreateRating = async (ctx: MutationCtx, imageId: string) => {
   };
 };
 
-export const recordVote = mutation({
+export const issueMatchupToken = mutation({
   args: {
+    tokenId: v.string(),
+    voterHash: v.string(),
+    imageAId: v.string(),
+    imageBId: v.string(),
+    issuedAt: v.number(),
+    expiresAt: v.number(),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.insert("matchupTokens", args);
+    return { ok: true };
+  },
+});
+
+export const validateAndConsumeMatchupToken = mutation({
+  args: {
+    tokenId: v.string(),
+    voterHash: v.string(),
+    imageAId: v.string(),
+    imageBId: v.string(),
+    now: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const now = args.now ?? Date.now();
+    const token = await ctx.db
+      .query("matchupTokens")
+      .withIndex("by_token_id", (q) => q.eq("tokenId", args.tokenId))
+      .unique();
+
+    if (!token) {
+      return {
+        acceptedForScoring: false,
+        validationStatus: TOKEN_VALIDATION_INVALID,
+        rejectionReason: "token_not_found",
+      };
+    }
+
+    if (token.voterHash !== args.voterHash) {
+      await ctx.db.patch(token._id, { lastSeenAt: now });
+      return {
+        acceptedForScoring: false,
+        validationStatus: TOKEN_VALIDATION_MISMATCH,
+        rejectionReason: "voter_mismatch",
+      };
+    }
+
+    const pairMatches = token.imageAId === args.imageAId && token.imageBId === args.imageBId;
+    if (!pairMatches) {
+      await ctx.db.patch(token._id, { lastSeenAt: now });
+      return {
+        acceptedForScoring: false,
+        validationStatus: TOKEN_VALIDATION_MISMATCH,
+        rejectionReason: "pair_mismatch",
+      };
+    }
+
+    if (token.expiresAt < now) {
+      await ctx.db.patch(token._id, { lastSeenAt: now });
+      return {
+        acceptedForScoring: false,
+        validationStatus: TOKEN_VALIDATION_EXPIRED,
+        rejectionReason: "token_expired",
+      };
+    }
+
+    if (token.usedAt) {
+      await ctx.db.patch(token._id, { lastSeenAt: now });
+      return {
+        acceptedForScoring: false,
+        validationStatus: TOKEN_VALIDATION_REPLAY,
+        rejectionReason: "token_replayed",
+      };
+    }
+
+    await ctx.db.patch(token._id, {
+      usedAt: now,
+      lastSeenAt: now,
+    });
+
+    return {
+      acceptedForScoring: true,
+      validationStatus: TOKEN_VALIDATION_ACCEPTED,
+      rejectionReason: null,
+    };
+  },
+});
+
+export const createVoteEvent = mutation({
+  args: {
+    voteEventId: v.string(),
+    matchupTokenId: v.string(),
     imageAId: v.string(),
     imageBId: v.string(),
     winnerId: v.string(),
     voterHash: v.string(),
     voterAuthUserId: v.optional(v.string()),
     ipHash: v.string(),
-    createdAt: v.optional(v.number()),
+    createdAt: v.number(),
+    validationStatus: v.string(),
+    rejectionReason: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    if (args.imageAId === args.imageBId) {
-      throw new Error("Matchup must contain two images");
+    const existing = await ctx.db
+      .query("votes")
+      .withIndex("by_vote_event_id", (q) => q.eq("voteEventId", args.voteEventId))
+      .unique();
+    if (existing) {
+      return { ok: true, alreadyExists: true };
     }
 
-    if (args.winnerId !== args.imageAId && args.winnerId !== args.imageBId) {
-      throw new Error("Winner must be one of the matchup images");
+    const projectionStatus =
+      args.validationStatus === TOKEN_VALIDATION_ACCEPTED ? PROJECTION_PENDING : PROJECTION_SKIPPED;
+
+    await ctx.db.insert("votes", {
+      voteEventId: args.voteEventId,
+      matchupTokenId: args.matchupTokenId,
+      imageAId: args.imageAId,
+      imageBId: args.imageBId,
+      winnerId: args.winnerId,
+      voterHash: args.voterHash,
+      voterAuthUserId: args.voterAuthUserId,
+      ipHash: args.ipHash,
+      createdAt: args.createdAt,
+      validationStatus: args.validationStatus,
+      projectionStatus,
+      projectionAttemptCount: 0,
+      projectedAt: projectionStatus === PROJECTION_SKIPPED ? args.createdAt : undefined,
+      rejectionReason: args.rejectionReason,
+    });
+
+    return { ok: true, alreadyExists: false };
+  },
+});
+
+export const projectVoteEvent = mutation({
+  args: {
+    voteEventId: v.string(),
+    now: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const event = await ctx.db
+      .query("votes")
+      .withIndex("by_vote_event_id", (q) => q.eq("voteEventId", args.voteEventId))
+      .unique();
+    if (!event) {
+      throw new Error("Vote event not found");
     }
 
-    const ratingA = await loadOrCreateRating(ctx, args.imageAId);
-    const ratingB = await loadOrCreateRating(ctx, args.imageBId);
+    if (
+      event.projectionStatus === PROJECTION_APPLIED ||
+      event.projectionStatus === PROJECTION_SKIPPED
+    ) {
+      return { ok: true, projectionStatus: event.projectionStatus };
+    }
+
+    const now = args.now ?? Date.now();
+    const nextAttemptCount = (event.projectionAttemptCount ?? 0) + 1;
+
+    if (event.validationStatus !== TOKEN_VALIDATION_ACCEPTED) {
+      await ctx.db.patch(event._id, {
+        projectionStatus: PROJECTION_SKIPPED,
+        projectionAttemptCount: nextAttemptCount,
+        projectedAt: now,
+      });
+      return { ok: true, projectionStatus: PROJECTION_SKIPPED };
+    }
+
+    const ratingA = await loadOrCreateRating(ctx, event.imageAId);
+    const ratingB = await loadOrCreateRating(ctx, event.imageBId);
 
     const scoreA = ratingA.score;
     const scoreB = ratingB.score;
     const probabilityA = 1 / (1 + Math.exp(-(scoreA - scoreB)));
-    const outcomeA = args.winnerId === args.imageAId ? 1 : 0;
+    const outcomeA = event.winnerId === event.imageAId ? 1 : 0;
     const deltaA = LEARNING_RATE * (outcomeA - probabilityA);
     const deltaB = -deltaA;
 
     const nextComparisonsA = ratingA.comparisonsCount + 1;
     const nextComparisonsB = ratingB.comparisonsCount + 1;
-    const now = args.createdAt ?? Date.now();
 
     await ctx.db.patch(ratingA._id, {
       score: scoreA + deltaA,
@@ -88,17 +246,13 @@ export const recordVote = mutation({
       updatedAt: now,
     });
 
-    await ctx.db.insert("votes", {
-      imageAId: args.imageAId,
-      imageBId: args.imageBId,
-      winnerId: args.winnerId,
-      voterHash: args.voterHash,
-      voterAuthUserId: args.voterAuthUserId,
-      ipHash: args.ipHash,
-      createdAt: now,
+    await ctx.db.patch(event._id, {
+      projectionStatus: PROJECTION_APPLIED,
+      projectionAttemptCount: nextAttemptCount,
+      projectedAt: now,
     });
 
-    return { ok: true };
+    return { ok: true, projectionStatus: PROJECTION_APPLIED };
   },
 });
 

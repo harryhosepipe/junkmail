@@ -4,7 +4,11 @@ import type { Context } from "hono";
 import { getCookie, setCookie } from "hono/cookie";
 import { generateToken } from "../auth/tokens.js";
 import { redis } from "../queue/connection.js";
-import { queryConvexPublicImages, queryConvexRatingsByImageIds } from "../convex/client.js";
+import {
+  mutateConvexIssueMatchupToken,
+  queryConvexPublicImages,
+  queryConvexRatingsByImageIds,
+} from "../convex/client.js";
 import { normalizePublicAssetData, normalizePublicAssetUrl } from "../storage/publicUrls.js";
 import { env } from "../env.js";
 
@@ -19,6 +23,7 @@ const CLOSE_CANDIDATE_PAIRS = env.MATCHUP_CLOSE_CANDIDATE_PAIRS ?? 6;
 const REPEAT_TTL_SECONDS = env.MATCHUP_REPEAT_TTL_SECONDS ?? 120;
 const MATCHUP_POOL_TTL_SECONDS = env.MATCHUP_POOL_TTL_SECONDS ?? 10;
 const MATCHUP_PAIR_COOLDOWN_MS = env.MATCHUP_PAIR_COOLDOWN_MS ?? 900;
+const MATCHUP_TOKEN_TTL_SECONDS = 5 * 60;
 
 const WEIGHT_NEW = env.MATCHUP_WEIGHT_NEW ?? 0.45;
 const WEIGHT_CLOSE = env.MATCHUP_WEIGHT_CLOSE ?? 0.4;
@@ -260,12 +265,22 @@ export const createMatchupPayload = async (c: Context) => {
   }
 
   const [a, b] = selected;
-  const seed = generateToken();
+  const tokenId = generateToken();
+  const issuedAt = Date.now();
+  const expiresAt = issuedAt + MATCHUP_TOKEN_TTL_SECONDS * 1000;
+  await mutateConvexIssueMatchupToken({
+    tokenId,
+    voterHash,
+    imageAId: a.id,
+    imageBId: b.id,
+    issuedAt,
+    expiresAt,
+  });
 
   try {
     await redis.set(
       repeatKey,
-      JSON.stringify({ a: a.id, b: b.id, seed }),
+      JSON.stringify({ a: a.id, b: b.id, tokenId }),
       "EX",
       REPEAT_TTL_SECONDS,
     );
@@ -295,7 +310,7 @@ export const createMatchupPayload = async (c: Context) => {
       originalUrl: normalizePublicAssetUrl(b.originalUrl),
       variantUrls: normalizePublicAssetData(b.variantUrls),
     },
-    seed,
+    matchup_token: tokenId,
     reason,
   };
 };

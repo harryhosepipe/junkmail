@@ -1,7 +1,10 @@
 import { GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
 import { Worker } from "bullmq";
 import sharp from "sharp";
-import { mutateConvexRecordVote, mutateConvexSetImageProcessingResult } from "../convex/client.js";
+import {
+  mutateConvexProjectVoteEvent,
+  mutateConvexSetImageProcessingResult,
+} from "../convex/client.js";
 import { publicObjectUrl, s3Client, storageBucket } from "../storage/client.js";
 import { ImageFormat, ImageSize, variantKey } from "../storage/paths.js";
 import { redis } from "./connection.js";
@@ -123,25 +126,14 @@ worker.on("failed", (job, err) => {
 const voteWorker = new Worker(
   "vote-writes",
   async (job) => {
-    const { imageAId, imageBId, winnerId, voterHash, voterAuthUserId, ipHash, createdAt } =
-      job.data as {
-        imageAId: string;
-        imageBId: string;
-        winnerId: string;
-        voterHash: string;
-        voterAuthUserId?: string;
-        ipHash: string;
-        createdAt: number;
-      };
+    const { voteEventId, createdAt } = job.data as {
+      voteEventId: string;
+      createdAt: number;
+    };
 
-    await mutateConvexRecordVote({
-      imageAId,
-      imageBId,
-      winnerId,
-      voterHash,
-      voterAuthUserId,
-      ipHash,
-      createdAt,
+    await mutateConvexProjectVoteEvent({
+      voteEventId,
+      now: createdAt,
     });
   },
   {

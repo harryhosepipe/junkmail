@@ -45,6 +45,8 @@ export default defineSchema({
     .index("by_comparisons", ["comparisonsCount"])
     .index("by_updated_at", ["updatedAt"]),
   votes: defineTable({
+    voteEventId: v.string(),
+    matchupTokenId: v.optional(v.string()),
     imageAId: v.string(),
     imageBId: v.string(),
     winnerId: v.string(),
@@ -52,11 +54,30 @@ export default defineSchema({
     voterAuthUserId: v.optional(v.string()),
     ipHash: v.string(),
     createdAt: v.number(),
+    validationStatus: v.optional(v.string()),
+    projectionStatus: v.optional(v.string()),
+    projectionAttemptCount: v.optional(v.number()),
+    projectedAt: v.optional(v.number()),
+    rejectionReason: v.optional(v.string()),
   })
+    .index("by_vote_event_id", ["voteEventId"])
     .index("by_created_at", ["createdAt"])
     .index("by_winner_id", ["winnerId"])
     .index("by_voter_hash", ["voterHash"])
     .index("by_voter_auth_user_id", ["voterAuthUserId"]),
+  matchupTokens: defineTable({
+    tokenId: v.string(),
+    voterHash: v.string(),
+    imageAId: v.string(),
+    imageBId: v.string(),
+    issuedAt: v.number(),
+    expiresAt: v.number(),
+    usedAt: v.optional(v.number()),
+    lastSeenAt: v.optional(v.number()),
+  })
+    .index("by_token_id", ["tokenId"])
+    .index("by_voter_hash", ["voterHash"])
+    .index("by_expires_at", ["expiresAt"]),
   images: defineTable({
     imageId: v.string(),
     uploaderAuthUserId: v.string(),

@@ -5,6 +5,7 @@ import {
   mutateConvexBackfillClearImageCommentsBatch,
   mutateConvexBackfillClearImagesBatch,
   mutateConvexBackfillClearImageRatingsBatch,
+  mutateConvexBackfillClearMatchupTokensBatch,
   mutateConvexBackfillClearSessionsBatch,
   mutateConvexBackfillClearUserProfilesBatch,
   mutateConvexBackfillClearVotesBatch,
@@ -62,6 +63,7 @@ const run = async () => {
   await clearInBatches(mutateConvexBackfillClearImagesBatch);
   await clearInBatches(mutateConvexBackfillClearVotesBatch);
   await clearInBatches(mutateConvexBackfillClearImageRatingsBatch);
+  await clearInBatches(mutateConvexBackfillClearMatchupTokensBatch);
   await clearInBatches(mutateConvexBackfillClearSessionsBatch);
   await clearInBatches(mutateConvexBackfillClearAuthTokensBatch);
   await clearInBatches(mutateConvexBackfillClearUserProfilesBatch);
@@ -71,8 +73,7 @@ const run = async () => {
   console.info(`Deleted ${deletedObjects} objects`);
 };
 
-run()
-  .catch((err) => {
-    console.error("Clear failed", err);
-    process.exitCode = 1;
-  });
+run().catch((err) => {
+  console.error("Clear failed", err);
+  process.exitCode = 1;
+});

@@ -5,9 +5,14 @@ import { getCookie, setCookie } from "hono/cookie";
 import { ensureSameOrigin } from "../auth/csrf.js";
 import { generateToken } from "../auth/tokens.js";
 import { getSessionUser } from "../auth/session.js";
+import {
+  mutateConvexCreateVoteEvent,
+  mutateConvexProjectVoteEvent,
+  mutateConvexValidateAndConsumeMatchupToken,
+  queryConvexPublicImagesByIds,
+} from "../convex/client.js";
 import { redis } from "../queue/connection.js";
 import { voteQueue } from "../queue/index.js";
-import { queryConvexPublicImagesByIds } from "../convex/client.js";
 import { env } from "../env.js";
 
 const votesRouter = new Hono();
@@ -20,6 +25,8 @@ const RATE_LIMIT_BURST = env.VOTE_RATE_LIMIT_BURST ?? 20;
 const RATE_LIMIT_BURST_WINDOW = env.VOTE_RATE_LIMIT_BURST_WINDOW ?? 60;
 const RATE_LIMIT_SUSTAINED = env.VOTE_RATE_LIMIT_SUSTAINED ?? 240;
 const RATE_LIMIT_SUSTAINED_WINDOW = env.VOTE_RATE_LIMIT_SUSTAINED_WINDOW ?? 3600;
+
+const TOKEN_VALIDATION_ACCEPTED = "accepted";
 
 const hashValue = (value: string, salt: string) =>
   createHash("sha256").update(`${salt}:${value}`).digest("hex");
@@ -92,9 +99,9 @@ votesRouter.post("/", async (c) => {
   const imageAId = normalizeBodyValue(body.image_a_id);
   const imageBId = normalizeBodyValue(body.image_b_id);
   const winnerId = normalizeBodyValue(body.winner_id);
-  const seed = normalizeBodyValue(body.seed);
+  const matchupTokenId = normalizeBodyValue(body.matchup_token);
 
-  if (!imageAId || !imageBId || !winnerId || !seed) {
+  if (!imageAId || !imageBId || !winnerId || !matchupTokenId) {
     return c.json({ error: { message: "Missing vote payload" } }, 400);
   }
 
@@ -114,12 +121,11 @@ votesRouter.post("/", async (c) => {
   const allowedIp = await allowedByRateLimit(ipHash, "ip");
   const allowedVoter = await allowedByRateLimit(voterHash, "voter");
   if (!allowedIp || !allowedVoter) {
-    const captchaRequired = false;
     return c.json(
       {
         error: {
           message: "Too many votes. Slow down.",
-          code: captchaRequired ? "captcha_required" : "rate_limited",
+          code: "rate_limited",
         },
       },
       429,
@@ -135,21 +141,61 @@ votesRouter.post("/", async (c) => {
     return c.json({ error: { message: "Matchup lookup unavailable. Try again." } }, 503);
   }
 
-  try {
-    await voteQueue.add("record", {
-      imageAId,
-      imageBId,
-      winnerId,
-      voterHash,
-      voterAuthUserId: sessionUser?.id,
-      ipHash,
-      createdAt: Date.now(),
-    });
-  } catch (error) {
-    return c.json({ error: { message: "Vote queue unavailable. Try again." } }, 503);
+  const validation = await mutateConvexValidateAndConsumeMatchupToken({
+    tokenId: matchupTokenId,
+    voterHash,
+    imageAId,
+    imageBId,
+    now: Date.now(),
+  });
+
+  const voteEventId = generateToken();
+  const createdAt = Date.now();
+  await mutateConvexCreateVoteEvent({
+    voteEventId,
+    matchupTokenId,
+    imageAId,
+    imageBId,
+    winnerId,
+    voterHash,
+    voterAuthUserId: sessionUser?.id,
+    ipHash,
+    createdAt,
+    validationStatus: validation.validationStatus,
+    rejectionReason: validation.rejectionReason || undefined,
+  });
+
+  if (validation.acceptedForScoring) {
+    try {
+      await voteQueue.add(
+        "project",
+        {
+          voteEventId,
+          createdAt,
+        },
+        {
+          jobId: voteEventId,
+        },
+      );
+    } catch {
+      try {
+        await mutateConvexProjectVoteEvent({ voteEventId, now: Date.now() });
+      } catch {
+        return c.json(
+          { error: { message: "Vote accepted but projection unavailable. Retry later." } },
+          503,
+        );
+      }
+    }
   }
 
-  return c.json({ ok: true });
+  return c.json({
+    ok: true,
+    eventId: voteEventId,
+    acceptedForScoring: validation.acceptedForScoring,
+    reason: validation.acceptedForScoring ? undefined : validation.validationStatus,
+    validationStatus: validation.validationStatus,
+  });
 });
 
 export default votesRouter;

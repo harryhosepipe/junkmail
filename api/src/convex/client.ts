@@ -26,18 +26,56 @@ type ConvexRatingsResponse = {
   ratings: ConvexRating[];
 };
 
-type RecordVoteArgs = {
+type IssueMatchupTokenArgs = {
+  tokenId: string;
+  voterHash: string;
+  imageAId: string;
+  imageBId: string;
+  issuedAt: number;
+  expiresAt: number;
+};
+
+type ValidateAndConsumeMatchupTokenArgs = {
+  tokenId: string;
+  voterHash: string;
+  imageAId: string;
+  imageBId: string;
+  now?: number;
+};
+
+type ValidateAndConsumeMatchupTokenResult = {
+  acceptedForScoring: boolean;
+  validationStatus: string;
+  rejectionReason?: string | null;
+};
+
+type CreateVoteEventArgs = {
+  voteEventId: string;
+  matchupTokenId: string;
   imageAId: string;
   imageBId: string;
   winnerId: string;
   voterHash: string;
   voterAuthUserId?: string;
   ipHash: string;
-  createdAt?: number;
+  createdAt: number;
+  validationStatus: string;
+  rejectionReason?: string;
 };
 
-type RecordVoteResult = {
+type CreateVoteEventResult = {
   ok: boolean;
+  alreadyExists: boolean;
+};
+
+type ProjectVoteEventArgs = {
+  voteEventId: string;
+  now?: number;
+};
+
+type ProjectVoteEventResult = {
+  ok: boolean;
+  projectionStatus: string;
 };
 
 type TopRatingsArgs = {
@@ -119,6 +157,7 @@ type BackfillCounts = {
   userProfiles: number;
   authTokens: number;
   sessions: number;
+  matchupTokens: number;
   imageRatings: number;
   votes: number;
   images: number;
@@ -165,9 +204,26 @@ const ratingsByImageIdsRef = makeFunctionReference<
   { imageIds: string[] },
   ConvexRatingsResponse
 >("voting:getRatingsByImageIds");
-const recordVoteRef = makeFunctionReference<"mutation", RecordVoteArgs, RecordVoteResult>(
-  "voting:recordVote",
-);
+const issueMatchupTokenRef = makeFunctionReference<
+  "mutation",
+  IssueMatchupTokenArgs,
+  { ok: boolean }
+>("voting:issueMatchupToken");
+const validateAndConsumeMatchupTokenRef = makeFunctionReference<
+  "mutation",
+  ValidateAndConsumeMatchupTokenArgs,
+  ValidateAndConsumeMatchupTokenResult
+>("voting:validateAndConsumeMatchupToken");
+const createVoteEventRef = makeFunctionReference<
+  "mutation",
+  CreateVoteEventArgs,
+  CreateVoteEventResult
+>("voting:createVoteEvent");
+const projectVoteEventRef = makeFunctionReference<
+  "mutation",
+  ProjectVoteEventArgs,
+  ProjectVoteEventResult
+>("voting:projectVoteEvent");
 const topRatingsRef = makeFunctionReference<"query", TopRatingsArgs, TopRatingItem[]>(
   "voting:getTopRatings",
 );
@@ -245,6 +301,11 @@ const backfillClearSessionsBatchRef = makeFunctionReference<
   BackfillClearBatchArgs,
   BackfillClearBatchResult
 >("backfill:clearSessionsBatch");
+const backfillClearMatchupTokensBatchRef = makeFunctionReference<
+  "mutation",
+  BackfillClearBatchArgs,
+  BackfillClearBatchResult
+>("backfill:clearMatchupTokensBatch");
 const backfillClearImagesBatchRef = makeFunctionReference<
   "mutation",
   BackfillClearBatchArgs,
@@ -414,9 +475,26 @@ export const queryConvexRatingsByImageIds = async (imageIds: string[]) => {
   return result.ratings || [];
 };
 
-export const mutateConvexRecordVote = async (args: RecordVoteArgs) => {
+export const mutateConvexIssueMatchupToken = async (args: IssueMatchupTokenArgs) => {
   const { client } = createConvexClient();
-  return client.mutation(recordVoteRef, args);
+  return client.mutation(issueMatchupTokenRef, args);
+};
+
+export const mutateConvexValidateAndConsumeMatchupToken = async (
+  args: ValidateAndConsumeMatchupTokenArgs,
+) => {
+  const { client } = createConvexClient();
+  return client.mutation(validateAndConsumeMatchupTokenRef, args);
+};
+
+export const mutateConvexCreateVoteEvent = async (args: CreateVoteEventArgs) => {
+  const { client } = createConvexClient();
+  return client.mutation(createVoteEventRef, args);
+};
+
+export const mutateConvexProjectVoteEvent = async (args: ProjectVoteEventArgs) => {
+  const { client } = createConvexClient();
+  return client.mutation(projectVoteEventRef, args);
 };
 
 export const isConvexOptimisticConcurrencyError = (error: unknown) => {
@@ -508,6 +586,11 @@ export const mutateConvexBackfillClearAuthTokensBatch = async (args: BackfillCle
 export const mutateConvexBackfillClearSessionsBatch = async (args: BackfillClearBatchArgs) => {
   const { client } = createConvexClient();
   return client.mutation(backfillClearSessionsBatchRef, args);
+};
+
+export const mutateConvexBackfillClearMatchupTokensBatch = async (args: BackfillClearBatchArgs) => {
+  const { client } = createConvexClient();
+  return client.mutation(backfillClearMatchupTokensBatchRef, args);
 };
 
 export const mutateConvexBackfillClearImagesBatch = async (args: BackfillClearBatchArgs) => {
@@ -660,7 +743,10 @@ export const mutateConvexDeleteSessionByTokenHash = async (args: { tokenHash: st
   return client.mutation(deleteSessionByTokenHashRef, args);
 };
 
-export const queryConvexSessionUserAuthUserId = async (args: { tokenHash: string; now?: number }) => {
+export const queryConvexSessionUserAuthUserId = async (args: {
+  tokenHash: string;
+  now?: number;
+}) => {
   const { client } = createConvexClient();
   return client.query(getSessionUserAuthUserIdRef, args);
 };

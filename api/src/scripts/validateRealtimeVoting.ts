@@ -6,7 +6,7 @@ import { env, getEnv } from "../env.js";
 type MatchupPayload = {
   a: { id: string };
   b: { id: string };
-  seed: string;
+  matchup_token: string;
 };
 
 type VoteStats = {
@@ -54,7 +54,7 @@ const getMatchup = async (voterId: string, ip: string) => {
     throw new Error(`matchup failed (${response.status})`);
   }
   const payload = (await response.json()) as MatchupPayload;
-  if (!payload?.a?.id || !payload?.b?.id || !payload.seed) {
+  if (!payload?.a?.id || !payload?.b?.id || !payload.matchup_token) {
     throw new Error("invalid matchup payload");
   }
   return payload;
@@ -74,7 +74,7 @@ const postVote = async (payload: MatchupPayload, voterId: string, ip: string, wi
       image_a_id: payload.a.id,
       image_b_id: payload.b.id,
       winner_id: winnerId,
-      seed: payload.seed,
+      matchup_token: payload.matchup_token,
     }),
   });
   const latencyMs = Date.now() - startedAt;
