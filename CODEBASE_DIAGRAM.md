@@ -27,7 +27,7 @@ flowchart LR
     Feed["Feed + matchups\napi/src/routes/feed.ts\napi/src/routes/matchups.ts"]
     Votes["Votes intake (rate limit + enqueue)\napi/src/routes/votes.ts"]
     ConvexHttp["Convex HTTP client\napi/src/convex/client.ts"]
-    Db["Postgres via Drizzle\napi/src/db/*"]
+    Data["Convex data model\nconvex/*"]
     Storage["S3 client (MinIO)\napi/src/storage/*"]
     Queue["BullMQ queues\napi/src/queue/*"]
   end
@@ -51,7 +51,6 @@ flowchart LR
   %% ================
   subgraph Infra["Local Infra (docker-compose + Caddy)"]
     Caddy["Caddy front door\ninfra/caddy/Caddyfile"]
-    PG["Postgres"]
     Redis["Redis"]
     MinIO["MinIO (S3-compatible)"]
     ConvexBackend["Convex backend + dashboard"]
@@ -86,8 +85,7 @@ flowchart LR
   Hono --> Feed
   Hono --> Votes
 
-  Hono --> Db
-  Db --> PG
+  Hono --> ConvexHttp
 
   Hono --> Storage
   Storage --> MinIO
@@ -99,7 +97,7 @@ flowchart LR
   Redis --> VoteWorker
 
   ImgWorker -->|"read originals + write variants"| MinIO
-  ImgWorker -->|"update image status + variantUrls"| PG
+  ImgWorker -->|"update image status + variantUrls"| ConvexHttp
 
   VoteWorker -->|"mutate voting:recordVote"| ConvexHttp
   ConvexHttp --> ConvexBackend
@@ -123,17 +121,15 @@ sequenceDiagram
   participant Redis
   participant Worker as api worker
   participant MinIO
-  participant PG as Postgres
   participant Convex as Convex backend
 
   rect rgba(240,248,255,0.7)
     note over Browser,Convex: Voting (fast, async write)
     Browser->>Web: Load page (Astro) + hydrate VoteModule
     Web->>API: GET /api/v1/matchups/next
-    API->>PG: Load public images
-    API->>Convex: Query ratings (HTTP) for matchup selection
-    API-->>Web: {a,b,seed}
-    Web->>API: POST /api/v1/votes (winner + seed)
+    API->>Convex: Query content + ratings for matchup selection
+    API-->>Web: {a,b,matchup_token}
+    Web->>API: POST /api/v1/votes (winner + matchup_token)
     API->>Redis: Enqueue vote-writes job (rate-limited)
     API-->>Web: 200 OK immediately
     Redis->>Worker: Deliver vote-writes job
@@ -158,4 +154,3 @@ sequenceDiagram
     API-->>Web: status becomes public (poll completes)
   end
 ```
-

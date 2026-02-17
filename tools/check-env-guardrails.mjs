@@ -28,8 +28,7 @@ const isEscapeHatchPath = (path) =>
   path.includes(".test.") ||
   path.includes("/__tests__/") ||
   path.includes("/migrations/") ||
-  path.includes("/migration/") ||
-  path.includes("/drizzle/");
+  path.includes("/migration/");
 
 const listSourceFiles = () => {
   const globs = SOURCE_EXTENSIONS.map((ext) => `-g '${ext}'`).join(" ");

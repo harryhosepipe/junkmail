@@ -1,6 +1,9 @@
-# Convex-Only Refactor Notes (Future)
+# Convex-Only Refactor Notes (Historical)
 
-This repo currently uses a hybrid backend:
+This document is historical context from before the Convex-only migration.
+The runtime is now Convex-first and no longer uses Postgres/Drizzle.
+
+At the time this document was written, the repo used a hybrid backend:
 
 - Web: Astro (`web/`)
 - API: Hono (`api/`)
