@@ -1,9 +1,9 @@
 import { Hono } from "hono";
 import type { Context } from "hono";
 import { createHash } from "crypto";
-import { and, count, eq, gt, isNull } from "drizzle-orm";
+import { and, eq, gt, isNull } from "drizzle-orm";
 import { db } from "../db/client.js";
-import { authTokens, images, users } from "../db/schema.js";
+import { authTokens, users } from "../db/schema.js";
 import { getCookie } from "hono/cookie";
 import { sendMagicLinkEmail } from "../auth/email.js";
 import {
@@ -17,7 +17,11 @@ import {
 import { ensureSameOrigin } from "../auth/csrf.js";
 import { generateToken, hashToken } from "../auth/tokens.js";
 import { resolveInvitedUploaderByEmail } from "../auth/userProfile.js";
-import { queryConvexVoteCountForProfile, mutateConvexUpsertUserProfile } from "../convex/client.js";
+import {
+  mutateConvexUpsertUserProfile,
+  queryConvexUploaderImageCount,
+  queryConvexVoteCountForProfile,
+} from "../convex/client.js";
 import { env } from "../env.js";
 
 const authRouter = new Hono();
@@ -174,11 +178,11 @@ authRouter.get("/profile", async (c) => {
   const voterHash = voterId ? hashValue(voterId, VOTE_HASH_SALT) : undefined;
 
   const [uploadStats, voteStats] = await Promise.all([
-    db.select({ count: count() }).from(images).where(eq(images.uploaderId, user.id)).limit(1),
+    queryConvexUploaderImageCount(user.id).catch(() => ({ count: 0 })),
     queryConvexVoteCountForProfile({ authUserId: user.id, voterHash }).catch(() => ({ count: 0 })),
   ]);
 
-  const uploadedImages = Number(uploadStats[0]?.count ?? 0);
+  const uploadedImages = Number(uploadStats?.count ?? 0);
   const votesCast = Number(voteStats?.count ?? 0);
 
   return c.json({

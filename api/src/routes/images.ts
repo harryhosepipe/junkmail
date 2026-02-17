@@ -395,15 +395,7 @@ imagesRouter.post("/:id/reprocess", async (c) => {
 
   const imageId = c.req.param("id");
   const convexImage = await queryConvexImageById(imageId);
-  const originalUrl =
-    convexImage?.originalUrl ||
-    (
-      await db
-        .select({ originalUrl: images.originalUrl })
-        .from(images)
-        .where(eq(images.id, imageId))
-        .limit(1)
-    )[0]?.originalUrl;
+  const originalUrl = convexImage?.originalUrl;
   if (!originalUrl) {
     return c.json({ error: { message: "Image not found" } }, 404);
   }

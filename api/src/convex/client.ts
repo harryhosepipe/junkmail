@@ -257,6 +257,11 @@ const imageCommentsRef = makeFunctionReference<
   { imageId: string; limit?: number },
   ConvexImageComment[]
 >("content:listImageComments");
+const uploaderImageCountRef = makeFunctionReference<
+  "query",
+  { uploaderAuthUserId: string },
+  { count: number }
+>("content:countUploaderImages");
 const createImageCommentRef = makeFunctionReference<
   "mutation",
   {
@@ -458,6 +463,11 @@ export const queryConvexImageById = async (imageId: string) => {
 export const queryConvexImageComments = async (args: { imageId: string; limit?: number }) => {
   const { client } = createConvexClient();
   return client.query(imageCommentsRef, args);
+};
+
+export const queryConvexUploaderImageCount = async (uploaderAuthUserId: string) => {
+  const { client } = createConvexClient();
+  return client.query(uploaderImageCountRef, { uploaderAuthUserId });
 };
 
 export const mutateConvexCreateImageComment = async (args: {

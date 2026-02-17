@@ -242,6 +242,21 @@ export const listUploaderImages = query({
   },
 });
 
+export const countUploaderImages = query({
+  args: {
+    uploaderAuthUserId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const rows = await ctx.db
+      .query("images")
+      .withIndex("by_uploader_created_at", (q) =>
+        q.eq("uploaderAuthUserId", args.uploaderAuthUserId),
+      )
+      .collect();
+    return { count: rows.length };
+  },
+});
+
 export const createImageComment = mutation({
   args: {
     commentId: v.string(),

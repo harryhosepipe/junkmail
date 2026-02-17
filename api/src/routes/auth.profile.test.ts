@@ -16,6 +16,7 @@ const state = vi.hoisted(() => ({
 }));
 
 const queryConvexVoteCountForProfile = vi.hoisted(() => vi.fn());
+const queryConvexUploaderImageCount = vi.hoisted(() => vi.fn());
 const mutateConvexUpsertUserProfile = vi.hoisted(() => vi.fn());
 const getSessionUser = vi.hoisted(() => vi.fn());
 const ensureSameOrigin = vi.hoisted(() => vi.fn());
@@ -64,6 +65,7 @@ vi.mock("../auth/userProfile.js", () => ({
 }));
 
 vi.mock("../convex/client.js", () => ({
+  queryConvexUploaderImageCount,
   queryConvexVoteCountForProfile,
   mutateConvexUpsertUserProfile,
 }));
@@ -85,6 +87,7 @@ describe("auth profile routes", () => {
     state.updatedAlias = "";
     ensureSameOrigin.mockReturnValue(null);
     getSessionUser.mockImplementation(async () => state.sessionUser);
+    queryConvexUploaderImageCount.mockImplementation(async () => ({ count: state.uploadedImages }));
     queryConvexVoteCountForProfile.mockImplementation(async () => ({ count: state.voteCount }));
     mutateConvexUpsertUserProfile.mockResolvedValue({ ok: true });
   });
