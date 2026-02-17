@@ -4,12 +4,12 @@ import { Hono } from "hono";
 const state = vi.hoisted(() => ({
   selectedUserId: "user-1",
   insertedUserValues: null as null | Record<string, unknown>,
-  insertedImageValues: null as null | Record<string, unknown>,
-  insertedRatingValues: null as null | Record<string, unknown>,
+  convexUpsertValues: null as null | Record<string, unknown>,
   queuedJob: null as null | Record<string, unknown>,
   s3PutCount: 0,
-  insertCall: 0,
 }));
+
+const mutateConvexUpsertImageContent = vi.hoisted(() => vi.fn());
 
 vi.mock("../db/client.js", () => ({
   db: {
@@ -25,39 +25,19 @@ vi.mock("../db/client.js", () => ({
         where: vi.fn(async () => undefined),
       })),
     })),
-    insert: vi.fn(() => {
-      // telegram handler inserts in order: users (maybe), images, ratings
-      const call = state.insertCall;
-      state.insertCall += 1;
-
-      if (call === 0) {
+    insert: vi.fn(() => ({
+      values: vi.fn((values: Record<string, unknown>) => {
+        state.insertedUserValues = values;
         return {
-          values: vi.fn((values: Record<string, unknown>) => {
-            state.insertedUserValues = values;
-            return {
-              returning: vi.fn(async () => [{ id: state.selectedUserId }]),
-            };
-          }),
+          returning: vi.fn(async () => [{ id: state.selectedUserId }]),
         };
-      }
-
-      if (call === 1) {
-        return {
-          values: vi.fn((values: Record<string, unknown>) => {
-            state.insertedImageValues = values;
-            return Promise.resolve(undefined);
-          }),
-        };
-      }
-
-      return {
-        values: vi.fn((values: Record<string, unknown>) => {
-          state.insertedRatingValues = values;
-          return Promise.resolve(undefined);
-        }),
-      };
-    }),
+      }),
+    })),
   },
+}));
+
+vi.mock("../convex/client.js", () => ({
+  mutateConvexUpsertImageContent,
 }));
 
 vi.mock("../queue/index.js", () => ({
@@ -92,11 +72,13 @@ describe("telegram webhook", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     state.insertedUserValues = null;
-    state.insertedImageValues = null;
-    state.insertedRatingValues = null;
+    state.convexUpsertValues = null;
     state.queuedJob = null;
     state.s3PutCount = 0;
-    state.insertCall = 0;
+    mutateConvexUpsertImageContent.mockImplementation(async (values) => {
+      state.convexUpsertValues = values;
+      return { ok: true };
+    });
     process.env.TELEGRAM_BOT_TOKEN = "test-token";
     process.env.TELEGRAM_ALLOWED_CHAT_IDS = "-100123";
     delete process.env.TELEGRAM_WEBHOOK_SECRET_TOKEN;
@@ -147,13 +129,9 @@ describe("telegram webhook", () => {
       telegramUsername: "poster",
     });
     expect(state.s3PutCount).toBe(1);
-    expect(state.insertedImageValues).toMatchObject({
-      uploaderId: "user-1",
+    expect(state.convexUpsertValues).toMatchObject({
+      uploaderAuthUserId: "user-1",
       status: "processing",
-    });
-    expect(state.insertedRatingValues).toMatchObject({
-      score: 0,
-      comparisonsCount: 0,
     });
     expect(state.queuedJob?.name).toBe("process");
   });

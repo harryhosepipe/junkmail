@@ -3,10 +3,11 @@ import { randomUUID } from "crypto";
 import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { db } from "../db/client.js";
-import { images, ratings, users } from "../db/schema.js";
+import { users } from "../db/schema.js";
 import { imageQueue } from "../queue/index.js";
 import { originalKey } from "../storage/paths.js";
 import { publicObjectUrl, s3Client, storageBucket } from "../storage/client.js";
+import { mutateConvexUpsertImageContent } from "../convex/client.js";
 import { env } from "../env.js";
 
 const MAX_UPLOAD_BYTES = 15 * 1024 * 1024;
@@ -272,21 +273,14 @@ telegramRouter.post("/webhook", async (c) => {
 
   const originalUrl = publicObjectUrl(key);
 
-  await db.insert(images).values({
-    id: imageId,
-    uploaderId,
-    title: null,
-    description: null,
+  await mutateConvexUpsertImageContent({
+    imageId,
+    uploaderAuthUserId: uploaderId,
     status: "processing",
     originalUrl,
     variantUrls: {},
-  });
-
-  await db.insert(ratings).values({
-    imageId,
-    score: 0,
-    uncertainty: 1,
-    comparisonsCount: 0,
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
   });
 
   await imageQueue.add(

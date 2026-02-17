@@ -1,10 +1,7 @@
 import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { randomUUID } from "crypto";
-import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import type { Context } from "hono";
-import { db } from "../db/client.js";
-import { images, ratings } from "../db/schema.js";
 import { imageQueue } from "../queue/index.js";
 import { redis } from "../queue/connection.js";
 import { originalKey } from "../storage/paths.js";
@@ -213,23 +210,6 @@ imagesRouter.post("/", requireUploader, async (c) => {
 
   const originalUrl = publicObjectUrl(key);
 
-  await db.insert(images).values({
-    id: imageId,
-    uploaderId: authUser.id,
-    title: title.length ? title : null,
-    description: description.length ? description : null,
-    status: "processing",
-    originalUrl,
-    variantUrls: {},
-  });
-
-  await db.insert(ratings).values({
-    imageId,
-    score: 0,
-    uncertainty: 1,
-    comparisonsCount: 0,
-  });
-
   console.info("[upload]", {
     imageId,
     uploaderId: authUser.id,
@@ -408,7 +388,6 @@ imagesRouter.post("/:id/reprocess", async (c) => {
   const ext = key.endsWith(".png") ? "png" : "jpg";
   const contentType = ext === "png" ? "image/png" : "image/jpeg";
 
-  await db.update(images).set({ status: "processing" }).where(eq(images.id, imageId));
   await mutateConvexSetImageStatus({
     imageId,
     status: "processing",
