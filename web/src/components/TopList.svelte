@@ -92,6 +92,7 @@
       async () => {
         // Realtime can be blocked on mobile tunnel sessions; fall back to API.
         realtimeUnavailable = true;
+        connection = "offline";
         try {
           await loadToplistFromApi();
         } catch {
@@ -177,6 +178,9 @@
       if (state !== "loading") return;
       try {
         await loadToplistFromApi();
+        if (connection === "connecting") {
+          connection = "offline";
+        }
       } catch {
         state = "error";
       }
