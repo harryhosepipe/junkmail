@@ -261,6 +261,39 @@ const createImageCommentRef = makeFunctionReference<
   },
   { ok: boolean }
 >("content:createImageComment");
+const upsertImageRef = makeFunctionReference<
+  "mutation",
+  {
+    imageId: string;
+    uploaderAuthUserId: string;
+    title?: string;
+    description?: string;
+    status: string;
+    originalUrl?: string;
+    originalStorageId?: string;
+    variantUrls?: unknown;
+    createdAt?: number;
+    updatedAt?: number;
+    publishedAt?: number;
+  },
+  { ok: boolean }
+>("content:upsertImage");
+const setImageStatusRef = makeFunctionReference<
+  "mutation",
+  { imageId: string; status: string; updatedAt?: number; publishedAt?: number },
+  { ok: boolean }
+>("content:setImageStatus");
+const setImageProcessingResultRef = makeFunctionReference<
+  "mutation",
+  {
+    imageId: string;
+    status: string;
+    variantUrls?: unknown;
+    updatedAt?: number;
+    publishedAt?: number;
+  },
+  { ok: boolean }
+>("content:setImageProcessingResult");
 
 const createConvexClient = () => {
   const url = resolveConvexUrl();
@@ -418,4 +451,42 @@ export const mutateConvexCreateImageComment = async (args: {
 }) => {
   const { client } = createConvexClient();
   return client.mutation(createImageCommentRef, args);
+};
+
+export const mutateConvexUpsertImageContent = async (args: {
+  imageId: string;
+  uploaderAuthUserId: string;
+  title?: string;
+  description?: string;
+  status: string;
+  originalUrl?: string;
+  originalStorageId?: string;
+  variantUrls?: unknown;
+  createdAt?: number;
+  updatedAt?: number;
+  publishedAt?: number;
+}) => {
+  const { client } = createConvexClient();
+  return client.mutation(upsertImageRef, args);
+};
+
+export const mutateConvexSetImageStatus = async (args: {
+  imageId: string;
+  status: string;
+  updatedAt?: number;
+  publishedAt?: number;
+}) => {
+  const { client } = createConvexClient();
+  return client.mutation(setImageStatusRef, args);
+};
+
+export const mutateConvexSetImageProcessingResult = async (args: {
+  imageId: string;
+  status: string;
+  variantUrls?: unknown;
+  updatedAt?: number;
+  publishedAt?: number;
+}) => {
+  const { client } = createConvexClient();
+  return client.mutation(setImageProcessingResultRef, args);
 };

@@ -18,6 +18,8 @@ import { getSessionUser, requireUploader } from "../auth/session.js";
 import { ensureSameOrigin } from "../auth/csrf.js";
 import {
   mutateConvexCreateImageComment,
+  mutateConvexSetImageStatus,
+  mutateConvexUpsertImageContent,
   queryConvexImageById,
   queryConvexImageComments,
   queryConvexRatingsByImageIds,
@@ -243,6 +245,18 @@ imagesRouter.post("/", requireUploader, async (c) => {
     uploaderAlias: authUser.alias,
   });
 
+  await mutateConvexUpsertImageContent({
+    imageId,
+    uploaderAuthUserId: authUser.id,
+    title: title.length ? title : undefined,
+    description: description.length ? description : undefined,
+    status: "processing",
+    originalUrl,
+    variantUrls: {},
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  });
+
   await imageQueue.add(
     "process",
     {
@@ -388,13 +402,16 @@ imagesRouter.post("/:id/reprocess", async (c) => {
   }
 
   const imageId = c.req.param("id");
-  const result = await db
-    .select({ originalUrl: images.originalUrl })
-    .from(images)
-    .where(eq(images.id, imageId))
-    .limit(1);
-
-  const originalUrl = result[0]?.originalUrl;
+  const convexImage = await queryConvexImageById(imageId);
+  const originalUrl =
+    convexImage?.originalUrl ||
+    (
+      await db
+        .select({ originalUrl: images.originalUrl })
+        .from(images)
+        .where(eq(images.id, imageId))
+        .limit(1)
+    )[0]?.originalUrl;
   if (!originalUrl) {
     return c.json({ error: { message: "Image not found" } }, 404);
   }
@@ -408,6 +425,12 @@ imagesRouter.post("/:id/reprocess", async (c) => {
   const contentType = ext === "png" ? "image/png" : "image/jpeg";
 
   await db.update(images).set({ status: "processing" }).where(eq(images.id, imageId));
+  await mutateConvexSetImageStatus({
+    imageId,
+    status: "processing",
+    updatedAt: Date.now(),
+    publishedAt: undefined,
+  });
 
   await imageQueue.add(
     "process",

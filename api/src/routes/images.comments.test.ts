@@ -75,6 +75,8 @@ vi.mock("../storage/publicUrls.js", () => ({
 
 vi.mock("../convex/client.js", () => ({
   mutateConvexCreateImageComment,
+  mutateConvexSetImageStatus: vi.fn(async () => ({ ok: true })),
+  mutateConvexUpsertImageContent: vi.fn(async () => ({ ok: true })),
   queryConvexImageById,
   queryConvexImageComments: vi.fn(async () => []),
   queryConvexRecentPublicImages: vi.fn(async () => []),

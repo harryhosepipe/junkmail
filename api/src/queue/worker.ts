@@ -4,7 +4,7 @@ import { Worker } from "bullmq";
 import sharp from "sharp";
 import { db } from "../db/client.js";
 import { images } from "../db/schema.js";
-import { mutateConvexRecordVote } from "../convex/client.js";
+import { mutateConvexRecordVote, mutateConvexSetImageProcessingResult } from "../convex/client.js";
 import { publicObjectUrl, s3Client, storageBucket } from "../storage/client.js";
 import { ImageFormat, ImageSize, variantKey } from "../storage/paths.js";
 import { redis } from "./connection.js";
@@ -106,6 +106,13 @@ const worker = new Worker(
     }
 
     await db.update(images).set({ status: "public", variantUrls }).where(eq(images.id, imageId));
+    await mutateConvexSetImageProcessingResult({
+      imageId,
+      status: "public",
+      variantUrls,
+      updatedAt: Date.now(),
+      publishedAt: Date.now(),
+    });
   },
   {
     connection: redis,

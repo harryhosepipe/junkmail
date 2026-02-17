@@ -213,6 +213,60 @@ export const createImageComment = mutation({
   },
 });
 
+export const setImageStatus = mutation({
+  args: {
+    imageId: v.string(),
+    status: v.string(),
+    updatedAt: v.optional(v.number()),
+    publishedAt: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const existing = await ctx.db
+      .query("images")
+      .withIndex("by_image_id", (q) => q.eq("imageId", args.imageId))
+      .unique();
+    if (!existing) {
+      throw new Error(`Image not found for imageId=${args.imageId}`);
+    }
+
+    await ctx.db.patch(existing._id, {
+      status: args.status,
+      updatedAt: args.updatedAt ?? Date.now(),
+      publishedAt: args.publishedAt,
+    });
+
+    return { ok: true };
+  },
+});
+
+export const setImageProcessingResult = mutation({
+  args: {
+    imageId: v.string(),
+    status: v.string(),
+    variantUrls: v.optional(v.any()),
+    updatedAt: v.optional(v.number()),
+    publishedAt: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const existing = await ctx.db
+      .query("images")
+      .withIndex("by_image_id", (q) => q.eq("imageId", args.imageId))
+      .unique();
+    if (!existing) {
+      throw new Error(`Image not found for imageId=${args.imageId}`);
+    }
+
+    await ctx.db.patch(existing._id, {
+      status: args.status,
+      variantUrls: args.variantUrls,
+      updatedAt: args.updatedAt ?? Date.now(),
+      publishedAt: args.publishedAt,
+    });
+
+    return { ok: true };
+  },
+});
+
 export const listImageComments = query({
   args: {
     imageId: v.string(),
