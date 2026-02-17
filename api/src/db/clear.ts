@@ -1,7 +1,7 @@
 import { DeleteObjectsCommand, ListObjectsV2Command } from "@aws-sdk/client-s3";
 import { s3Client, storageBucket } from "../storage/client.js";
 import { db, pool } from "./client.js";
-import { images, ratings, votes } from "./schema.js";
+import { authTokens, sessions, users } from "./schema.js";
 import { getEnv } from "../env.js";
 
 const deleteAllObjects = async () => {
@@ -39,10 +39,10 @@ const deleteAllObjects = async () => {
 
 const run = async () => {
   getEnv();
-  console.info("Clearing database tables: votes, ratings, images");
-  await db.delete(votes);
-  await db.delete(ratings);
-  await db.delete(images);
+  console.info("Clearing auth database tables: auth_tokens, sessions, users");
+  await db.delete(authTokens);
+  await db.delete(sessions);
+  await db.delete(users);
 
   console.info(`Clearing objects from bucket "${storageBucket}"`);
   const deletedObjects = await deleteAllObjects();
