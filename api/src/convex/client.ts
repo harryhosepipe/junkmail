@@ -241,6 +241,14 @@ const recentPublicImagesRef = makeFunctionReference<
   { limit?: number },
   ConvexImageContent[]
 >("content:listRecentPublicImages");
+const publicImagesRef = makeFunctionReference<"query", { limit?: number }, ConvexImageContent[]>(
+  "content:listPublicImages",
+);
+const publicImagesByIdsRef = makeFunctionReference<
+  "query",
+  { imageIds: string[] },
+  ConvexImageContent[]
+>("content:listPublicImagesByIds");
 const imageByIdRef = makeFunctionReference<"query", { imageId: string }, ConvexImageContent | null>(
   "content:getImageById",
 );
@@ -429,6 +437,17 @@ export const queryConvexBackfillCounts = async () => {
 export const queryConvexRecentPublicImages = async (limit?: number) => {
   const { client } = createConvexClient();
   return client.query(recentPublicImagesRef, { limit });
+};
+
+export const queryConvexPublicImages = async (limit?: number) => {
+  const { client } = createConvexClient();
+  return client.query(publicImagesRef, { limit });
+};
+
+export const queryConvexPublicImagesByIds = async (imageIds: string[]) => {
+  if (!imageIds.length) return [] as ConvexImageContent[];
+  const { client } = createConvexClient();
+  return client.query(publicImagesByIdsRef, { imageIds });
 };
 
 export const queryConvexImageById = async (imageId: string) => {

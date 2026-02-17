@@ -2,12 +2,9 @@ import { createHash } from "crypto";
 import { Hono } from "hono";
 import type { Context } from "hono";
 import { getCookie, setCookie } from "hono/cookie";
-import { eq } from "drizzle-orm";
-import { db } from "../db/client.js";
-import { images } from "../db/schema.js";
 import { generateToken } from "../auth/tokens.js";
 import { redis } from "../queue/connection.js";
-import { queryConvexRatingsByImageIds } from "../convex/client.js";
+import { queryConvexPublicImages, queryConvexRatingsByImageIds } from "../convex/client.js";
 import { normalizePublicAssetData, normalizePublicAssetUrl } from "../storage/publicUrls.js";
 import { env } from "../env.js";
 
@@ -155,19 +152,9 @@ const loadMatchupPool = async (): Promise<MatchupItem[]> => {
     }
   }
 
-  const rows = await db
-    .select({
-      id: images.id,
-      title: images.title,
-      description: images.description,
-      originalUrl: images.originalUrl,
-      variantUrls: images.variantUrls,
-      createdAt: images.createdAt,
-    })
-    .from(images)
-    .where(eq(images.status, "public"));
+  const rows = await queryConvexPublicImages(1000);
 
-  const ratingRows = await queryConvexRatingsByImageIds(rows.map((row) => row.id));
+  const ratingRows = await queryConvexRatingsByImageIds(rows.map((row) => row.imageId));
   const ratingByImageId = new Map(
     ratingRows.map((rating) => [
       rating.imageId,
@@ -179,9 +166,14 @@ const loadMatchupPool = async (): Promise<MatchupItem[]> => {
   );
 
   const items = rows.map((row) => {
-    const rating = ratingByImageId.get(row.id);
+    const rating = ratingByImageId.get(row.imageId);
     return {
-      ...row,
+      id: row.imageId,
+      title: row.title ?? null,
+      description: row.description ?? null,
+      originalUrl: row.originalUrl || "",
+      variantUrls: row.variantUrls,
+      createdAt: new Date(row.createdAt),
       score: rating?.score ?? 0,
       comparisonsCount: rating?.comparisonsCount ?? 0,
     };

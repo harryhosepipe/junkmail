@@ -152,6 +152,66 @@ export const listRecentPublicImages = query({
   },
 });
 
+export const listPublicImages = query({
+  args: {
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const limit = Math.max(1, Math.min(Math.floor(args.limit ?? 500), 2000));
+    const rows = await ctx.db
+      .query("images")
+      .withIndex("by_status_created_at", (q) => q.eq("status", "public"))
+      .order("desc")
+      .take(limit);
+
+    return rows.map((row) => ({
+      imageId: row.imageId,
+      uploaderAuthUserId: row.uploaderAuthUserId,
+      title: row.title,
+      description: row.description,
+      status: row.status,
+      originalUrl: row.originalUrl,
+      variantUrls: row.variantUrls,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+      publishedAt: row.publishedAt,
+    }));
+  },
+});
+
+export const listPublicImagesByIds = query({
+  args: {
+    imageIds: v.array(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const ids = [...new Set(args.imageIds)].slice(0, 500);
+    const rows = await Promise.all(
+      ids.map((imageId) =>
+        ctx.db
+          .query("images")
+          .withIndex("by_image_id", (q) => q.eq("imageId", imageId))
+          .unique(),
+      ),
+    );
+
+    return rows
+      .filter((row): row is NonNullable<typeof row> => Boolean(row))
+      .filter((row) => row.status === "public")
+      .map((row) => ({
+        imageId: row.imageId,
+        uploaderAuthUserId: row.uploaderAuthUserId,
+        title: row.title,
+        description: row.description,
+        status: row.status,
+        originalUrl: row.originalUrl,
+        variantUrls: row.variantUrls,
+        createdAt: row.createdAt,
+        updatedAt: row.updatedAt,
+        publishedAt: row.publishedAt,
+      }));
+  },
+});
+
 export const listUploaderImages = query({
   args: {
     uploaderAuthUserId: v.string(),

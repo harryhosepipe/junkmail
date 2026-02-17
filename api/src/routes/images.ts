@@ -1,6 +1,6 @@
 import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { randomUUID } from "crypto";
-import { and, eq, inArray } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import type { Context } from "hono";
 import { db } from "../db/client.js";
@@ -22,6 +22,7 @@ import {
   mutateConvexUpsertImageContent,
   queryConvexImageById,
   queryConvexImageComments,
+  queryConvexPublicImagesByIds,
   queryConvexRatingsByImageIds,
   queryConvexRecentPublicImages,
   queryConvexTopRatings,
@@ -140,31 +141,22 @@ export const fetchTopCards = async (limit: number, minComparisons = TOPLIST_MIN_
     ]),
   );
   const orderedIds = topRatings.map((rating) => rating.imageId);
-  const rows = orderedIds.length
-    ? await db
-        .select({
-          id: images.id,
-          title: images.title,
-          description: images.description,
-          status: images.status,
-          originalUrl: images.originalUrl,
-          variantUrls: images.variantUrls,
-          createdAt: images.createdAt,
-        })
-        .from(images)
-        .where(and(eq(images.status, "public"), inArray(images.id, orderedIds)))
-    : [];
+  const rows = orderedIds.length ? await queryConvexPublicImagesByIds(orderedIds) : [];
 
-  const rowById = new Map(rows.map((row) => [row.id, row]));
+  const rowById = new Map(rows.map((row) => [row.imageId, row]));
   const items = orderedIds
     .map((id) => {
       const row = rowById.get(id);
       if (!row) return null;
       const rating = ratingByImageId.get(id);
       return {
-        ...row,
-        originalUrl: normalizePublicAssetUrl(row.originalUrl),
+        id: row.imageId,
+        title: row.title ?? null,
+        description: row.description ?? null,
+        status: row.status,
+        originalUrl: normalizePublicAssetUrl(row.originalUrl || ""),
         variantUrls: normalizePublicAssetData(row.variantUrls),
+        createdAt: new Date(row.createdAt),
         score: rating?.score ?? 0,
         votes: rating?.comparisonsCount ?? 0,
       } as ImageCard;
