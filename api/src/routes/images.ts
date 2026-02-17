@@ -1,10 +1,10 @@
 import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { randomUUID } from "crypto";
-import { and, asc, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { Hono } from "hono";
 import type { Context } from "hono";
 import { db } from "../db/client.js";
-import { imageComments, images, ratings, users } from "../db/schema.js";
+import { images, ratings } from "../db/schema.js";
 import { imageQueue } from "../queue/index.js";
 import { redis } from "../queue/connection.js";
 import { originalKey } from "../storage/paths.js";
@@ -17,6 +17,9 @@ import {
 import { getSessionUser, requireUploader } from "../auth/session.js";
 import { ensureSameOrigin } from "../auth/csrf.js";
 import {
+  mutateConvexCreateImageComment,
+  queryConvexImageById,
+  queryConvexImageComments,
   queryConvexRatingsByImageIds,
   queryConvexRecentPublicImages,
   queryConvexTopRatings,
@@ -291,62 +294,35 @@ imagesRouter.get("/top", async (c) => {
 
 imagesRouter.get("/:id", async (c) => {
   const imageId = c.req.param("id");
-  const result = await db
-    .select({
-      id: images.id,
-      status: images.status,
-      title: images.title,
-      description: images.description,
-      originalUrl: images.originalUrl,
-      variantUrls: images.variantUrls,
-      createdAt: images.createdAt,
-      uploaderId: images.uploaderId,
-    })
-    .from(images)
-    .where(eq(images.id, imageId))
-    .limit(1);
-
-  const row = result[0];
+  const row = await queryConvexImageById(imageId);
   if (!row) {
     return c.json({ error: { message: "Image not found" } }, 404);
   }
 
   const [ratingRows, uploader, commentRows] = await Promise.all([
-    queryConvexRatingsByImageIds([row.id]),
-    resolveAuthUserProfileById(row.uploaderId),
-    db
-      .select({
-        id: imageComments.id,
-        body: imageComments.body,
-        createdAt: imageComments.createdAt,
-        userId: imageComments.userId,
-        userAlias: users.alias,
-      })
-      .from(imageComments)
-      .innerJoin(users, eq(imageComments.userId, users.id))
-      .where(eq(imageComments.imageId, row.id))
-      .orderBy(asc(imageComments.createdAt))
-      .limit(100),
+    queryConvexRatingsByImageIds([row.imageId]),
+    resolveAuthUserProfileById(row.uploaderAuthUserId),
+    queryConvexImageComments({ imageId: row.imageId, limit: 100 }),
   ]);
   const rating = ratingRows[0];
 
   return c.json({
-    id: row.id,
+    id: row.imageId,
     status: row.status,
-    title: row.title,
-    description: row.description,
-    originalUrl: normalizePublicAssetUrl(row.originalUrl),
+    title: row.title ?? null,
+    description: row.description ?? null,
+    originalUrl: normalizePublicAssetUrl(row.originalUrl || ""),
     variantUrls: normalizePublicAssetData(row.variantUrls),
-    createdAt: row.createdAt,
+    createdAt: new Date(row.createdAt),
     uploaderEmail: uploader?.email ?? null,
     uploaderAlias: uploader?.alias ?? null,
     score: rating?.score ?? 0,
     votes: rating?.comparisonsCount ?? 0,
     comments: commentRows.map((comment) => ({
-      id: comment.id,
+      id: comment.commentId,
       body: comment.body,
-      createdAt: comment.createdAt,
-      userId: comment.userId,
+      createdAt: new Date(comment.createdAt),
+      userId: comment.userAuthUserId,
       userAlias: comment.userAlias,
     })),
   });
@@ -364,12 +340,8 @@ imagesRouter.post("/:id/comments", async (c) => {
   }
 
   const imageId = c.req.param("id");
-  const imageRow = await db
-    .select({ id: images.id })
-    .from(images)
-    .where(eq(images.id, imageId))
-    .limit(1);
-  if (!imageRow[0]) {
+  const imageRow = await queryConvexImageById(imageId);
+  if (!imageRow) {
     return c.json({ error: { message: "Image not found" } }, 404);
   }
 
@@ -385,25 +357,23 @@ imagesRouter.post("/:id/comments", async (c) => {
     );
   }
 
-  const [comment] = await db
-    .insert(imageComments)
-    .values({
-      imageId,
-      userId: user.id,
-      body: text,
-    })
-    .returning({
-      id: imageComments.id,
-      body: imageComments.body,
-      createdAt: imageComments.createdAt,
-    });
+  const commentId = randomUUID();
+  const createdAt = Date.now();
+  await mutateConvexCreateImageComment({
+    commentId,
+    imageId,
+    userAuthUserId: user.id,
+    userAlias: user.alias,
+    body: text,
+    createdAt,
+  });
 
   return c.json(
     {
       comment: {
-        id: comment.id,
-        body: comment.body,
-        createdAt: comment.createdAt,
+        id: commentId,
+        body: text,
+        createdAt: new Date(createdAt),
         userId: user.id,
         userAlias: user.alias,
       },

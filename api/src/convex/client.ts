@@ -140,6 +140,15 @@ export type ConvexImageContent = {
   publishedAt?: number;
 };
 
+export type ConvexImageComment = {
+  commentId: string;
+  imageId: string;
+  userAuthUserId: string;
+  userAlias: string;
+  body: string;
+  createdAt: number;
+};
+
 const healthPingRef = makeFunctionReference<"query", Record<string, never>, ConvexHealth>(
   "health:ping",
 );
@@ -232,6 +241,26 @@ const recentPublicImagesRef = makeFunctionReference<
   { limit?: number },
   ConvexImageContent[]
 >("content:listRecentPublicImages");
+const imageByIdRef = makeFunctionReference<"query", { imageId: string }, ConvexImageContent | null>(
+  "content:getImageById",
+);
+const imageCommentsRef = makeFunctionReference<
+  "query",
+  { imageId: string; limit?: number },
+  ConvexImageComment[]
+>("content:listImageComments");
+const createImageCommentRef = makeFunctionReference<
+  "mutation",
+  {
+    commentId: string;
+    imageId: string;
+    userAuthUserId: string;
+    userAlias: string;
+    body: string;
+    createdAt?: number;
+  },
+  { ok: boolean }
+>("content:createImageComment");
 
 const createConvexClient = () => {
   const url = resolveConvexUrl();
@@ -367,4 +396,26 @@ export const queryConvexBackfillCounts = async () => {
 export const queryConvexRecentPublicImages = async (limit?: number) => {
   const { client } = createConvexClient();
   return client.query(recentPublicImagesRef, { limit });
+};
+
+export const queryConvexImageById = async (imageId: string) => {
+  const { client } = createConvexClient();
+  return client.query(imageByIdRef, { imageId });
+};
+
+export const queryConvexImageComments = async (args: { imageId: string; limit?: number }) => {
+  const { client } = createConvexClient();
+  return client.query(imageCommentsRef, args);
+};
+
+export const mutateConvexCreateImageComment = async (args: {
+  commentId: string;
+  imageId: string;
+  userAuthUserId: string;
+  userAlias: string;
+  body: string;
+  createdAt?: number;
+}) => {
+  const { client } = createConvexClient();
+  return client.mutation(createImageCommentRef, args);
 };

@@ -3,15 +3,13 @@ import { Hono } from "hono";
 
 const state = vi.hoisted(() => ({
   imageExists: true,
-  insertedComment: {
-    id: "comment-1",
-    body: "Nice junkmail",
-    createdAt: new Date("2026-02-07T00:00:00.000Z"),
-  },
-  insertedValues: null as null | {
+  createdCommentValues: null as null | {
+    commentId: string;
     imageId: string;
-    userId: string;
+    userAuthUserId: string;
+    userAlias: string;
     body: string;
+    createdAt?: number;
   },
   sessionUser: null as null | {
     id: string;
@@ -23,6 +21,8 @@ const state = vi.hoisted(() => ({
 
 const ensureSameOrigin = vi.hoisted(() => vi.fn());
 const getSessionUser = vi.hoisted(() => vi.fn());
+const queryConvexImageById = vi.hoisted(() => vi.fn());
+const mutateConvexCreateImageComment = vi.hoisted(() => vi.fn());
 
 vi.mock("../db/client.js", () => ({
   db: {
@@ -33,14 +33,7 @@ vi.mock("../db/client.js", () => ({
         })),
       })),
     })),
-    insert: vi.fn(() => ({
-      values: vi.fn((values: { imageId: string; userId: string; body: string }) => {
-        state.insertedValues = values;
-        return {
-          returning: vi.fn(async () => [state.insertedComment]),
-        };
-      }),
-    })),
+    insert: vi.fn(),
   },
 }));
 
@@ -81,6 +74,10 @@ vi.mock("../storage/publicUrls.js", () => ({
 }));
 
 vi.mock("../convex/client.js", () => ({
+  mutateConvexCreateImageComment,
+  queryConvexImageById,
+  queryConvexImageComments: vi.fn(async () => []),
+  queryConvexRecentPublicImages: vi.fn(async () => []),
   queryConvexRatingsByImageIds: vi.fn(async () => []),
   queryConvexTopRatings: vi.fn(async () => []),
 }));
@@ -101,10 +98,26 @@ describe("image comments routes", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     state.imageExists = true;
-    state.insertedValues = null;
+    state.createdCommentValues = null;
     state.sessionUser = null;
     ensureSameOrigin.mockReturnValue(null);
     getSessionUser.mockImplementation(async () => state.sessionUser);
+    queryConvexImageById.mockImplementation(async () =>
+      state.imageExists
+        ? {
+            imageId: "image-1",
+            uploaderAuthUserId: "user-1",
+            status: "public",
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+            variantUrls: {},
+          }
+        : null,
+    );
+    mutateConvexCreateImageComment.mockImplementation(async (values) => {
+      state.createdCommentValues = values;
+      return { ok: true };
+    });
   });
 
   it("returns 401 when posting comment without auth", async () => {
@@ -182,10 +195,13 @@ describe("image comments routes", () => {
     const payload = await response.json();
     expect(payload.comment.userAlias).toBe("junklord");
     expect(payload.comment.body).toBe("Nice junkmail");
-    expect(state.insertedValues).toEqual({
+    expect(state.createdCommentValues).toEqual({
+      commentId: expect.any(String),
       imageId: "image-1",
-      userId: "user-1",
+      userAuthUserId: "user-1",
+      userAlias: "junklord",
       body: "Nice junkmail",
+      createdAt: expect.any(Number),
     });
   });
 });
