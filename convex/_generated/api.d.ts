@@ -9,6 +9,7 @@
  */
 
 import type * as backfill from "../backfill.js";
+import type * as content from "../content.js";
 import type * as env from "../env.js";
 import type * as health from "../health.js";
 import type * as users from "../users.js";
@@ -22,6 +23,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   backfill: typeof backfill;
+  content: typeof content;
   env: typeof env;
   health: typeof health;
   users: typeof users;

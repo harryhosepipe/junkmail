@@ -36,4 +36,32 @@ export default defineSchema({
     .index("by_winner_id", ["winnerId"])
     .index("by_voter_hash", ["voterHash"])
     .index("by_voter_auth_user_id", ["voterAuthUserId"]),
+  images: defineTable({
+    imageId: v.string(),
+    uploaderAuthUserId: v.string(),
+    title: v.optional(v.string()),
+    description: v.optional(v.string()),
+    status: v.string(),
+    originalUrl: v.optional(v.string()),
+    originalStorageId: v.optional(v.string()),
+    variantUrls: v.optional(v.any()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    publishedAt: v.optional(v.number()),
+  })
+    .index("by_image_id", ["imageId"])
+    .index("by_status", ["status"])
+    .index("by_status_created_at", ["status", "createdAt"])
+    .index("by_uploader_created_at", ["uploaderAuthUserId", "createdAt"]),
+  imageComments: defineTable({
+    commentId: v.string(),
+    imageId: v.string(),
+    userAuthUserId: v.string(),
+    userAlias: v.string(),
+    body: v.string(),
+    createdAt: v.number(),
+  })
+    .index("by_comment_id", ["commentId"])
+    .index("by_image_created_at", ["imageId", "createdAt"])
+    .index("by_user_created_at", ["userAuthUserId", "createdAt"]),
 });
