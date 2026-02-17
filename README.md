@@ -45,7 +45,7 @@ bun run dev:infra
 bun --cwd api dev
 
 # Worker
-bun --cwd api worker
+bun --cwd api worker:dev
 ```
 
 Visit:

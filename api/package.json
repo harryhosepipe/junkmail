@@ -12,7 +12,8 @@
     "convex:backfill": "tsx src/scripts/backfillConvex.ts",
     "validate:realtime": "tsx src/scripts/validateRealtimeVoting.ts",
     "db:seed": "tsx src/db/seed.ts",
-    "worker": "tsx src/queue/worker.ts"
+    "worker": "tsx src/queue/worker.ts",
+    "worker:dev": "tsx watch src/queue/worker.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.713.0",
