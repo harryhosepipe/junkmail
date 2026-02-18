@@ -193,6 +193,16 @@ const createDedupeEventRef = makeFunctionReference<
   },
   { ok: boolean }
 >("content:createDedupeEvent");
+const recentDedupeEventsRef = makeFunctionReference<
+  "query",
+  { limit?: number },
+  Array<Record<string, unknown>>
+>("content:listRecentDedupeEvents");
+const dedupeStatsRef = makeFunctionReference<
+  "query",
+  { windowHours?: number; sampleLimit?: number },
+  Record<string, unknown>
+>("content:getDedupeStats");
 
 export const queryConvexRecentPublicImages = async (limit?: number) => {
   const { client } = createConvexClient();
@@ -398,4 +408,17 @@ export const mutateConvexCreateDedupeEvent = async (args: {
 }) => {
   const { client } = createConvexClient();
   return client.mutation(createDedupeEventRef, args);
+};
+
+export const queryConvexRecentDedupeEvents = async (limit?: number) => {
+  const { client } = createConvexClient();
+  return client.query(recentDedupeEventsRef, { limit });
+};
+
+export const queryConvexDedupeStats = async (args?: {
+  windowHours?: number;
+  sampleLimit?: number;
+}) => {
+  const { client } = createConvexClient();
+  return client.query(dedupeStatsRef, args || {});
 };

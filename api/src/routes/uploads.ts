@@ -3,9 +3,11 @@ import { createHash, randomUUID } from "crypto";
 import { Hono } from "hono";
 import { requireUploader } from "../auth/session.js";
 import {
-  queryConvexImageByUploadId,
   mutateConvexCreatePendingImage,
   mutateConvexUpsertImageContent,
+  queryConvexDedupeStats,
+  queryConvexImageByUploadId,
+  queryConvexRecentDedupeEvents,
 } from "../convex/client.js";
 import { imageQueue } from "../queue/index.js";
 import { validateUpload } from "../services/images/actions.js";
@@ -151,6 +153,26 @@ uploadsRouter.get("/:id/status", requireUploader, async (c) => {
     originalUrl: normalizePublicAssetUrl(row.originalUrl || ""),
     variantUrls: row.variantUrls,
   });
+});
+
+uploadsRouter.get("/dedupe/stats", requireUploader, async (c) => {
+  const rawWindow = Number(c.req.query("windowHours") ?? "24");
+  const rawLimit = Number(c.req.query("sampleLimit") ?? "2000");
+  const windowHours = Number.isFinite(rawWindow) ? rawWindow : 24;
+  const sampleLimit = Number.isFinite(rawLimit) ? rawLimit : 2000;
+
+  const stats = await queryConvexDedupeStats({
+    windowHours,
+    sampleLimit,
+  });
+  return c.json(stats);
+});
+
+uploadsRouter.get("/dedupe/events", requireUploader, async (c) => {
+  const rawLimit = Number(c.req.query("limit") ?? "100");
+  const limit = Number.isFinite(rawLimit) ? rawLimit : 100;
+  const items = await queryConvexRecentDedupeEvents(limit);
+  return c.json({ items });
 });
 
 export default uploadsRouter;

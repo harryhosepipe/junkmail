@@ -12,6 +12,7 @@
     "convex:backfill": "tsx src/scripts/backfillConvex.ts",
     "images:backfill-perceptual": "tsx src/scripts/backfillPerceptualHashes.ts",
     "images:evaluate-duplicates": "tsx src/scripts/evaluateDuplicateFixtures.ts",
+    "images:dedupe-stats": "tsx src/scripts/dedupeStats.ts",
     "validate:realtime": "tsx src/scripts/validateRealtimeVoting.ts",
     "db:seed": "tsx src/db/seed.ts",
     "worker": "tsx src/queue/worker.ts",
