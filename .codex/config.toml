@@ -1,0 +1,4 @@
+[mcp_servers.convex]
+command = "npx"
+args = ["-y", "convex@latest", "mcp", "start"]
+startup_timeout_ms = 20_000
