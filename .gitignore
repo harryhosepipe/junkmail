@@ -11,3 +11,4 @@ coverage/
 .turbo/
 .idea/
 .vscode/
+infra/caddy/caddy-local-root-ca.crt
