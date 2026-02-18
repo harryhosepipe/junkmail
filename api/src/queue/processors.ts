@@ -173,6 +173,8 @@ export const processImageJob = async (
   const orbMinInliers = Number(runtimeEnv.IMAGE_DEDUPE_ORB_MIN_INLIERS ?? 20);
   const orbMinInlierRatio = Number(runtimeEnv.IMAGE_DEDUPE_ORB_MIN_INLIER_RATIO ?? 0.25);
   const orbMinMatches = Number(runtimeEnv.IMAGE_DEDUPE_ORB_MIN_MATCHES ?? 60);
+  const orbForceAllCandidates = Boolean(runtimeEnv.IMAGE_DEDUPE_ORB_FORCE_ALL_CANDIDATES ?? false);
+  const orbForceMaxCandidates = Number(runtimeEnv.IMAGE_DEDUPE_ORB_FORCE_MAX_CANDIDATES ?? 10000);
   const dedupeV2Enabled = ((data.dedupeV2 || dedupeV2FromEnv) ?? false) && dedupeDepsReady;
   const dedupeStrongThreshold = Number(runtimeEnv.IMAGE_DEDUPE_PHASH_MAX_DISTANCE_STRONG ?? 8);
   const dedupeWeakThreshold = Number(runtimeEnv.IMAGE_DEDUPE_PHASH_MAX_DISTANCE_WEAK ?? 14);
@@ -411,16 +413,17 @@ export const processImageJob = async (
         candidateMap.set(candidate.imageId, candidate);
       }
     }
-    if (
-      orbEnabled &&
-      orbVerifierUrl &&
-      candidateMap.size < 25 &&
-      typeof deps.queryConvexRecentImageFingerprints === "function"
-    ) {
-      const recent = await deps.queryConvexRecentImageFingerprints(500);
-      for (const candidate of recent) {
-        if (!candidate?.imageId || candidate.imageId === imageId) continue;
-        candidateMap.set(candidate.imageId, candidate);
+    if (orbEnabled && orbVerifierUrl && typeof deps.queryConvexRecentImageFingerprints === "function") {
+      const needsFallbackPool = orbForceAllCandidates || candidateMap.size < 25;
+      if (needsFallbackPool) {
+        const fallbackLimit = orbForceAllCandidates
+          ? Math.max(1, Math.min(Math.floor(orbForceMaxCandidates), 10000))
+          : 500;
+        const recent = await deps.queryConvexRecentImageFingerprints(fallbackLimit);
+        for (const candidate of recent) {
+          if (!candidate?.imageId || candidate.imageId === imageId) continue;
+          candidateMap.set(candidate.imageId, candidate);
+        }
       }
     }
 
@@ -429,7 +432,8 @@ export const processImageJob = async (
     for (const candidate of allCandidates) {
       if (!candidate?.phash64 || candidate.imageId === imageId) continue;
       const distance = hammingDistanceHex(phash64, candidate.phash64);
-      if (!Number.isFinite(distance) || distance > dedupeWeakThreshold) continue;
+      if (!Number.isFinite(distance)) continue;
+      if (!orbForceAllCandidates && distance > dedupeWeakThreshold) continue;
       shortlist.push({ imageId: candidate.imageId, distance });
     }
     shortlist.sort((a, b) => a.distance - b.distance);
@@ -443,7 +447,14 @@ export const processImageJob = async (
     ) {
       try {
         const candidateRows = await Promise.all(
-          shortlist.slice(0, 25).map(async (entry) => {
+          shortlist
+            .slice(
+              0,
+              orbForceAllCandidates
+                ? Math.max(1, Math.min(Math.floor(orbForceMaxCandidates), 10000))
+                : 25,
+            )
+            .map(async (entry) => {
             const row = await deps.queryConvexImageById!(entry.imageId);
             const fallbackUrl =
               row?.variantUrls?.full?.webp ||
@@ -475,7 +486,7 @@ export const processImageJob = async (
             }
 
             return fallbackUrl ? { imageId: entry.imageId, url: fallbackUrl } : null;
-          }),
+            }),
         );
         const orbCandidates = candidateRows.filter((item) =>
           Boolean(item?.url || item?.imageBase64),

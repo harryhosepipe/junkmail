@@ -122,6 +122,8 @@ export const EnvSchema = z.object({
   IMAGE_DEDUPE_ORB_MIN_INLIERS: NumFromString.optional(),
   IMAGE_DEDUPE_ORB_MIN_INLIER_RATIO: NumFromString.optional(),
   IMAGE_DEDUPE_ORB_MIN_MATCHES: NumFromString.optional(),
+  IMAGE_DEDUPE_ORB_FORCE_ALL_CANDIDATES: BoolFromString.optional(),
+  IMAGE_DEDUPE_ORB_FORCE_MAX_CANDIDATES: NumFromString.optional(),
 
   // Telegram ingest (optional)
   TELEGRAM_BOT_TOKEN: z.string().optional(),

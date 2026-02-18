@@ -725,7 +725,7 @@ export const listRecentImageFingerprints = query({
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    const limit = Math.max(1, Math.min(Math.floor(args.limit ?? 500), 2000));
+    const limit = Math.max(1, Math.min(Math.floor(args.limit ?? 500), 10000));
     return ctx.db.query("imageFingerprints").withIndex("by_created_at").order("desc").take(limit);
   },
 });
