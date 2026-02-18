@@ -14,17 +14,11 @@ import { generateToken, hashToken } from "../auth/tokens.js";
 import { hashWithSalt, VOTER_COOKIE_NAME } from "../auth/voter.js";
 import { parseAliasPatch } from "../contracts/profile.js";
 import { resolveInvitedUploaderByEmail } from "../auth/userProfile.js";
-import {
-  mutateConvexConsumeAuthToken,
-  mutateConvexCreateAuthToken,
-  mutateConvexUpdateUserAlias,
-  mutateConvexUpsertUserProfile,
-  queryConvexUploaderImageCount,
-  queryConvexVoteCountForProfile,
-} from "../convex/client.js";
+import { mutateConvexConsumeAuthToken, mutateConvexCreateAuthToken } from "../convex/client.js";
 import { env } from "../env.js";
 import { AppError } from "../http/errors.js";
 import { readPayload } from "../http/readPayload.js";
+import { buildProfileSummary, updateAliasAndProfile } from "../services/auth/profile.js";
 
 const authRouter = new Hono();
 const MAGIC_LINK_TTL_MINUTES = env.MAGIC_LINK_TTL_MINUTES ?? 30;
@@ -145,25 +139,10 @@ authRouter.get("/profile", async (c) => {
 
   const voterId = getCookie(c, VOTER_COOKIE_NAME);
   const voterHash = voterId ? hashWithSalt(voterId, VOTE_HASH_SALT) : undefined;
-
-  const [uploadStats, voteStats] = await Promise.all([
-    queryConvexUploaderImageCount(user.id).catch(() => ({ count: 0 })),
-    queryConvexVoteCountForProfile({ authUserId: user.id, voterHash }).catch(() => ({ count: 0 })),
-  ]);
-
-  const uploadedImages = Number(uploadStats?.count ?? 0);
-  const votesCast = Number(voteStats?.count ?? 0);
+  const profile = await buildProfileSummary({ user, voterHash });
 
   return c.json({
-    profile: {
-      id: user.id,
-      email: user.email,
-      alias: user.alias,
-      role: user.role,
-      createdAt: user.createdAt,
-      uploadedImages,
-      votesCast,
-    },
+    profile,
   });
 });
 
@@ -189,18 +168,9 @@ authRouter.patch("/profile", async (c) => {
     throw err;
   }
 
-  await mutateConvexUpdateUserAlias({
-    authUserId: user.id,
-    alias,
-  });
-  await mutateConvexUpsertUserProfile({
-    authUserId: user.id,
-    email: user.email,
-    alias,
-    role: user.role,
-  });
+  const profile = await updateAliasAndProfile({ user, alias });
 
-  return c.json({ ok: true, profile: { ...user, alias } });
+  return c.json({ ok: true, profile });
 });
 
 export default authRouter;
