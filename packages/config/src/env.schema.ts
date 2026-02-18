@@ -86,6 +86,19 @@ export const EnvSchema = z.object({
   TOPLIST_MIN_COMPARISONS: NumFromString.optional(),
   TOPLIST_CACHE_SECONDS: NumFromString.optional(),
 
+  // Image border crop tuning
+  IMAGE_CROP_ENABLED: BoolFromString.optional(),
+  IMAGE_CROP_ANALYSIS_MAX_DIM: NumFromString.optional(),
+  IMAGE_CROP_WHITE_THRESHOLD: NumFromString.optional(),
+  IMAGE_CROP_BLACK_THRESHOLD: NumFromString.optional(),
+  IMAGE_CROP_LINE_DOMINANCE: NumFromString.optional(),
+  IMAGE_CROP_LINE_STDDEV_MAX: NumFromString.optional(),
+  IMAGE_CROP_MAX_TRIM_RATIO_PER_SIDE: NumFromString.optional(),
+  IMAGE_CROP_MIN_REMAINING_RATIO: NumFromString.optional(),
+  IMAGE_CROP_MIN_CONFIDENCE: NumFromString.optional(),
+  IMAGE_CROP_MIN_TRIM_PIXELS: NumFromString.optional(),
+  IMAGE_CROP_MIN_AREA_REMOVED_RATIO: NumFromString.optional(),
+
   // Telegram ingest (optional)
   TELEGRAM_BOT_TOKEN: z.string().optional(),
   TELEGRAM_ALLOWED_CHAT_IDS: z.string().optional(),

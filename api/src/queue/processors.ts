@@ -4,8 +4,10 @@ import {
   mutateConvexProjectVoteEvent,
   mutateConvexSetImageProcessingResult,
 } from "../convex/client.js";
+import { env } from "../env.js";
 import { publicObjectUrl, s3Client, storageBucket } from "../storage/client.js";
 import { ImageFormat, ImageSize, variantKey } from "../storage/paths.js";
+import { analyzeBorderCrop, applyBorderCrop } from "./borderCrop.js";
 
 export type ImageProcessJobData = {
   imageId: string;
@@ -76,13 +78,40 @@ export const processImageJob = async (
   const originalBuffer = await toBuffer(original.Body);
   const fallbackFormat: ImageFormat = ext === "png" ? "png" : "jpg";
 
-  const variantUrls: Record<string, Record<string, string | number>> = {};
+  const cropDecision = await analyzeBorderCrop(originalBuffer, {
+    enabled: env.IMAGE_CROP_ENABLED ?? true,
+    analysisMaxDim: env.IMAGE_CROP_ANALYSIS_MAX_DIM ?? 512,
+    whiteThreshold: env.IMAGE_CROP_WHITE_THRESHOLD ?? 248,
+    blackThreshold: env.IMAGE_CROP_BLACK_THRESHOLD ?? 8,
+    lineDominance: env.IMAGE_CROP_LINE_DOMINANCE ?? 0.985,
+    lineStdDevMax: env.IMAGE_CROP_LINE_STDDEV_MAX ?? 16,
+    maxTrimRatioPerSide: env.IMAGE_CROP_MAX_TRIM_RATIO_PER_SIDE ?? 0.18,
+    minRemainingRatio: env.IMAGE_CROP_MIN_REMAINING_RATIO ?? 0.5,
+    minConfidence: env.IMAGE_CROP_MIN_CONFIDENCE ?? 0.8,
+    minTrimPixels: env.IMAGE_CROP_MIN_TRIM_PIXELS ?? 10,
+    minAreaRemovedRatio: env.IMAGE_CROP_MIN_AREA_REMOVED_RATIO ?? 0.01,
+  });
+  const workingBuffer = await applyBorderCrop(originalBuffer, cropDecision);
+  const cropBox = cropDecision.cropBox;
+
+  console.info("[image-crop]", {
+    imageId,
+    applied: cropDecision.applied,
+    reason: cropDecision.reason,
+    confidence: Number(cropDecision.confidence.toFixed(4)),
+    originalWidth: cropDecision.originalWidth,
+    originalHeight: cropDecision.originalHeight,
+    trimmed: cropDecision.trimmed,
+    cropBox,
+  });
+
+  const variantUrls: Record<string, Record<string, unknown>> = {};
 
   // Generate three display sizes and three formats per size so web clients can
   // choose the best format they support without extra server branching.
   for (const size of Object.keys(sizes) as ImageSize[]) {
     const width = sizes[size];
-    const resized = sharp(originalBuffer).resize({ width, withoutEnlargement: true });
+    const resized = sharp(workingBuffer).resize({ width, withoutEnlargement: true });
 
     const avifBuffer = await resized.clone().avif({ quality: 60 }).toBuffer();
     const webpBuffer = await resized.clone().webp({ quality: 70 }).toBuffer();
@@ -128,6 +157,10 @@ export const processImageJob = async (
       avif: deps.publicObjectUrl(avifKey),
       webp: deps.publicObjectUrl(webpKey),
       [fallbackFormat]: deps.publicObjectUrl(fallbackKey),
+      cropApplied: cropDecision.applied,
+      cropConfidence: Number(cropDecision.confidence.toFixed(4)),
+      cropReason: cropDecision.reason,
+      cropBox,
     };
   }
 
