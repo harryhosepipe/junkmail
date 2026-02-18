@@ -116,6 +116,7 @@ export const EnvSchema = z.object({
   IMAGE_DEDUPE_ORB_SHARED_SECRET: z.string().optional(),
   IMAGE_DEDUPE_ORB_TIMEOUT_MS: NumFromString.optional(),
   IMAGE_DEDUPE_ORB_RETRIES: NumFromString.optional(),
+  IMAGE_DEDUPE_PHASH_PREFIX_RADIUS: NumFromString.optional(),
   IMAGE_DEDUPE_PHASH_MAX_DISTANCE_STRONG: NumFromString.optional(),
   IMAGE_DEDUPE_PHASH_MAX_DISTANCE_WEAK: NumFromString.optional(),
   IMAGE_DEDUPE_ORB_MIN_INLIERS: NumFromString.optional(),

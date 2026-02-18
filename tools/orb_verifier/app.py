@@ -13,7 +13,8 @@ from pydantic import BaseModel, Field
 
 class Candidate(BaseModel):
     imageId: str
-    url: str
+    url: Optional[str] = None
+    imageBase64: Optional[str] = None
 
 
 class VerifyRequest(BaseModel):
@@ -81,10 +82,16 @@ def verify_orb(payload: VerifyRequest, authorization: Optional[str] = Header(def
 
     for candidate in payload.candidates:
         try:
-            response = requests.get(candidate.url, timeout=5)
-            if response.status_code != 200:
-                continue
-            candidate_image = decode_image_bytes(response.content)
+            candidate_image = None
+            if candidate.imageBase64:
+                raw = base64.b64decode(candidate.imageBase64)
+                candidate_image = decode_image_bytes(raw)
+            elif candidate.url:
+                response = requests.get(candidate.url, timeout=5)
+                if response.status_code != 200:
+                    continue
+                candidate_image = decode_image_bytes(response.content)
+
             if candidate_image is None:
                 continue
 

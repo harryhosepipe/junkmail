@@ -579,13 +579,16 @@
 {/if}
 
 {#if duplicateModalOpen}
-  <div class="duplicate-modal-backdrop" role="presentation" on:click={closeDuplicateModal}>
+  <div class="duplicate-modal-backdrop" role="presentation" on:click|self={closeDuplicateModal}>
     <div
       class="duplicate-modal"
       role="dialog"
       aria-modal="true"
       aria-label="Duplicate image detected"
-      on:click|stopPropagation
+      tabindex="0"
+      on:keydown={(event) => {
+        if (event.key === "Escape") closeDuplicateModal();
+      }}
     >
       <div class="duplicate-modal-title">
         {duplicateModalType === "near" ? "Near Duplicate Blocked" : "Image Already Uploaded"}
@@ -595,7 +598,7 @@
         <img
           class="duplicate-modal-image"
           src={duplicateExisting.originalUrl}
-          alt="Previously uploaded similar image"
+          alt="Previously uploaded similar item"
         />
       {/if}
       <div class="duplicate-meta">

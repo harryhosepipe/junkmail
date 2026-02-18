@@ -40,6 +40,12 @@ This project uses **bd** (beads) for issue tracking. Run `./bin/bd onboard` to g
 - If push fails, resolve and retry until it succeeds
 - After any UI task, ask the user to confirm the UI works as expected before finalizing the session and pushing to GitHub
 
+## Environment Variable Rule (MVP)
+
+- Always define runtime/config variables in env files (`.env.defaults`, `.env.example`, and/or `.env.local`).
+- Never hardcode configurable values directly in source when they belong in env.
+- For MVP in this project, values do not need to be secret-safe; prefer working defaults in env files so features run end-to-end locally.
+
 <!-- BEGIN BEADS INTEGRATION -->
 
 ## Issue Tracking with bd (beads)

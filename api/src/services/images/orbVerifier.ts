@@ -1,6 +1,7 @@
 export type OrbVerifyCandidate = {
   imageId: string;
-  url: string;
+  url?: string;
+  imageBase64?: string;
 };
 
 export type OrbVerifyResult = {

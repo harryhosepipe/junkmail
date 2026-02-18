@@ -15,6 +15,7 @@ import { env } from "../env.js";
 import { verifyOrbCandidates } from "../services/images/orbVerifier.js";
 import { publicObjectUrl, s3Client, storageBucket } from "../storage/client.js";
 import { ImageFormat, ImageSize, variantKey } from "../storage/paths.js";
+import { extractStorageObjectKey } from "../storage/publicUrls.js";
 import { computeImageFingerprint, hammingDistanceHex } from "../services/images/perceptualHash.js";
 import {
   analyzeBorderCrop,
@@ -122,6 +123,21 @@ const defaultImageDeps: ImageProcessorDeps = {
 };
 
 const DEDUPE_WORKER_VERSION = "dedupe-v2-node-1";
+const PHASH_PREFIX_LENGTH = 3;
+
+const neighboringHexPrefixes = (prefix: string, radius: number) => {
+  const width = prefix.length;
+  const max = 16 ** width;
+  const center = parseInt(prefix, 16);
+  if (!Number.isFinite(center)) return [prefix];
+
+  const seen = new Set<string>();
+  for (let delta = -radius; delta <= radius; delta += 1) {
+    const wrapped = (((center + delta) % max) + max) % max;
+    seen.add(wrapped.toString(16).padStart(width, "0"));
+  }
+  return [...seen];
+};
 
 export const processImageJob = async (
   data: ImageProcessJobData,
@@ -157,6 +173,7 @@ export const processImageJob = async (
   const dedupeV2Enabled = ((data.dedupeV2 || dedupeV2FromEnv) ?? false) && dedupeDepsReady;
   const dedupeStrongThreshold = Number(runtimeEnv.IMAGE_DEDUPE_PHASH_MAX_DISTANCE_STRONG ?? 8);
   const dedupeWeakThreshold = Number(runtimeEnv.IMAGE_DEDUPE_PHASH_MAX_DISTANCE_WEAK ?? 14);
+  const prefixRadius = Number(runtimeEnv.IMAGE_DEDUPE_PHASH_PREFIX_RADIUS ?? 2);
   const startedAt = Date.now();
 
   let sha256Pixels = "";
@@ -378,11 +395,23 @@ export const processImageJob = async (
     const fingerprint = await computeImageFingerprint(workingBuffer);
     const phash64 = fingerprint.full;
     const dhash64 = fingerprint.inner;
-    const phashPrefix = phash64.slice(0, 3);
+    const phashPrefix = phash64.slice(0, PHASH_PREFIX_LENGTH);
+    const prefixes = neighboringHexPrefixes(phashPrefix, Math.max(0, Math.floor(prefixRadius)));
 
-    const candidates = await deps.queryConvexImageFingerprintsByPhashPrefix!(phashPrefix, 120);
+    const grouped = await Promise.all(
+      prefixes.map((prefix) => deps.queryConvexImageFingerprintsByPhashPrefix!(prefix, 100)),
+    );
+    const candidateMap = new Map<string, any>();
+    for (const group of grouped) {
+      for (const candidate of group) {
+        if (!candidate?.imageId || candidate.imageId === imageId) continue;
+        candidateMap.set(candidate.imageId, candidate);
+      }
+    }
+
+    const allCandidates = [...candidateMap.values()];
     const shortlist: Array<{ imageId: string; distance: number }> = [];
-    for (const candidate of candidates) {
+    for (const candidate of allCandidates) {
       if (!candidate?.phash64 || candidate.imageId === imageId) continue;
       const distance = hammingDistanceHex(phash64, candidate.phash64);
       if (!Number.isFinite(distance) || distance > dedupeWeakThreshold) continue;
@@ -401,19 +430,45 @@ export const processImageJob = async (
         const candidateRows = await Promise.all(
           shortlist.slice(0, 25).map(async (entry) => {
             const row = await deps.queryConvexImageById!(entry.imageId);
-            const url =
-              (row?.storageKeyCanonical ? deps.publicObjectUrl(row.storageKeyCanonical) : "") ||
+            const fallbackUrl =
               row?.variantUrls?.full?.webp ||
               row?.variantUrls?.full?.jpg ||
               row?.variantUrls?.full?.png ||
               row?.originalUrl ||
               "";
-            return url ? { imageId: entry.imageId, url } : null;
+            const storageKey =
+              row?.storageKeyCanonical ||
+              extractStorageObjectKey(fallbackUrl) ||
+              extractStorageObjectKey(row?.originalUrl || "");
+
+            if (storageKey) {
+              try {
+                const candidateObject = await deps.s3Client.send(
+                  new GetObjectCommand({
+                    Bucket: deps.storageBucket,
+                    Key: storageKey,
+                  }),
+                );
+                const bytes = await toBuffer(candidateObject.Body);
+                return {
+                  imageId: entry.imageId,
+                  imageBase64: bytes.toString("base64"),
+                };
+              } catch {
+                // Fall through to URL-based candidate.
+              }
+            }
+
+            return fallbackUrl ? { imageId: entry.imageId, url: fallbackUrl } : null;
           }),
         );
-        const orbCandidates = candidateRows.filter(
-          (item): item is { imageId: string; url: string } => Boolean(item?.url),
-        );
+        const orbCandidates = candidateRows.filter((item) =>
+          Boolean(item?.url || item?.imageBase64),
+        ) as Array<{
+          imageId: string;
+          url?: string;
+          imageBase64?: string;
+        }>;
         if (orbCandidates.length) {
           const orb = await verifyOrbCandidates({
             verifierUrl: orbVerifierUrl,
@@ -444,7 +499,7 @@ export const processImageJob = async (
               workerVersion: DEDUPE_WORKER_VERSION,
               metrics: {
                 durationMs: Date.now() - startedAt,
-                candidateCount: candidates.length,
+                candidateCount: allCandidates.length,
                 shortlistCount: shortlist.length,
               },
               createdAt: Date.now(),
@@ -476,10 +531,14 @@ export const processImageJob = async (
       }
     }
 
-    if (bestMatch && (!orbEnabled || !orbVerifierUrl || bestMatch.distance <= 2)) {
+    if (
+      bestMatch &&
+      (!orbEnabled || !orbVerifierUrl) &&
+      bestMatch.distance <= dedupeStrongThreshold
+    ) {
       await deps.mutateConvexMarkImageRejected!({
         imageId,
-        reason: bestMatch.distance <= dedupeStrongThreshold ? "phash_near_strong" : "phash_near",
+        reason: "phash_near_strong",
         matchedImageId: bestMatch.imageId,
         scores: { phashDistance: bestMatch.distance },
         updatedAt: Date.now(),
@@ -493,7 +552,7 @@ export const processImageJob = async (
         workerVersion: DEDUPE_WORKER_VERSION,
         metrics: {
           durationMs: Date.now() - startedAt,
-          candidateCount: candidates.length,
+          candidateCount: allCandidates.length,
           shortlistCount: shortlist.length,
         },
         createdAt: Date.now(),
@@ -532,7 +591,7 @@ export const processImageJob = async (
       workerVersion: DEDUPE_WORKER_VERSION,
       metrics: {
         durationMs: Date.now() - startedAt,
-        candidateCount: candidates.length,
+        candidateCount: allCandidates.length,
         shortlistCount: shortlist.length,
       },
       createdAt: Date.now(),
