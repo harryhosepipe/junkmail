@@ -245,6 +245,7 @@
     class="detail-overlay"
     bind:this={overlayEl}
     role="dialog"
+    tabindex="-1"
     aria-modal="true"
     on:keydown={handleKeydown}
   >

@@ -389,6 +389,8 @@
   </div>
   <div
     class="vote-swipe-surface"
+    role="group"
+    aria-label="Swipe voting area"
     data-swiping={isSwiping ? "true" : "false"}
     data-direction={swipeDeltaX < -8 ? "left" : swipeDeltaX > 8 ? "right" : "idle"}
     on:pointerdown={handleSwipePointerDown}
