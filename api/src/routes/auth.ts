@@ -12,6 +12,7 @@ import {
 import { ensureSameOrigin } from "../auth/csrf.js";
 import { generateToken, hashToken } from "../auth/tokens.js";
 import { hashWithSalt, VOTER_COOKIE_NAME } from "../auth/voter.js";
+import { parseAliasPatch } from "../contracts/profile.js";
 import { resolveInvitedUploaderByEmail } from "../auth/userProfile.js";
 import {
   mutateConvexConsumeAuthToken,
@@ -22,17 +23,14 @@ import {
   queryConvexVoteCountForProfile,
 } from "../convex/client.js";
 import { env } from "../env.js";
+import { AppError } from "../http/errors.js";
 import { readPayload } from "../http/readPayload.js";
 
 const authRouter = new Hono();
 const MAGIC_LINK_TTL_MINUTES = env.MAGIC_LINK_TTL_MINUTES ?? 30;
 const VOTE_HASH_SALT = env.VOTE_HASH_SALT ?? "junkmail-dev-vote";
-const ALIAS_MIN_LENGTH = 2;
-const ALIAS_MAX_LENGTH = 32;
 
 const normalizeEmail = (value: string) => value.trim().toLowerCase();
-
-const normalizeAlias = (value: string) => value.trim();
 
 const safeNextPath = (value?: string | null) => {
   if (!value) {
@@ -181,28 +179,14 @@ authRouter.patch("/profile", async (c) => {
   }
 
   const body = await readPayload(c);
-  const alias = typeof body.alias === "string" ? normalizeAlias(body.alias) : "";
-
-  if (alias.length < ALIAS_MIN_LENGTH || alias.length > ALIAS_MAX_LENGTH) {
-    return c.json(
-      {
-        error: {
-          message: `Alias must be ${ALIAS_MIN_LENGTH}-${ALIAS_MAX_LENGTH} characters.`,
-        },
-      },
-      400,
-    );
-  }
-
-  if (!/^[a-zA-Z0-9_-]+$/.test(alias)) {
-    return c.json(
-      {
-        error: {
-          message: "Alias can only contain letters, numbers, underscores, and hyphens.",
-        },
-      },
-      400,
-    );
+  let alias = "";
+  try {
+    alias = parseAliasPatch(body);
+  } catch (err) {
+    if (err instanceof AppError) {
+      return c.json({ error: { message: err.message } }, err.status as any);
+    }
+    throw err;
   }
 
   await mutateConvexUpdateUserAlias({

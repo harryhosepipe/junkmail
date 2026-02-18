@@ -12,6 +12,7 @@ import {
 } from "../storage/publicUrls.js";
 import { getSessionUser, requireUploader } from "../auth/session.js";
 import { ensureSameOrigin } from "../auth/csrf.js";
+import { parseCommentBody } from "../contracts/comments.js";
 import {
   mutateConvexCreateImageComment,
   mutateConvexSetImageStatus,
@@ -25,13 +26,13 @@ import {
 } from "../convex/client.js";
 import { resolveAuthUserProfileById } from "../auth/userProfile.js";
 import { env } from "../env.js";
+import { AppError } from "../http/errors.js";
 import { readPayload } from "../http/readPayload.js";
 
 const MAX_UPLOAD_BYTES = 15 * 1024 * 1024;
 const ACCEPTED_TYPES = ["image/jpeg", "image/png"] as const;
 const TOPLIST_MIN_COMPARISONS = env.TOPLIST_MIN_COMPARISONS ?? 10;
 const TOPLIST_CACHE_SECONDS = env.TOPLIST_CACHE_SECONDS ?? 90;
-const COMMENT_MAX_LENGTH = 500;
 
 const imagesRouter = new Hono();
 
@@ -315,15 +316,14 @@ imagesRouter.post("/:id/comments", async (c) => {
   }
 
   const body = await readPayload(c);
-  const text = typeof body.body === "string" ? body.body.trim() : "";
-  if (!text) {
-    return c.json({ error: { message: "Comment cannot be empty." } }, 400);
-  }
-  if (text.length > COMMENT_MAX_LENGTH) {
-    return c.json(
-      { error: { message: `Comment cannot exceed ${COMMENT_MAX_LENGTH} characters.` } },
-      400,
-    );
+  let text = "";
+  try {
+    text = parseCommentBody(body);
+  } catch (err) {
+    if (err instanceof AppError) {
+      return c.json({ error: { message: err.message } }, err.status as any);
+    }
+    throw err;
   }
 
   const commentId = randomUUID();
