@@ -266,11 +266,16 @@ export const analyzeBorderCrop = async (
     return { ...initial, reason: "area-removed-too-small", trimmed, cropBox };
   }
 
-  const confidence = clamp(
-    (top.confidence + right.confidence + bottom.confidence + left.confidence) / 4,
-    0,
-    1,
-  );
+  const confidenceSamples = [top, right, bottom, left]
+    .filter((edge) => edge.trimmed > 0)
+    .map((edge) => edge.confidence);
+  const confidence = confidenceSamples.length
+    ? clamp(
+        confidenceSamples.reduce((sum, value) => sum + value, 0) / confidenceSamples.length,
+        0,
+        1,
+      )
+    : 0;
   if (confidence < opts.minConfidence) {
     return { ...initial, reason: "low-confidence", confidence, trimmed, cropBox };
   }

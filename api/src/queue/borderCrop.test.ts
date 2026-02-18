@@ -27,6 +27,31 @@ const makeBorderedPng = async (args: {
   return sharp(raw, { raw: { width, height, channels } }).png().toBuffer();
 };
 
+const makeHorizontalBarsPng = async (args: {
+  width: number;
+  height: number;
+  bar: number;
+  barColor: [number, number, number];
+  centerColor: [number, number, number];
+}) => {
+  const { width, height, bar, barColor, centerColor } = args;
+  const channels = 3;
+  const raw = Buffer.alloc(width * height * channels);
+
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      const isBar = y < bar || y >= height - bar;
+      const [r, g, b] = isBar ? barColor : centerColor;
+      const offset = (y * width + x) * channels;
+      raw[offset] = r;
+      raw[offset + 1] = g;
+      raw[offset + 2] = b;
+    }
+  }
+
+  return sharp(raw, { raw: { width, height, channels } }).png().toBuffer();
+};
+
 describe("borderCrop", () => {
   it("applies crop for clear white borders", async () => {
     const input = await makeBorderedPng({
@@ -83,6 +108,23 @@ describe("borderCrop", () => {
 
     const decision = await analyzeBorderCrop(input);
     expect(decision.applied).toBe(false);
+  });
+
+  it("applies crop for top and bottom bars only", async () => {
+    const input = await makeHorizontalBarsPng({
+      width: 320,
+      height: 240,
+      bar: 24,
+      barColor: [0, 0, 0],
+      centerColor: [140, 180, 220],
+    });
+
+    const decision = await analyzeBorderCrop(input);
+    expect(decision.applied).toBe(true);
+    expect(decision.trimmed.top).toBeGreaterThanOrEqual(20);
+    expect(decision.trimmed.bottom).toBeGreaterThanOrEqual(20);
+    expect(decision.trimmed.left).toBe(0);
+    expect(decision.trimmed.right).toBe(0);
   });
 
   it("skips deep trims when remaining ratio gate fails", async () => {
