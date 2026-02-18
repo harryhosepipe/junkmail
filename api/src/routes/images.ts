@@ -39,7 +39,7 @@ imagesRouter.post("/", requireUploader, async (c) => {
     ext: uploadCheck.ext,
   });
 
-  return c.json(created, created.duplicate ? 200 : 201);
+  return c.json(created, (created as any).httpStatus ?? (created.duplicate ? 200 : 201));
 });
 
 imagesRouter.get("/recent", async (c) => {

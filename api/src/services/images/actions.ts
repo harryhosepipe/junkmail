@@ -13,14 +13,76 @@ import {
   mutateConvexSetImageStatus,
   mutateConvexUpsertImageContent,
   queryConvexImageById,
+  queryConvexImagesByPerceptualHashAnchor,
   queryConvexImageByUploadHash,
   queryConvexImageComments,
   queryConvexRatingsByImageIds,
 } from "../../convex/client.js";
 import { resolveAuthUserProfileById } from "../../auth/userProfile.js";
+import {
+  computeImageFingerprint,
+  isNearDuplicate,
+  similarityAnchor,
+  type ImageFingerprint,
+} from "./perceptualHash.js";
 
 const MAX_UPLOAD_BYTES = 15 * 1024 * 1024;
 const ACCEPTED_TYPES = ["image/jpeg", "image/png"] as const;
+const PHASH_ANCHOR_LENGTH = 2;
+
+const buildDuplicatePayload = async (args: {
+  existing: {
+    imageId: string;
+    status: string;
+    originalUrl?: string;
+    createdAt?: number;
+    uploaderAuthUserId: string;
+    title?: string;
+    description?: string;
+  };
+  duplicateType: "exact" | "near";
+}) => {
+  const { existing, duplicateType } = args;
+  const uploader = await resolveAuthUserProfileById(existing.uploaderAuthUserId);
+  const uploadedAtIso = new Date(existing.createdAt ?? Date.now()).toISOString();
+  const uploaderName = uploader?.alias || "unknown";
+  const message =
+    duplicateType === "near"
+      ? `sorry this junk was uploaded at this "${uploadedAtIso}" by "${uploaderName}" suck on it!`
+      : "This image was already uploaded.";
+
+  return {
+    id: existing.imageId,
+    status: existing.status,
+    originalUrl: normalizePublicAssetUrl(existing.originalUrl || ""),
+    duplicate: true as const,
+    duplicateType,
+    httpStatus: duplicateType === "near" ? 409 : 200,
+    error: { message },
+    existing: {
+      id: existing.imageId,
+      status: existing.status,
+      originalUrl: normalizePublicAssetUrl(existing.originalUrl || ""),
+      title: existing.title ?? null,
+      createdAt: uploadedAtIso,
+      uploaderAlias: uploader?.alias ?? null,
+    },
+  };
+};
+
+const findNearDuplicate = (incoming: ImageFingerprint, candidates: Array<Record<string, any>>) => {
+  for (const candidate of candidates) {
+    if (
+      isNearDuplicate({
+        incoming,
+        existing: candidate.perceptualHashes as Partial<ImageFingerprint> | undefined,
+      })
+    ) {
+      return candidate;
+    }
+  }
+  return null;
+};
 
 export const validateUpload = (upload: unknown) => {
   if (!upload || typeof upload !== "object" || typeof (upload as any).arrayBuffer !== "function") {
@@ -61,12 +123,14 @@ export const createImageUpload = async (args: {
 
   const existing = await queryConvexImageByUploadHash(uploadHash);
   if (existing) {
-    return {
-      id: existing.imageId,
-      status: existing.status,
-      originalUrl: normalizePublicAssetUrl(existing.originalUrl || ""),
-      duplicate: true as const,
-    };
+    return buildDuplicatePayload({ existing, duplicateType: "exact" });
+  }
+  const fingerprint = await computeImageFingerprint(data);
+  const anchor = similarityAnchor(fingerprint, PHASH_ANCHOR_LENGTH);
+  const candidates = await queryConvexImagesByPerceptualHashAnchor(anchor, 128);
+  const nearDuplicate = findNearDuplicate(fingerprint, candidates);
+  if (nearDuplicate) {
+    return buildDuplicatePayload({ existing: nearDuplicate as any, duplicateType: "near" });
   }
 
   const imageId = randomUUID();
@@ -94,6 +158,8 @@ export const createImageUpload = async (args: {
     imageId,
     uploaderAuthUserId: authUser.id,
     uploadHash,
+    perceptualHashAnchor: anchor,
+    perceptualHashes: fingerprint,
     title: title?.length ? title : undefined,
     description: description?.length ? description : undefined,
     status: "processing",
@@ -125,6 +191,8 @@ export const createImageUpload = async (args: {
     status: "processing",
     originalUrl: normalizePublicAssetUrl(originalUrl),
     duplicate: false as const,
+    duplicateType: null,
+    httpStatus: 201,
   };
 };
 

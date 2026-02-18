@@ -82,6 +82,8 @@ export default defineSchema({
     imageId: v.string(),
     uploaderAuthUserId: v.string(),
     uploadHash: v.optional(v.string()),
+    perceptualHashAnchor: v.optional(v.string()),
+    perceptualHashes: v.optional(v.any()),
     title: v.optional(v.string()),
     description: v.optional(v.string()),
     status: v.string(),
@@ -94,6 +96,7 @@ export default defineSchema({
   })
     .index("by_image_id", ["imageId"])
     .index("by_upload_hash", ["uploadHash"])
+    .index("by_perceptual_hash_anchor", ["perceptualHashAnchor"])
     .index("by_status", ["status"])
     .index("by_status_created_at", ["status", "createdAt"])
     .index("by_uploader_created_at", ["uploaderAuthUserId", "createdAt"]),

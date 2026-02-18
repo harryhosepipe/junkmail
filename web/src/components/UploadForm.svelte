@@ -24,12 +24,21 @@
   let displayPreviewTitle = "";
   let displayPreviewDescription = "";
   let displayPreviewLabel = "";
+  let duplicateModalOpen = false;
+  let duplicateMessage = "";
+  let duplicateExisting = null;
   const fileInputId = "upload-file-input";
   const ACCEPTED_IMAGE_MIMES = new Set(["image/jpeg", "image/png"]);
 
   const setStatus = (message, mode = "info") => {
     status = message;
     statusState = mode;
+  };
+
+  const closeDuplicateModal = () => {
+    duplicateModalOpen = false;
+    duplicateMessage = "";
+    duplicateExisting = null;
   };
 
   const resetPreview = () => {
@@ -214,6 +223,14 @@
 
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
+        if (response.status === 409 && data?.duplicate && data?.duplicateType === "near") {
+          duplicateMessage =
+            data?.error?.message || "sorry this junk was uploaded already. suck on it!";
+          duplicateExisting = data?.existing || null;
+          duplicateModalOpen = true;
+          setStatus("Near-duplicate blocked.", "error");
+          return;
+        }
         setStatus(data?.error?.message || "Upload failed.", "error");
         return;
       }
@@ -395,6 +412,33 @@
       </p>
     {/if}
     <button class="cta" type="button" on:click={handleLogout}> Log out </button>
+  </div>
+{/if}
+
+{#if duplicateModalOpen}
+  <div class="duplicate-modal-backdrop" role="presentation" on:click={closeDuplicateModal}>
+    <div
+      class="duplicate-modal"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Duplicate image detected"
+      on:click|stopPropagation
+    >
+      <div class="duplicate-modal-title">Duplicate Found</div>
+      <p class="duplicate-modal-copy">{duplicateMessage}</p>
+      {#if duplicateExisting?.originalUrl}
+        <img
+          class="duplicate-modal-image"
+          src={duplicateExisting.originalUrl}
+          alt="Previously uploaded similar image"
+        />
+      {/if}
+      <div class="duplicate-meta">
+        <div>Uploaded: {duplicateExisting?.createdAt || "Unknown"}</div>
+        <div>By: {duplicateExisting?.uploaderAlias || "Unknown"}</div>
+      </div>
+      <button class="cta" type="button" on:click={closeDuplicateModal}>Close</button>
+    </div>
   </div>
 {/if}
 
@@ -628,5 +672,52 @@
     color: var(--bg-ink);
     overflow-wrap: anywhere;
     word-break: break-word;
+  }
+
+  .duplicate-modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(17, 14, 10, 0.48);
+    display: grid;
+    place-items: center;
+    padding: 16px;
+    z-index: 60;
+  }
+
+  .duplicate-modal {
+    width: min(560px, 100%);
+    border-radius: 18px;
+    border: 1px solid var(--border);
+    background: #fffdf9;
+    box-shadow: var(--shadow);
+    padding: 18px;
+    display: grid;
+    gap: 12px;
+  }
+
+  .duplicate-modal-title {
+    font-size: 24px;
+    font-weight: 700;
+  }
+
+  .duplicate-modal-copy {
+    margin: 0;
+    color: var(--ink-muted);
+  }
+
+  .duplicate-modal-image {
+    width: 100%;
+    max-height: 260px;
+    object-fit: contain;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    background: #fff;
+  }
+
+  .duplicate-meta {
+    display: grid;
+    gap: 4px;
+    color: var(--ink-muted);
+    font-size: 14px;
   }
 </style>

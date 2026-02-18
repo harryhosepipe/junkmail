@@ -12,11 +12,22 @@ const state = vi.hoisted(() => ({
 const mutateConvexUpsertImageContent = vi.hoisted(() => vi.fn());
 const mutateConvexUpsertTelegramUser = vi.hoisted(() => vi.fn());
 const queryConvexImageByUploadHash = vi.hoisted(() => vi.fn());
+const queryConvexImagesByPerceptualHashAnchor = vi.hoisted(() => vi.fn());
+const computeImageFingerprint = vi.hoisted(() => vi.fn());
+const similarityAnchor = vi.hoisted(() => vi.fn());
+const isNearDuplicate = vi.hoisted(() => vi.fn());
 
 vi.mock("../convex/client.js", () => ({
   mutateConvexUpsertImageContent,
   mutateConvexUpsertTelegramUser,
   queryConvexImageByUploadHash,
+  queryConvexImagesByPerceptualHashAnchor,
+}));
+
+vi.mock("../services/images/perceptualHash.js", () => ({
+  computeImageFingerprint,
+  similarityAnchor,
+  isNearDuplicate,
 }));
 
 vi.mock("../queue/index.js", () => ({
@@ -69,6 +80,17 @@ describe("telegram webhook", () => {
       return { ok: true };
     });
     queryConvexImageByUploadHash.mockResolvedValue(null);
+    queryConvexImagesByPerceptualHashAnchor.mockResolvedValue([]);
+    computeImageFingerprint.mockResolvedValue({
+      version: 1,
+      full: "aaaaaaaaaaaaaaaa",
+      center: "aaaaaaaaaaaaaaaa",
+      inner: "aaaaaaaaaaaaaaaa",
+      sourceWidth: 100,
+      sourceHeight: 100,
+    });
+    similarityAnchor.mockReturnValue("aa");
+    isNearDuplicate.mockReturnValue(false);
     process.env.TELEGRAM_BOT_TOKEN = "test-token";
     process.env.TELEGRAM_ALLOWED_CHAT_IDS = "-100123";
     delete process.env.TELEGRAM_WEBHOOK_SECRET_TOKEN;

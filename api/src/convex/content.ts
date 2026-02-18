@@ -23,6 +23,11 @@ const imageByUploadHashRef = makeFunctionReference<
   { uploadHash: string },
   ConvexImageContent | null
 >("content:getImageByUploadHash");
+const imagesByPerceptualHashAnchorRef = makeFunctionReference<
+  "query",
+  { anchor: string; limit?: number },
+  ConvexImageContent[]
+>("content:listImagesByPerceptualHashAnchor");
 const imageCommentsRef = makeFunctionReference<
   "query",
   { imageId: string; limit?: number },
@@ -51,6 +56,8 @@ const upsertImageRef = makeFunctionReference<
     imageId: string;
     uploaderAuthUserId: string;
     uploadHash?: string;
+    perceptualHashAnchor?: string;
+    perceptualHashes?: unknown;
     title?: string;
     description?: string;
     status: string;
@@ -79,6 +86,16 @@ const setImageProcessingResultRef = makeFunctionReference<
   },
   { ok: boolean }
 >("content:setImageProcessingResult");
+const setImagePerceptualHashesRef = makeFunctionReference<
+  "mutation",
+  {
+    imageId: string;
+    perceptualHashAnchor?: string;
+    perceptualHashes?: unknown;
+    updatedAt?: number;
+  },
+  { ok: boolean }
+>("content:setImagePerceptualHashes");
 
 export const queryConvexRecentPublicImages = async (limit?: number) => {
   const { client } = createConvexClient();
@@ -104,6 +121,11 @@ export const queryConvexImageById = async (imageId: string) => {
 export const queryConvexImageByUploadHash = async (uploadHash: string) => {
   const { client } = createConvexClient();
   return client.query(imageByUploadHashRef, { uploadHash });
+};
+
+export const queryConvexImagesByPerceptualHashAnchor = async (anchor: string, limit?: number) => {
+  const { client } = createConvexClient();
+  return client.query(imagesByPerceptualHashAnchorRef, { anchor, limit });
 };
 
 export const queryConvexImageComments = async (args: { imageId: string; limit?: number }) => {
@@ -132,6 +154,8 @@ export const mutateConvexUpsertImageContent = async (args: {
   imageId: string;
   uploaderAuthUserId: string;
   uploadHash?: string;
+  perceptualHashAnchor?: string;
+  perceptualHashes?: unknown;
   title?: string;
   description?: string;
   status: string;
@@ -165,4 +189,14 @@ export const mutateConvexSetImageProcessingResult = async (args: {
 }) => {
   const { client } = createConvexClient();
   return client.mutation(setImageProcessingResultRef, args);
+};
+
+export const mutateConvexSetImagePerceptualHashes = async (args: {
+  imageId: string;
+  perceptualHashAnchor?: string;
+  perceptualHashes?: unknown;
+  updatedAt?: number;
+}) => {
+  const { client } = createConvexClient();
+  return client.mutation(setImagePerceptualHashesRef, args);
 };

@@ -11,6 +11,8 @@ export const createImage = mutation({
     imageId: v.string(),
     uploaderAuthUserId: v.string(),
     uploadHash: v.optional(v.string()),
+    perceptualHashAnchor: v.optional(v.string()),
+    perceptualHashes: v.optional(v.any()),
     title: v.optional(v.string()),
     description: v.optional(v.string()),
     status: v.string(),
@@ -35,6 +37,8 @@ export const createImage = mutation({
       imageId: args.imageId,
       uploaderAuthUserId: args.uploaderAuthUserId,
       uploadHash: normalizeText(args.uploadHash),
+      perceptualHashAnchor: normalizeText(args.perceptualHashAnchor),
+      perceptualHashes: args.perceptualHashes,
       title: normalizeText(args.title),
       description: normalizeText(args.description),
       status: args.status,
@@ -55,6 +59,8 @@ export const upsertImage = mutation({
     imageId: v.string(),
     uploaderAuthUserId: v.string(),
     uploadHash: v.optional(v.string()),
+    perceptualHashAnchor: v.optional(v.string()),
+    perceptualHashes: v.optional(v.any()),
     title: v.optional(v.string()),
     description: v.optional(v.string()),
     status: v.string(),
@@ -75,6 +81,8 @@ export const upsertImage = mutation({
     const next = {
       uploaderAuthUserId: args.uploaderAuthUserId,
       uploadHash: normalizeText(args.uploadHash),
+      perceptualHashAnchor: normalizeText(args.perceptualHashAnchor),
+      perceptualHashes: args.perceptualHashes,
       title: normalizeText(args.title),
       description: normalizeText(args.description),
       status: args.status,
@@ -100,6 +108,29 @@ export const upsertImage = mutation({
   },
 });
 
+export const setImagePerceptualHashes = mutation({
+  args: {
+    imageId: v.string(),
+    perceptualHashAnchor: v.optional(v.string()),
+    perceptualHashes: v.optional(v.any()),
+    updatedAt: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const existing = await ctx.db
+      .query("images")
+      .withIndex("by_image_id", (q) => q.eq("imageId", args.imageId))
+      .unique();
+    if (!existing) return { ok: false };
+
+    await ctx.db.patch(existing._id, {
+      perceptualHashAnchor: normalizeText(args.perceptualHashAnchor),
+      perceptualHashes: args.perceptualHashes,
+      updatedAt: args.updatedAt ?? Date.now(),
+    });
+    return { ok: true };
+  },
+});
+
 export const getImageById = query({
   args: {
     imageId: v.string(),
@@ -117,6 +148,8 @@ export const getImageById = query({
       imageId: row.imageId,
       uploaderAuthUserId: row.uploaderAuthUserId,
       uploadHash: row.uploadHash,
+      perceptualHashAnchor: row.perceptualHashAnchor,
+      perceptualHashes: row.perceptualHashes,
       title: row.title,
       description: row.description,
       status: row.status,
@@ -146,6 +179,8 @@ export const getImageByUploadHash = query({
       imageId: row.imageId,
       uploaderAuthUserId: row.uploaderAuthUserId,
       uploadHash: row.uploadHash,
+      perceptualHashAnchor: row.perceptualHashAnchor,
+      perceptualHashes: row.perceptualHashes,
       title: row.title,
       description: row.description,
       status: row.status,
@@ -156,6 +191,37 @@ export const getImageByUploadHash = query({
       updatedAt: row.updatedAt,
       publishedAt: row.publishedAt,
     };
+  },
+});
+
+export const listImagesByPerceptualHashAnchor = query({
+  args: {
+    anchor: v.string(),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const limit = Math.max(1, Math.min(Math.floor(args.limit ?? 64), 256));
+    const rows = await ctx.db
+      .query("images")
+      .withIndex("by_perceptual_hash_anchor", (q) => q.eq("perceptualHashAnchor", args.anchor))
+      .take(limit);
+
+    return rows.map((row) => ({
+      imageId: row.imageId,
+      uploaderAuthUserId: row.uploaderAuthUserId,
+      uploadHash: row.uploadHash,
+      perceptualHashAnchor: row.perceptualHashAnchor,
+      perceptualHashes: row.perceptualHashes,
+      title: row.title,
+      description: row.description,
+      status: row.status,
+      originalUrl: row.originalUrl,
+      originalStorageId: row.originalStorageId,
+      variantUrls: row.variantUrls,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+      publishedAt: row.publishedAt,
+    }));
   },
 });
 
@@ -175,6 +241,8 @@ export const listRecentPublicImages = query({
       imageId: row.imageId,
       uploaderAuthUserId: row.uploaderAuthUserId,
       uploadHash: row.uploadHash,
+      perceptualHashAnchor: row.perceptualHashAnchor,
+      perceptualHashes: row.perceptualHashes,
       title: row.title,
       description: row.description,
       status: row.status,
@@ -203,6 +271,8 @@ export const listPublicImages = query({
       imageId: row.imageId,
       uploaderAuthUserId: row.uploaderAuthUserId,
       uploadHash: row.uploadHash,
+      perceptualHashAnchor: row.perceptualHashAnchor,
+      perceptualHashes: row.perceptualHashes,
       title: row.title,
       description: row.description,
       status: row.status,
@@ -237,6 +307,8 @@ export const listPublicImagesByIds = query({
         imageId: row.imageId,
         uploaderAuthUserId: row.uploaderAuthUserId,
         uploadHash: row.uploadHash,
+        perceptualHashAnchor: row.perceptualHashAnchor,
+        perceptualHashes: row.perceptualHashes,
         title: row.title,
         description: row.description,
         status: row.status,
@@ -268,6 +340,8 @@ export const listUploaderImages = query({
       imageId: row.imageId,
       uploaderAuthUserId: row.uploaderAuthUserId,
       uploadHash: row.uploadHash,
+      perceptualHashAnchor: row.perceptualHashAnchor,
+      perceptualHashes: row.perceptualHashes,
       title: row.title,
       description: row.description,
       status: row.status,

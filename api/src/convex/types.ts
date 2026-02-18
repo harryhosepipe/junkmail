@@ -22,6 +22,8 @@ export type ConvexImageContent = {
   imageId: string;
   uploaderAuthUserId: string;
   uploadHash?: string;
+  perceptualHashAnchor?: string;
+  perceptualHashes?: unknown;
   title?: string;
   description?: string;
   status: string;

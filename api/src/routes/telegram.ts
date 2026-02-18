@@ -6,14 +6,22 @@ import { redis } from "../queue/connection.js";
 import { originalKey } from "../storage/paths.js";
 import { publicObjectUrl, s3Client, storageBucket } from "../storage/client.js";
 import {
+  queryConvexImagesByPerceptualHashAnchor,
   queryConvexImageByUploadHash,
   mutateConvexUpsertImageContent,
   mutateConvexUpsertTelegramUser,
 } from "../convex/client.js";
 import { env } from "../env.js";
 import { serviceUnavailable } from "../http/errors.js";
+import {
+  computeImageFingerprint,
+  isNearDuplicate,
+  similarityAnchor,
+  type ImageFingerprint,
+} from "../services/images/perceptualHash.js";
 
 const MAX_UPLOAD_BYTES = 15 * 1024 * 1024;
+const PHASH_ANCHOR_LENGTH = 2;
 
 type TelegramUser = {
   id: number;
@@ -256,6 +264,18 @@ telegramRouter.post("/webhook", async (c) => {
     if (existing) {
       return c.json({ ok: true, duplicate: true, imageId: existing.imageId });
     }
+    const fingerprint = await computeImageFingerprint(data);
+    const anchor = similarityAnchor(fingerprint, PHASH_ANCHOR_LENGTH);
+    const candidates = await queryConvexImagesByPerceptualHashAnchor(anchor, 128);
+    const near = candidates.find((candidate) =>
+      isNearDuplicate({
+        incoming: fingerprint,
+        existing: candidate.perceptualHashes as Partial<ImageFingerprint> | undefined,
+      }),
+    );
+    if (near) {
+      return c.json({ ok: true, duplicate: true, duplicateType: "near", imageId: near.imageId });
+    }
 
     const imageId = randomUUID();
     const key = originalKey(imageId, ext);
@@ -275,6 +295,8 @@ telegramRouter.post("/webhook", async (c) => {
       imageId,
       uploaderAuthUserId: uploaderId,
       uploadHash,
+      perceptualHashAnchor: anchor,
+      perceptualHashes: fingerprint,
       status: "processing",
       originalUrl,
       variantUrls: {},

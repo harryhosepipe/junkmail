@@ -10,6 +10,7 @@
     "test": "vitest run",
     "convex:check": "tsx src/scripts/checkConvex.ts",
     "convex:backfill": "tsx src/scripts/backfillConvex.ts",
+    "images:backfill-perceptual": "tsx src/scripts/backfillPerceptualHashes.ts",
     "validate:realtime": "tsx src/scripts/validateRealtimeVoting.ts",
     "db:seed": "tsx src/db/seed.ts",
     "worker": "tsx src/queue/worker.ts",
