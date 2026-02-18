@@ -56,6 +56,13 @@
     }
   };
 
+  const releaseSelectedFile = () => {
+    file = null;
+    if (fileInput) {
+      fileInput.value = "";
+    }
+  };
+
   const setSelectedFile = (nextFile) => {
     file = nextFile;
     resetPreview();
@@ -185,7 +192,6 @@
     }
 
     uploading = true;
-    resetPreview();
     setStatus("Uploading...", "info");
 
     try {
@@ -220,7 +226,8 @@
 
       title = "";
       description = "";
-      clearSelectedFile();
+      // Keep local preview visible while processing and only swap when public image is ready.
+      releaseSelectedFile();
     } catch (err) {
       setStatus("Upload failed. Try again.", "error");
     } finally {
