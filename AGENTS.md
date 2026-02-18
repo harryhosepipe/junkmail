@@ -46,17 +46,16 @@ This project uses **bd** (beads) for issue tracking. Run `./bin/bd onboard` to g
 - Never hardcode configurable values directly in source when they belong in env.
 - For MVP in this project, values do not need to be secret-safe; prefer working defaults in env files so features run end-to-end locally.
 
-## Runtime Sync Rule (Containers)
+## Runtime Parity Rule (General)
 
-- If you change code used by a containerized service (example: `tools/orb_verifier/*`), you MUST rebuild and force-recreate the container before validating behavior:
-  ```bash
-  docker compose --profile orb up -d --build --force-recreate orb-verifier
-  ```
-- After recreate, you MUST verify the container is running the expected file contents (not just the latest image tag), for example:
-  ```bash
-  docker compose --profile orb exec -T orb-verifier sed -n '1,80p' /app/app.py
-  ```
-- If host source and in-container source differ, do not continue debugging app logic until runtime/source parity is fixed.
+- After changing code that executes in any runtime process (API server, worker, container, queue consumer, cron, etc.), you MUST refresh that runtime before behavior testing.
+- Do not assume "build succeeded" means the running process is using new code. Verify runtime/source parity explicitly.
+- Required parity check before debugging behavior:
+  1. Identify the process(es) that execute the changed code.
+  2. Restart/recreate/redeploy those process(es) with cache-busting or force-recreate when applicable.
+  3. Verify loaded code/config/version from inside the running process (for example: inspect file content, version endpoint, startup log commit hash, or checksum).
+  4. Only then run functional tests and interpret results.
+- If runtime/source parity is not proven, stop and fix parity first; do not continue feature debugging.
 
 <!-- BEGIN BEADS INTEGRATION -->
 
