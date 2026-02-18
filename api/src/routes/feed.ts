@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { createMatchupPayload } from "./matchups.js";
-import { fetchRecentImages, fetchTopCards } from "./images.js";
+import { fetchRecentImages, fetchTopCards } from "../services/images/cards.js";
 
 const feedRouter = new Hono();
 

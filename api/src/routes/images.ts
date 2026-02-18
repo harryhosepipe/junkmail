@@ -1,239 +1,45 @@
-import { PutObjectCommand } from "@aws-sdk/client-s3";
-import { randomUUID } from "crypto";
 import { Hono } from "hono";
-import { imageQueue } from "../queue/index.js";
-import { redis } from "../queue/connection.js";
-import { originalKey } from "../storage/paths.js";
-import { publicObjectUrl, s3Client, storageBucket } from "../storage/client.js";
-import {
-  extractStorageObjectKey,
-  normalizePublicAssetData,
-  normalizePublicAssetUrl,
-} from "../storage/publicUrls.js";
 import { getSessionUser, requireUploader } from "../auth/session.js";
 import { ensureSameOrigin } from "../auth/csrf.js";
 import { parseCommentBody } from "../contracts/comments.js";
-import {
-  mutateConvexCreateImageComment,
-  mutateConvexSetImageStatus,
-  mutateConvexUpsertImageContent,
-  queryConvexImageById,
-  queryConvexImageComments,
-  queryConvexPublicImagesByIds,
-  queryConvexRatingsByImageIds,
-  queryConvexRecentPublicImages,
-  queryConvexTopRatings,
-} from "../convex/client.js";
-import { resolveAuthUserProfileById } from "../auth/userProfile.js";
 import { env } from "../env.js";
 import { AppError } from "../http/errors.js";
 import { readPayload } from "../http/readPayload.js";
+import {
+  createComment,
+  createImageUpload,
+  loadImageDetail,
+  reprocessImage,
+  validateUpload,
+} from "../services/images/actions.js";
+import { fetchRecentImages, fetchTopCards, pickThumbUrl } from "../services/images/cards.js";
+import { normalizePublicAssetUrl } from "../storage/publicUrls.js";
 
-const MAX_UPLOAD_BYTES = 15 * 1024 * 1024;
-const ACCEPTED_TYPES = ["image/jpeg", "image/png"] as const;
 const TOPLIST_MIN_COMPARISONS = env.TOPLIST_MIN_COMPARISONS ?? 10;
-const TOPLIST_CACHE_SECONDS = env.TOPLIST_CACHE_SECONDS ?? 90;
 
 const imagesRouter = new Hono();
 
-type ImageCard = {
-  id: string;
-  title: string | null;
-  description: string | null;
-  status: string;
-  originalUrl: string;
-  variantUrls: unknown;
-  createdAt: Date;
-  score: number;
-  votes: number;
-};
-
-const pickVariantUrl = (variant: unknown) => {
-  if (!variant) return "";
-  if (typeof variant === "string") return variant;
-  const map = variant as { webp?: string; avif?: string; jpg?: string; png?: string };
-  return map.webp || map.avif || map.jpg || map.png || "";
-};
-
-const pickThumbUrl = (variantUrls: unknown) => {
-  if (!variantUrls || typeof variantUrls !== "object") return "";
-  const variants = variantUrls as Record<string, unknown>;
-  return (
-    pickVariantUrl(variants.thumb) ||
-    pickVariantUrl(variants.feed) ||
-    pickVariantUrl(variants.full) ||
-    ""
-  );
-};
-
-export const fetchRecentImages = async (limit: number) => {
-  const rows = await queryConvexRecentPublicImages(limit);
-
-  const ratingRows = await queryConvexRatingsByImageIds(rows.map((row) => row.imageId));
-  const ratingByImageId = new Map(
-    ratingRows.map((rating) => [
-      rating.imageId,
-      {
-        score: rating.score ?? 0,
-        comparisonsCount: rating.comparisonsCount ?? 0,
-      },
-    ]),
-  );
-
-  return rows.map(
-    (row): ImageCard => ({
-      id: row.imageId,
-      title: row.title ?? null,
-      description: row.description ?? null,
-      status: row.status,
-      originalUrl: normalizePublicAssetUrl(row.originalUrl || ""),
-      variantUrls: normalizePublicAssetData(row.variantUrls),
-      createdAt: new Date(row.createdAt),
-      score: ratingByImageId.get(row.imageId)?.score ?? 0,
-      votes: ratingByImageId.get(row.imageId)?.comparisonsCount ?? 0,
-    }),
-  );
-};
-
-export const fetchTopCards = async (limit: number, minComparisons = TOPLIST_MIN_COMPARISONS) => {
-  const cacheKey = `toplist:${minComparisons}:${limit}`;
-  if (TOPLIST_CACHE_SECONDS > 0) {
-    try {
-      const cached = await redis.get(cacheKey);
-      if (cached) {
-        return JSON.parse(cached) as ImageCard[];
-      }
-    } catch {
-      // ignore cache errors
-    }
-  }
-
-  const topRatings = await queryConvexTopRatings({
-    limit,
-    minComparisons,
-  });
-  const ratingByImageId = new Map(
-    topRatings.map((rating) => [
-      rating.imageId,
-      {
-        score: rating.score ?? 0,
-        comparisonsCount: rating.comparisonsCount ?? 0,
-      },
-    ]),
-  );
-  const orderedIds = topRatings.map((rating) => rating.imageId);
-  const rows = orderedIds.length ? await queryConvexPublicImagesByIds(orderedIds) : [];
-
-  const rowById = new Map(rows.map((row) => [row.imageId, row]));
-  const items = orderedIds
-    .map((id) => {
-      const row = rowById.get(id);
-      if (!row) return null;
-      const rating = ratingByImageId.get(id);
-      return {
-        id: row.imageId,
-        title: row.title ?? null,
-        description: row.description ?? null,
-        status: row.status,
-        originalUrl: normalizePublicAssetUrl(row.originalUrl || ""),
-        variantUrls: normalizePublicAssetData(row.variantUrls),
-        createdAt: new Date(row.createdAt),
-        score: rating?.score ?? 0,
-        votes: rating?.comparisonsCount ?? 0,
-      } as ImageCard;
-    })
-    .filter((row): row is ImageCard => Boolean(row));
-
-  if (TOPLIST_CACHE_SECONDS > 0) {
-    try {
-      await redis.set(cacheKey, JSON.stringify(items), "EX", TOPLIST_CACHE_SECONDS);
-    } catch {
-      // ignore cache errors
-    }
-  }
-
-  return items;
-};
-
 imagesRouter.post("/", requireUploader, async (c) => {
   const body = await c.req.parseBody();
-  const upload = body.file;
   const title = typeof body.title === "string" ? body.title.trim() : "";
   const description = typeof body.description === "string" ? body.description.trim() : "";
 
-  if (!upload || typeof upload !== "object" || typeof upload.arrayBuffer !== "function") {
-    return c.json({ error: { message: "File is required" } }, 400);
+  const uploadCheck = validateUpload(body.file);
+  if (!uploadCheck.ok) {
+    return c.json({ error: { message: uploadCheck.message } }, uploadCheck.status as any);
   }
-
-  const size = (upload as { size?: number }).size ?? 0;
-  const type = (upload as { type?: string }).type ?? "";
-
-  if (!ACCEPTED_TYPES.includes(type as (typeof ACCEPTED_TYPES)[number])) {
-    return c.json({ error: { message: "Only JPG and PNG are supported" } }, 415);
-  }
-
-  if (size > MAX_UPLOAD_BYTES) {
-    return c.json({ error: { message: "File exceeds max size" } }, 413);
-  }
-
-  const ext = type === "image/png" ? "png" : "jpg";
-  const imageId = randomUUID();
-  const key = originalKey(imageId, ext);
-  const data = Buffer.from(await upload.arrayBuffer());
 
   const authUser = (c as any).get("authUser") as { id: string; email?: string; alias?: string };
-
-  await s3Client.send(
-    new PutObjectCommand({
-      Bucket: storageBucket,
-      Key: key,
-      Body: data,
-      ContentType: type,
-    }),
-  );
-
-  const originalUrl = publicObjectUrl(key);
-
-  console.info("[upload]", {
-    imageId,
-    uploaderId: authUser.id,
-    uploaderEmail: authUser.email,
-    uploaderAlias: authUser.alias,
+  const created = await createImageUpload({
+    authUser,
+    title,
+    description,
+    upload: uploadCheck.upload,
+    type: uploadCheck.type,
+    ext: uploadCheck.ext,
   });
 
-  await mutateConvexUpsertImageContent({
-    imageId,
-    uploaderAuthUserId: authUser.id,
-    title: title.length ? title : undefined,
-    description: description.length ? description : undefined,
-    status: "processing",
-    originalUrl,
-    variantUrls: {},
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
-  });
-
-  await imageQueue.add(
-    "process",
-    {
-      imageId,
-      key,
-      ext,
-      contentType: type,
-    },
-    {
-      attempts: 3,
-      backoff: {
-        type: "exponential",
-        delay: 5000,
-      },
-    },
-  );
-
-  return c.json(
-    { id: imageId, status: "processing", originalUrl: normalizePublicAssetUrl(originalUrl) },
-    201,
-  );
+  return c.json(created, 201);
 });
 
 imagesRouter.get("/recent", async (c) => {
@@ -264,38 +70,12 @@ imagesRouter.get("/top", async (c) => {
 
 imagesRouter.get("/:id", async (c) => {
   const imageId = c.req.param("id");
-  const row = await queryConvexImageById(imageId);
-  if (!row) {
+  const detail = await loadImageDetail(imageId);
+  if (!detail) {
     return c.json({ error: { message: "Image not found" } }, 404);
   }
 
-  const [ratingRows, uploader, commentRows] = await Promise.all([
-    queryConvexRatingsByImageIds([row.imageId]),
-    resolveAuthUserProfileById(row.uploaderAuthUserId),
-    queryConvexImageComments({ imageId: row.imageId, limit: 100 }),
-  ]);
-  const rating = ratingRows[0];
-
-  return c.json({
-    id: row.imageId,
-    status: row.status,
-    title: row.title ?? null,
-    description: row.description ?? null,
-    originalUrl: normalizePublicAssetUrl(row.originalUrl || ""),
-    variantUrls: normalizePublicAssetData(row.variantUrls),
-    createdAt: new Date(row.createdAt),
-    uploaderEmail: uploader?.email ?? null,
-    uploaderAlias: uploader?.alias ?? null,
-    score: rating?.score ?? 0,
-    votes: rating?.comparisonsCount ?? 0,
-    comments: commentRows.map((comment) => ({
-      id: comment.commentId,
-      body: comment.body,
-      createdAt: new Date(comment.createdAt),
-      userId: comment.userAuthUserId,
-      userAlias: comment.userAlias,
-    })),
-  });
+  return c.json(detail);
 });
 
 imagesRouter.post("/:id/comments", async (c) => {
@@ -309,12 +89,6 @@ imagesRouter.post("/:id/comments", async (c) => {
     return c.json({ error: { message: "Unauthorized" } }, 401);
   }
 
-  const imageId = c.req.param("id");
-  const imageRow = await queryConvexImageById(imageId);
-  if (!imageRow) {
-    return c.json({ error: { message: "Image not found" } }, 404);
-  }
-
   const body = await readPayload(c);
   let text = "";
   try {
@@ -326,29 +100,13 @@ imagesRouter.post("/:id/comments", async (c) => {
     throw err;
   }
 
-  const commentId = randomUUID();
-  const createdAt = Date.now();
-  await mutateConvexCreateImageComment({
-    commentId,
-    imageId,
-    userAuthUserId: user.id,
-    userAlias: user.alias,
-    body: text,
-    createdAt,
-  });
+  const imageId = c.req.param("id");
+  const comment = await createComment({ imageId, user: { id: user.id, alias: user.alias }, text });
+  if (!comment) {
+    return c.json({ error: { message: "Image not found" } }, 404);
+  }
 
-  return c.json(
-    {
-      comment: {
-        id: commentId,
-        body: text,
-        createdAt: new Date(createdAt),
-        userId: user.id,
-        userAlias: user.alias,
-      },
-    },
-    201,
-  );
+  return c.json({ comment }, 201);
 });
 
 imagesRouter.post("/:id/reprocess", async (c) => {
@@ -357,45 +115,13 @@ imagesRouter.post("/:id/reprocess", async (c) => {
   }
 
   const imageId = c.req.param("id");
-  const convexImage = await queryConvexImageById(imageId);
-  const originalUrl = convexImage?.originalUrl;
-  if (!originalUrl) {
-    return c.json({ error: { message: "Image not found" } }, 404);
+  const result = await reprocessImage(imageId);
+  if (!result.ok) {
+    return c.json({ error: { message: result.message } }, result.status as any);
   }
-
-  const key = extractStorageObjectKey(originalUrl);
-  if (!key) {
-    return c.json({ error: { message: "Image storage key unavailable" } }, 422);
-  }
-
-  const ext = key.endsWith(".png") ? "png" : "jpg";
-  const contentType = ext === "png" ? "image/png" : "image/jpeg";
-
-  await mutateConvexSetImageStatus({
-    imageId,
-    status: "processing",
-    updatedAt: Date.now(),
-    publishedAt: undefined,
-  });
-
-  await imageQueue.add(
-    "process",
-    {
-      imageId,
-      key,
-      ext,
-      contentType,
-    },
-    {
-      attempts: 3,
-      backoff: {
-        type: "exponential",
-        delay: 5000,
-      },
-    },
-  );
 
   return c.json({ ok: true });
 });
 
+export { fetchRecentImages, fetchTopCards };
 export default imagesRouter;
