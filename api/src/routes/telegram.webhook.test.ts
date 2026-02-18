@@ -13,6 +13,7 @@ const mutateConvexUpsertImageContent = vi.hoisted(() => vi.fn());
 const mutateConvexUpsertTelegramUser = vi.hoisted(() => vi.fn());
 const queryConvexImageByUploadHash = vi.hoisted(() => vi.fn());
 const queryConvexImagesByPerceptualHashAnchor = vi.hoisted(() => vi.fn());
+const queryConvexRecentImages = vi.hoisted(() => vi.fn());
 const computeImageFingerprint = vi.hoisted(() => vi.fn());
 const similarityAnchor = vi.hoisted(() => vi.fn());
 const isNearDuplicate = vi.hoisted(() => vi.fn());
@@ -22,6 +23,7 @@ vi.mock("../convex/client.js", () => ({
   mutateConvexUpsertTelegramUser,
   queryConvexImageByUploadHash,
   queryConvexImagesByPerceptualHashAnchor,
+  queryConvexRecentImages,
 }));
 
 vi.mock("../services/images/perceptualHash.js", () => ({
@@ -81,6 +83,7 @@ describe("telegram webhook", () => {
     });
     queryConvexImageByUploadHash.mockResolvedValue(null);
     queryConvexImagesByPerceptualHashAnchor.mockResolvedValue([]);
+    queryConvexRecentImages.mockResolvedValue([]);
     computeImageFingerprint.mockResolvedValue({
       version: 1,
       full: "aaaaaaaaaaaaaaaa",

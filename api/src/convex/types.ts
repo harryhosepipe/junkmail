@@ -20,6 +20,7 @@ export type ConvexUserProfile = {
 
 export type ConvexImageContent = {
   imageId: string;
+  uploadId?: string;
   uploaderAuthUserId: string;
   uploadHash?: string;
   perceptualHashAnchor?: string;
@@ -29,10 +30,32 @@ export type ConvexImageContent = {
   status: string;
   originalUrl?: string;
   originalStorageId?: string;
+  storageKeyOriginal?: string;
+  storageKeyCanonical?: string;
+  mime?: string;
+  width?: number;
+  height?: number;
+  rejectReason?: string;
+  matchedImageId?: string;
+  dedupeScores?: unknown;
   variantUrls?: unknown;
   createdAt: number;
   updatedAt: number;
   publishedAt?: number;
+};
+
+export type ConvexImageFingerprint = {
+  imageId: string;
+  sha256Pixels: string;
+  phash64: string;
+  phashPrefix: string;
+  dhash64?: string;
+  canonicalWidth?: number;
+  canonicalHeight?: number;
+  cropBox?: unknown;
+  cropMeta?: unknown;
+  workerVersion?: string;
+  createdAt: number;
 };
 
 export type ConvexImageComment = {

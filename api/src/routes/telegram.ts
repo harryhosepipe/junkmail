@@ -7,6 +7,7 @@ import { originalKey } from "../storage/paths.js";
 import { publicObjectUrl, s3Client, storageBucket } from "../storage/client.js";
 import {
   queryConvexImagesByPerceptualHashAnchor,
+  queryConvexRecentImages,
   queryConvexImageByUploadHash,
   mutateConvexUpsertImageContent,
   mutateConvexUpsertTelegramUser,
@@ -22,6 +23,7 @@ import {
 
 const MAX_UPLOAD_BYTES = 15 * 1024 * 1024;
 const PHASH_ANCHOR_LENGTH = 2;
+const RECENT_DUPLICATE_CANDIDATE_LIMIT = 400;
 
 type TelegramUser = {
   id: number;
@@ -266,7 +268,21 @@ telegramRouter.post("/webhook", async (c) => {
     }
     const fingerprint = await computeImageFingerprint(data);
     const anchor = similarityAnchor(fingerprint, PHASH_ANCHOR_LENGTH);
-    const candidates = await queryConvexImagesByPerceptualHashAnchor(anchor, 128);
+    const anchored = await queryConvexImagesByPerceptualHashAnchor(anchor, 128);
+    const seen = new Set<string>();
+    const candidates = [];
+    for (const candidate of anchored) {
+      if (!candidate?.imageId || seen.has(candidate.imageId)) continue;
+      seen.add(candidate.imageId);
+      candidates.push(candidate);
+    }
+    const recent = await queryConvexRecentImages(RECENT_DUPLICATE_CANDIDATE_LIMIT);
+    for (const candidate of recent) {
+      if (!candidate?.imageId || seen.has(candidate.imageId)) continue;
+      seen.add(candidate.imageId);
+      candidates.push(candidate);
+    }
+
     const near = candidates.find((candidate) =>
       isNearDuplicate({
         incoming: fingerprint,

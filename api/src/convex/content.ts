@@ -1,12 +1,15 @@
 import { makeFunctionReference } from "convex/server";
 import { createConvexClient } from "./core.js";
-import type { ConvexImageComment, ConvexImageContent } from "./types.js";
+import type { ConvexImageComment, ConvexImageContent, ConvexImageFingerprint } from "./types.js";
 
 const recentPublicImagesRef = makeFunctionReference<
   "query",
   { limit?: number },
   ConvexImageContent[]
 >("content:listRecentPublicImages");
+const recentImagesRef = makeFunctionReference<"query", { limit?: number }, ConvexImageContent[]>(
+  "content:listRecentImages",
+);
 const publicImagesRef = makeFunctionReference<"query", { limit?: number }, ConvexImageContent[]>(
   "content:listPublicImages",
 );
@@ -23,6 +26,11 @@ const imageByUploadHashRef = makeFunctionReference<
   { uploadHash: string },
   ConvexImageContent | null
 >("content:getImageByUploadHash");
+const imageByUploadIdRef = makeFunctionReference<
+  "query",
+  { uploadId: string },
+  ConvexImageContent | null
+>("content:getImageByUploadId");
 const imagesByPerceptualHashAnchorRef = makeFunctionReference<
   "query",
   { anchor: string; limit?: number },
@@ -54,6 +62,7 @@ const upsertImageRef = makeFunctionReference<
   "mutation",
   {
     imageId: string;
+    uploadId?: string;
     uploaderAuthUserId: string;
     uploadHash?: string;
     perceptualHashAnchor?: string;
@@ -61,6 +70,14 @@ const upsertImageRef = makeFunctionReference<
     title?: string;
     description?: string;
     status: string;
+    storageKeyOriginal?: string;
+    storageKeyCanonical?: string;
+    mime?: string;
+    width?: number;
+    height?: number;
+    rejectReason?: string;
+    matchedImageId?: string;
+    dedupeScores?: unknown;
     originalUrl?: string;
     originalStorageId?: string;
     variantUrls?: unknown;
@@ -96,10 +113,95 @@ const setImagePerceptualHashesRef = makeFunctionReference<
   },
   { ok: boolean }
 >("content:setImagePerceptualHashes");
+const createPendingImageRef = makeFunctionReference<
+  "mutation",
+  {
+    imageId: string;
+    uploadId: string;
+    uploaderAuthUserId: string;
+    title?: string;
+    description?: string;
+    mime?: string;
+    createdAt?: number;
+    updatedAt?: number;
+  },
+  { ok: boolean; imageId: string; deduped: boolean }
+>("content:createPendingImage");
+const markImageRejectedRef = makeFunctionReference<
+  "mutation",
+  {
+    imageId: string;
+    reason: string;
+    matchedImageId?: string;
+    scores?: unknown;
+    updatedAt?: number;
+  },
+  { ok: boolean }
+>("content:markImageRejected");
+const markImageAcceptedRef = makeFunctionReference<
+  "mutation",
+  {
+    imageId: string;
+    status?: string;
+    storageKeyCanonical?: string;
+    width?: number;
+    height?: number;
+    variantUrls?: unknown;
+    updatedAt?: number;
+    publishedAt?: number;
+  },
+  { ok: boolean }
+>("content:markImageAccepted");
+const fingerprintByShaRef = makeFunctionReference<
+  "query",
+  { sha256Pixels: string },
+  ConvexImageFingerprint | null
+>("content:getImageFingerprintBySha256");
+const fingerprintsByPrefixRef = makeFunctionReference<
+  "query",
+  { phashPrefix: string; limit?: number },
+  ConvexImageFingerprint[]
+>("content:listImageFingerprintsByPhashPrefix");
+const upsertImageFingerprintRef = makeFunctionReference<
+  "mutation",
+  {
+    imageId: string;
+    sha256Pixels: string;
+    phash64: string;
+    phashPrefix: string;
+    dhash64?: string;
+    canonicalWidth?: number;
+    canonicalHeight?: number;
+    cropBox?: unknown;
+    cropMeta?: unknown;
+    workerVersion?: string;
+    createdAt?: number;
+  },
+  { ok: boolean }
+>("content:upsertImageFingerprint");
+const createDedupeEventRef = makeFunctionReference<
+  "mutation",
+  {
+    uploadImageId: string;
+    decision: string;
+    reason: string;
+    matchedImageId?: string;
+    scores?: unknown;
+    metrics?: unknown;
+    workerVersion?: string;
+    createdAt?: number;
+  },
+  { ok: boolean }
+>("content:createDedupeEvent");
 
 export const queryConvexRecentPublicImages = async (limit?: number) => {
   const { client } = createConvexClient();
   return client.query(recentPublicImagesRef, { limit });
+};
+
+export const queryConvexRecentImages = async (limit?: number) => {
+  const { client } = createConvexClient();
+  return client.query(recentImagesRef, { limit });
 };
 
 export const queryConvexPublicImages = async (limit?: number) => {
@@ -121,6 +223,11 @@ export const queryConvexImageById = async (imageId: string) => {
 export const queryConvexImageByUploadHash = async (uploadHash: string) => {
   const { client } = createConvexClient();
   return client.query(imageByUploadHashRef, { uploadHash });
+};
+
+export const queryConvexImageByUploadId = async (uploadId: string) => {
+  const { client } = createConvexClient();
+  return client.query(imageByUploadIdRef, { uploadId });
 };
 
 export const queryConvexImagesByPerceptualHashAnchor = async (anchor: string, limit?: number) => {
@@ -152,6 +259,7 @@ export const mutateConvexCreateImageComment = async (args: {
 
 export const mutateConvexUpsertImageContent = async (args: {
   imageId: string;
+  uploadId?: string;
   uploaderAuthUserId: string;
   uploadHash?: string;
   perceptualHashAnchor?: string;
@@ -159,6 +267,14 @@ export const mutateConvexUpsertImageContent = async (args: {
   title?: string;
   description?: string;
   status: string;
+  storageKeyOriginal?: string;
+  storageKeyCanonical?: string;
+  mime?: string;
+  width?: number;
+  height?: number;
+  rejectReason?: string;
+  matchedImageId?: string;
+  dedupeScores?: unknown;
   originalUrl?: string;
   originalStorageId?: string;
   variantUrls?: unknown;
@@ -199,4 +315,87 @@ export const mutateConvexSetImagePerceptualHashes = async (args: {
 }) => {
   const { client } = createConvexClient();
   return client.mutation(setImagePerceptualHashesRef, args);
+};
+
+export const mutateConvexCreatePendingImage = async (args: {
+  imageId: string;
+  uploadId: string;
+  uploaderAuthUserId: string;
+  title?: string;
+  description?: string;
+  mime?: string;
+  createdAt?: number;
+  updatedAt?: number;
+}) => {
+  const { client } = createConvexClient();
+  return client.mutation(createPendingImageRef, args);
+};
+
+export const mutateConvexMarkImageRejected = async (args: {
+  imageId: string;
+  reason: string;
+  matchedImageId?: string;
+  scores?: unknown;
+  updatedAt?: number;
+}) => {
+  const { client } = createConvexClient();
+  return client.mutation(markImageRejectedRef, args);
+};
+
+export const mutateConvexMarkImageAccepted = async (args: {
+  imageId: string;
+  status?: string;
+  storageKeyCanonical?: string;
+  width?: number;
+  height?: number;
+  variantUrls?: unknown;
+  updatedAt?: number;
+  publishedAt?: number;
+}) => {
+  const { client } = createConvexClient();
+  return client.mutation(markImageAcceptedRef, args);
+};
+
+export const queryConvexImageFingerprintBySha256 = async (sha256Pixels: string) => {
+  const { client } = createConvexClient();
+  return client.query(fingerprintByShaRef, { sha256Pixels });
+};
+
+export const queryConvexImageFingerprintsByPhashPrefix = async (
+  phashPrefix: string,
+  limit?: number,
+) => {
+  const { client } = createConvexClient();
+  return client.query(fingerprintsByPrefixRef, { phashPrefix, limit });
+};
+
+export const mutateConvexUpsertImageFingerprint = async (args: {
+  imageId: string;
+  sha256Pixels: string;
+  phash64: string;
+  phashPrefix: string;
+  dhash64?: string;
+  canonicalWidth?: number;
+  canonicalHeight?: number;
+  cropBox?: unknown;
+  cropMeta?: unknown;
+  workerVersion?: string;
+  createdAt?: number;
+}) => {
+  const { client } = createConvexClient();
+  return client.mutation(upsertImageFingerprintRef, args);
+};
+
+export const mutateConvexCreateDedupeEvent = async (args: {
+  uploadImageId: string;
+  decision: string;
+  reason: string;
+  matchedImageId?: string;
+  scores?: unknown;
+  metrics?: unknown;
+  workerVersion?: string;
+  createdAt?: number;
+}) => {
+  const { client } = createConvexClient();
+  return client.mutation(createDedupeEventRef, args);
 };

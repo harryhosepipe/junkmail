@@ -109,6 +109,15 @@ export const EnvSchema = z.object({
   IMAGE_CROP_RECT_COLOR_DISTANCE: NumFromString.optional(),
   IMAGE_CROP_RECT_LUMA_DISTANCE: NumFromString.optional(),
   IMAGE_CROP_RECT_CENTER_WEIGHT: NumFromString.optional(),
+  IMAGE_DEDUPE_V2_ENABLED: BoolFromString.optional(),
+  IMAGE_DEDUPE_ORB_ENABLED: BoolFromString.optional(),
+  IMAGE_DEDUPE_ORB_REQUIRED: BoolFromString.optional(),
+  IMAGE_DEDUPE_ORB_VERIFIER_URL: z.string().url().optional(),
+  IMAGE_DEDUPE_PHASH_MAX_DISTANCE_STRONG: NumFromString.optional(),
+  IMAGE_DEDUPE_PHASH_MAX_DISTANCE_WEAK: NumFromString.optional(),
+  IMAGE_DEDUPE_ORB_MIN_INLIERS: NumFromString.optional(),
+  IMAGE_DEDUPE_ORB_MIN_INLIER_RATIO: NumFromString.optional(),
+  IMAGE_DEDUPE_ORB_MIN_MATCHES: NumFromString.optional(),
 
   // Telegram ingest (optional)
   TELEGRAM_BOT_TOKEN: z.string().optional(),

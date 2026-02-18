@@ -25,6 +25,7 @@
   let displayPreviewDescription = "";
   let displayPreviewLabel = "";
   let duplicateModalOpen = false;
+  let duplicateModalType = "exact";
   let duplicateMessage = "";
   let duplicateExisting = null;
   const fileInputId = "upload-file-input";
@@ -37,8 +38,21 @@
 
   const closeDuplicateModal = () => {
     duplicateModalOpen = false;
+    duplicateModalType = "exact";
     duplicateMessage = "";
     duplicateExisting = null;
+  };
+
+  const openDuplicateModal = (payload) => {
+    const type = payload?.duplicateType === "near" ? "near" : "exact";
+    duplicateModalType = type;
+    duplicateExisting = payload?.existing || null;
+    duplicateMessage =
+      payload?.error?.message ||
+      (type === "near"
+        ? "This upload is too similar to an existing image."
+        : "This exact image has already been uploaded.");
+    duplicateModalOpen = true;
   };
 
   const resetPreview = () => {
@@ -224,10 +238,7 @@
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
         if (response.status === 409 && data?.duplicate && data?.duplicateType === "near") {
-          duplicateMessage =
-            data?.error?.message || "sorry this junk was uploaded already. suck on it!";
-          duplicateExisting = data?.existing || null;
-          duplicateModalOpen = true;
+          openDuplicateModal(data);
           setStatus("Near-duplicate blocked.", "error");
           return;
         }
@@ -237,7 +248,8 @@
 
       const imageId = data?.id;
       if (data?.duplicate) {
-        setStatus("This image was already uploaded. Showing existing item.", "info");
+        openDuplicateModal(data);
+        setStatus("Duplicate detected. Showing existing item details.", "info");
       } else {
         setStatus("Upload received. Processing image...", "success");
       }
@@ -424,7 +436,9 @@
       aria-label="Duplicate image detected"
       on:click|stopPropagation
     >
-      <div class="duplicate-modal-title">Duplicate Found</div>
+      <div class="duplicate-modal-title">
+        {duplicateModalType === "near" ? "Near Duplicate Blocked" : "Image Already Uploaded"}
+      </div>
       <p class="duplicate-modal-copy">{duplicateMessage}</p>
       {#if duplicateExisting?.originalUrl}
         <img
@@ -436,6 +450,8 @@
       <div class="duplicate-meta">
         <div>Uploaded: {duplicateExisting?.createdAt || "Unknown"}</div>
         <div>By: {duplicateExisting?.uploaderAlias || "Unknown"}</div>
+        <div>Status: {duplicateExisting?.status || "Unknown"}</div>
+        <div>ID: {duplicateExisting?.id || "Unknown"}</div>
       </div>
       <button class="cta" type="button" on:click={closeDuplicateModal}>Close</button>
     </div>

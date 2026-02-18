@@ -11,3 +11,8 @@ coverage/
 .turbo/
 .idea/
 .vscode/
+api/testing/duplicate-fixtures/manifest.json
+api/testing/duplicate-fixtures/images/originals/*
+api/testing/duplicate-fixtures/images/variants/*
+!api/testing/duplicate-fixtures/images/originals/.gitkeep
+!api/testing/duplicate-fixtures/images/variants/.gitkeep

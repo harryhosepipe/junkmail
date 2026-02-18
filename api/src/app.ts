@@ -7,6 +7,7 @@ import convexRouter from "./routes/convex.js";
 import feedRouter from "./routes/feed.js";
 import imagesRouter from "./routes/images.js";
 import matchupsRouter from "./routes/matchups.js";
+import uploadsRouter from "./routes/uploads.js";
 import telegramRouter from "./routes/telegram.js";
 import votesRouter from "./routes/votes.js";
 import { env } from "./env.js";
@@ -47,6 +48,7 @@ export const createApp = () => {
   api.route("/auth", authRouter);
   api.route("/feed", feedRouter);
   api.route("/images", imagesRouter);
+  api.route("/uploads", uploadsRouter);
   api.route("/matchups", matchupsRouter);
   api.route("/telegram", telegramRouter);
   api.route("/votes", votesRouter);

@@ -62,6 +62,28 @@ describe("perceptualHash", () => {
     ).toBe(true);
   });
 
+  it("matches near-duplicate with stronger aspect change", async () => {
+    const base = await makeSolidWithCenter({
+      width: 700,
+      height: 420,
+      bg: [245, 245, 245],
+      center: [30, 130, 230],
+    });
+    const cropped = await sharp(base)
+      .extract({ left: 140, top: 30, width: 340, height: 340 })
+      .toBuffer();
+
+    const baseFp = await computeImageFingerprint(base);
+    const cropFp = await computeImageFingerprint(cropped);
+
+    expect(
+      isNearDuplicate({
+        incoming: cropFp,
+        existing: baseFp,
+      }),
+    ).toBe(true);
+  });
+
   it("does not match clearly different image", async () => {
     const a = await makeSolidWithCenter({
       width: 360,

@@ -132,22 +132,30 @@ export const isNearDuplicate = (args: {
   const incomingAspect = incoming.sourceWidth / incoming.sourceHeight;
   const existingAspect = existing.sourceWidth / existing.sourceHeight;
   const aspectDelta = Math.abs(incomingAspect - existingAspect) / Math.max(existingAspect, 0.0001);
-  if (aspectDelta > 0.2) return false;
 
-  const distances = [
-    hammingDistanceHex(incoming.full, existing.full),
-    hammingDistanceHex(incoming.center, existing.center),
-    hammingDistanceHex(incoming.inner, existing.inner),
-  ].filter((value) => Number.isFinite(value));
+  const fullDistance = hammingDistanceHex(incoming.full, existing.full);
+  const centerDistance = hammingDistanceHex(incoming.center, existing.center);
+  const innerDistance = hammingDistanceHex(incoming.inner, existing.inner);
+  const distances = [fullDistance, centerDistance, innerDistance].filter((value) =>
+    Number.isFinite(value),
+  );
   if (!distances.length) return false;
 
   const minDistance = Math.min(...distances);
+  if (minDistance <= 8) return true;
+
+  // Allow moderate aspect drift for crop variants but still reject extreme shape changes.
+  if (aspectDelta > 0.6) return false;
+
   if (minDistance <= 12) return true;
 
   const close = distances.filter((distance) => distance <= 16).sort((a, b) => a - b);
   if (close.length >= 2) {
     const avg = (close[0] + close[1]) / 2;
-    if (avg <= 14) return true;
+    if (avg <= 15) return true;
   }
+
+  // Crop-tolerant fallback: center and inner regions can stay close even when full hash drifts.
+  if (centerDistance <= 18 && innerDistance <= 18) return true;
   return false;
 };

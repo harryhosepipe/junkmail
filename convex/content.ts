@@ -9,6 +9,7 @@ const normalizeText = (value?: string) => {
 export const createImage = mutation({
   args: {
     imageId: v.string(),
+    uploadId: v.optional(v.string()),
     uploaderAuthUserId: v.string(),
     uploadHash: v.optional(v.string()),
     perceptualHashAnchor: v.optional(v.string()),
@@ -16,6 +17,14 @@ export const createImage = mutation({
     title: v.optional(v.string()),
     description: v.optional(v.string()),
     status: v.string(),
+    storageKeyOriginal: v.optional(v.string()),
+    storageKeyCanonical: v.optional(v.string()),
+    mime: v.optional(v.string()),
+    width: v.optional(v.number()),
+    height: v.optional(v.number()),
+    rejectReason: v.optional(v.string()),
+    matchedImageId: v.optional(v.string()),
+    dedupeScores: v.optional(v.any()),
     originalUrl: v.optional(v.string()),
     originalStorageId: v.optional(v.string()),
     variantUrls: v.optional(v.any()),
@@ -35,6 +44,7 @@ export const createImage = mutation({
     const now = args.updatedAt ?? Date.now();
     await ctx.db.insert("images", {
       imageId: args.imageId,
+      uploadId: normalizeText(args.uploadId),
       uploaderAuthUserId: args.uploaderAuthUserId,
       uploadHash: normalizeText(args.uploadHash),
       perceptualHashAnchor: normalizeText(args.perceptualHashAnchor),
@@ -42,6 +52,14 @@ export const createImage = mutation({
       title: normalizeText(args.title),
       description: normalizeText(args.description),
       status: args.status,
+      storageKeyOriginal: normalizeText(args.storageKeyOriginal),
+      storageKeyCanonical: normalizeText(args.storageKeyCanonical),
+      mime: normalizeText(args.mime),
+      width: args.width,
+      height: args.height,
+      rejectReason: normalizeText(args.rejectReason),
+      matchedImageId: normalizeText(args.matchedImageId),
+      dedupeScores: args.dedupeScores,
       originalUrl: normalizeText(args.originalUrl),
       originalStorageId: normalizeText(args.originalStorageId),
       variantUrls: args.variantUrls,
@@ -57,6 +75,7 @@ export const createImage = mutation({
 export const upsertImage = mutation({
   args: {
     imageId: v.string(),
+    uploadId: v.optional(v.string()),
     uploaderAuthUserId: v.string(),
     uploadHash: v.optional(v.string()),
     perceptualHashAnchor: v.optional(v.string()),
@@ -64,6 +83,14 @@ export const upsertImage = mutation({
     title: v.optional(v.string()),
     description: v.optional(v.string()),
     status: v.string(),
+    storageKeyOriginal: v.optional(v.string()),
+    storageKeyCanonical: v.optional(v.string()),
+    mime: v.optional(v.string()),
+    width: v.optional(v.number()),
+    height: v.optional(v.number()),
+    rejectReason: v.optional(v.string()),
+    matchedImageId: v.optional(v.string()),
+    dedupeScores: v.optional(v.any()),
     originalUrl: v.optional(v.string()),
     originalStorageId: v.optional(v.string()),
     variantUrls: v.optional(v.any()),
@@ -79,6 +106,7 @@ export const upsertImage = mutation({
       .unique();
 
     const next = {
+      uploadId: normalizeText(args.uploadId),
       uploaderAuthUserId: args.uploaderAuthUserId,
       uploadHash: normalizeText(args.uploadHash),
       perceptualHashAnchor: normalizeText(args.perceptualHashAnchor),
@@ -86,6 +114,14 @@ export const upsertImage = mutation({
       title: normalizeText(args.title),
       description: normalizeText(args.description),
       status: args.status,
+      storageKeyOriginal: normalizeText(args.storageKeyOriginal),
+      storageKeyCanonical: normalizeText(args.storageKeyCanonical),
+      mime: normalizeText(args.mime),
+      width: args.width,
+      height: args.height,
+      rejectReason: normalizeText(args.rejectReason),
+      matchedImageId: normalizeText(args.matchedImageId),
+      dedupeScores: args.dedupeScores,
       originalUrl: normalizeText(args.originalUrl),
       originalStorageId: normalizeText(args.originalStorageId),
       variantUrls: args.variantUrls,
@@ -146,6 +182,7 @@ export const getImageById = query({
 
     return {
       imageId: row.imageId,
+      uploadId: row.uploadId,
       uploaderAuthUserId: row.uploaderAuthUserId,
       uploadHash: row.uploadHash,
       perceptualHashAnchor: row.perceptualHashAnchor,
@@ -153,6 +190,14 @@ export const getImageById = query({
       title: row.title,
       description: row.description,
       status: row.status,
+      storageKeyOriginal: row.storageKeyOriginal,
+      storageKeyCanonical: row.storageKeyCanonical,
+      mime: row.mime,
+      width: row.width,
+      height: row.height,
+      rejectReason: row.rejectReason,
+      matchedImageId: row.matchedImageId,
+      dedupeScores: row.dedupeScores,
       originalUrl: row.originalUrl,
       originalStorageId: row.originalStorageId,
       variantUrls: row.variantUrls,
@@ -177,6 +222,47 @@ export const getImageByUploadHash = query({
 
     return {
       imageId: row.imageId,
+      uploadId: row.uploadId,
+      uploaderAuthUserId: row.uploaderAuthUserId,
+      uploadHash: row.uploadHash,
+      perceptualHashAnchor: row.perceptualHashAnchor,
+      perceptualHashes: row.perceptualHashes,
+      title: row.title,
+      description: row.description,
+      status: row.status,
+      storageKeyOriginal: row.storageKeyOriginal,
+      storageKeyCanonical: row.storageKeyCanonical,
+      mime: row.mime,
+      width: row.width,
+      height: row.height,
+      rejectReason: row.rejectReason,
+      matchedImageId: row.matchedImageId,
+      dedupeScores: row.dedupeScores,
+      originalUrl: row.originalUrl,
+      originalStorageId: row.originalStorageId,
+      variantUrls: row.variantUrls,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+      publishedAt: row.publishedAt,
+    };
+  },
+});
+
+export const getImageByUploadId = query({
+  args: {
+    uploadId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const rows = await ctx.db
+      .query("images")
+      .withIndex("by_upload_id", (q) => q.eq("uploadId", args.uploadId))
+      .take(1);
+    const row = rows[0];
+    if (!row) return null;
+
+    return {
+      imageId: row.imageId,
+      uploadId: row.uploadId,
       uploaderAuthUserId: row.uploaderAuthUserId,
       uploadHash: row.uploadHash,
       perceptualHashAnchor: row.perceptualHashAnchor,
@@ -186,11 +272,112 @@ export const getImageByUploadHash = query({
       status: row.status,
       originalUrl: row.originalUrl,
       originalStorageId: row.originalStorageId,
+      storageKeyOriginal: row.storageKeyOriginal,
+      storageKeyCanonical: row.storageKeyCanonical,
+      mime: row.mime,
+      width: row.width,
+      height: row.height,
+      rejectReason: row.rejectReason,
+      matchedImageId: row.matchedImageId,
+      dedupeScores: row.dedupeScores,
       variantUrls: row.variantUrls,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
       publishedAt: row.publishedAt,
     };
+  },
+});
+
+export const createPendingImage = mutation({
+  args: {
+    imageId: v.string(),
+    uploadId: v.string(),
+    uploaderAuthUserId: v.string(),
+    title: v.optional(v.string()),
+    description: v.optional(v.string()),
+    mime: v.optional(v.string()),
+    createdAt: v.optional(v.number()),
+    updatedAt: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const existing = await ctx.db
+      .query("images")
+      .withIndex("by_upload_id", (q) => q.eq("uploadId", args.uploadId))
+      .take(1);
+    if (existing.length > 0) {
+      return { ok: true, imageId: existing[0].imageId, deduped: true };
+    }
+
+    const now = args.updatedAt ?? Date.now();
+    await ctx.db.insert("images", {
+      imageId: args.imageId,
+      uploadId: normalizeText(args.uploadId),
+      uploaderAuthUserId: args.uploaderAuthUserId,
+      title: normalizeText(args.title),
+      description: normalizeText(args.description),
+      status: "pending",
+      mime: normalizeText(args.mime),
+      createdAt: args.createdAt ?? now,
+      updatedAt: now,
+    });
+    return { ok: true, imageId: args.imageId, deduped: false };
+  },
+});
+
+export const markImageRejected = mutation({
+  args: {
+    imageId: v.string(),
+    reason: v.string(),
+    matchedImageId: v.optional(v.string()),
+    scores: v.optional(v.any()),
+    updatedAt: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const existing = await ctx.db
+      .query("images")
+      .withIndex("by_image_id", (q) => q.eq("imageId", args.imageId))
+      .unique();
+    if (!existing) return { ok: false };
+
+    await ctx.db.patch(existing._id, {
+      status: "rejected",
+      rejectReason: normalizeText(args.reason),
+      matchedImageId: normalizeText(args.matchedImageId),
+      dedupeScores: args.scores,
+      updatedAt: args.updatedAt ?? Date.now(),
+    });
+    return { ok: true };
+  },
+});
+
+export const markImageAccepted = mutation({
+  args: {
+    imageId: v.string(),
+    status: v.optional(v.string()),
+    storageKeyCanonical: v.optional(v.string()),
+    width: v.optional(v.number()),
+    height: v.optional(v.number()),
+    variantUrls: v.optional(v.any()),
+    updatedAt: v.optional(v.number()),
+    publishedAt: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const existing = await ctx.db
+      .query("images")
+      .withIndex("by_image_id", (q) => q.eq("imageId", args.imageId))
+      .unique();
+    if (!existing) return { ok: false };
+
+    await ctx.db.patch(existing._id, {
+      status: normalizeText(args.status) || "public",
+      storageKeyCanonical: normalizeText(args.storageKeyCanonical),
+      width: args.width,
+      height: args.height,
+      variantUrls: args.variantUrls,
+      updatedAt: args.updatedAt ?? Date.now(),
+      publishedAt: args.publishedAt ?? Date.now(),
+    });
+    return { ok: true };
   },
 });
 
@@ -236,6 +423,32 @@ export const listRecentPublicImages = query({
       .withIndex("by_status_created_at", (q) => q.eq("status", "public"))
       .order("desc")
       .take(limit);
+
+    return rows.map((row) => ({
+      imageId: row.imageId,
+      uploaderAuthUserId: row.uploaderAuthUserId,
+      uploadHash: row.uploadHash,
+      perceptualHashAnchor: row.perceptualHashAnchor,
+      perceptualHashes: row.perceptualHashes,
+      title: row.title,
+      description: row.description,
+      status: row.status,
+      originalUrl: row.originalUrl,
+      variantUrls: row.variantUrls,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+      publishedAt: row.publishedAt,
+    }));
+  },
+});
+
+export const listRecentImages = query({
+  args: {
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const limit = Math.max(1, Math.min(Math.floor(args.limit ?? 200), 1000));
+    const rows = await ctx.db.query("images").order("desc").take(limit);
 
     return rows.map((row) => ({
       imageId: row.imageId,
@@ -475,5 +688,103 @@ export const listImageComments = query({
       body: row.body,
       createdAt: row.createdAt,
     }));
+  },
+});
+
+export const getImageFingerprintBySha256 = query({
+  args: {
+    sha256Pixels: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const rows = await ctx.db
+      .query("imageFingerprints")
+      .withIndex("by_sha256_pixels", (q) => q.eq("sha256Pixels", args.sha256Pixels))
+      .take(1);
+    const row = rows[0];
+    if (!row) return null;
+    return row;
+  },
+});
+
+export const listImageFingerprintsByPhashPrefix = query({
+  args: {
+    phashPrefix: v.string(),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const limit = Math.max(1, Math.min(Math.floor(args.limit ?? 100), 500));
+    return ctx.db
+      .query("imageFingerprints")
+      .withIndex("by_phash_prefix", (q) => q.eq("phashPrefix", args.phashPrefix))
+      .take(limit);
+  },
+});
+
+export const upsertImageFingerprint = mutation({
+  args: {
+    imageId: v.string(),
+    sha256Pixels: v.string(),
+    phash64: v.string(),
+    phashPrefix: v.string(),
+    dhash64: v.optional(v.string()),
+    canonicalWidth: v.optional(v.number()),
+    canonicalHeight: v.optional(v.number()),
+    cropBox: v.optional(v.any()),
+    cropMeta: v.optional(v.any()),
+    workerVersion: v.optional(v.string()),
+    createdAt: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const existing = await ctx.db
+      .query("imageFingerprints")
+      .withIndex("by_image_id", (q) => q.eq("imageId", args.imageId))
+      .take(1);
+    const payload = {
+      imageId: args.imageId,
+      sha256Pixels: args.sha256Pixels,
+      phash64: args.phash64,
+      phashPrefix: args.phashPrefix,
+      dhash64: normalizeText(args.dhash64),
+      canonicalWidth: args.canonicalWidth,
+      canonicalHeight: args.canonicalHeight,
+      cropBox: args.cropBox,
+      cropMeta: args.cropMeta,
+      workerVersion: normalizeText(args.workerVersion),
+      createdAt: args.createdAt ?? Date.now(),
+    };
+
+    if (existing.length > 0) {
+      await ctx.db.patch(existing[0]._id, payload);
+      return { ok: true };
+    }
+
+    await ctx.db.insert("imageFingerprints", payload);
+    return { ok: true };
+  },
+});
+
+export const createDedupeEvent = mutation({
+  args: {
+    uploadImageId: v.string(),
+    decision: v.string(),
+    reason: v.string(),
+    matchedImageId: v.optional(v.string()),
+    scores: v.optional(v.any()),
+    metrics: v.optional(v.any()),
+    workerVersion: v.optional(v.string()),
+    createdAt: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.insert("dedupeEvents", {
+      uploadImageId: args.uploadImageId,
+      decision: args.decision,
+      reason: args.reason,
+      matchedImageId: normalizeText(args.matchedImageId),
+      scores: args.scores,
+      metrics: args.metrics,
+      workerVersion: normalizeText(args.workerVersion),
+      createdAt: args.createdAt ?? Date.now(),
+    });
+    return { ok: true };
   },
 });

@@ -1,12 +1,21 @@
-import { GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
+import { DeleteObjectCommand, GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
+import { createHash } from "crypto";
 import sharp from "sharp";
 import {
+  mutateConvexCreateDedupeEvent,
+  mutateConvexMarkImageRejected,
   mutateConvexProjectVoteEvent,
   mutateConvexSetImageProcessingResult,
+  mutateConvexUpsertImageFingerprint,
+  queryConvexImageById,
+  queryConvexImageFingerprintBySha256,
+  queryConvexImageFingerprintsByPhashPrefix,
 } from "../convex/client.js";
 import { env } from "../env.js";
+import { verifyOrbCandidates } from "../services/images/orbVerifier.js";
 import { publicObjectUrl, s3Client, storageBucket } from "../storage/client.js";
 import { ImageFormat, ImageSize, variantKey } from "../storage/paths.js";
+import { computeImageFingerprint, hammingDistanceHex } from "../services/images/perceptualHash.js";
 import {
   analyzeBorderCrop,
   applyBorderCrop,
@@ -19,6 +28,8 @@ export type ImageProcessJobData = {
   key: string;
   ext: "jpg" | "png";
   contentType: string;
+  uploadId?: string;
+  dedupeV2?: boolean;
 };
 
 export type VoteProcessJobData = {
@@ -58,6 +69,42 @@ type ImageProcessorDeps = {
     updatedAt?: number;
     publishedAt?: number;
   }) => Promise<unknown>;
+  mutateConvexMarkImageRejected?: (args: {
+    imageId: string;
+    reason: string;
+    matchedImageId?: string;
+    scores?: unknown;
+    updatedAt?: number;
+  }) => Promise<unknown>;
+  mutateConvexCreateDedupeEvent?: (args: {
+    uploadImageId: string;
+    decision: string;
+    reason: string;
+    matchedImageId?: string;
+    scores?: unknown;
+    metrics?: unknown;
+    workerVersion?: string;
+    createdAt?: number;
+  }) => Promise<unknown>;
+  queryConvexImageFingerprintBySha256?: (sha256Pixels: string) => Promise<any>;
+  queryConvexImageFingerprintsByPhashPrefix?: (
+    phashPrefix: string,
+    limit?: number,
+  ) => Promise<any[]>;
+  mutateConvexUpsertImageFingerprint?: (args: {
+    imageId: string;
+    sha256Pixels: string;
+    phash64: string;
+    phashPrefix: string;
+    dhash64?: string;
+    canonicalWidth?: number;
+    canonicalHeight?: number;
+    cropBox?: unknown;
+    cropMeta?: unknown;
+    workerVersion?: string;
+    createdAt?: number;
+  }) => Promise<unknown>;
+  queryConvexImageById?: (imageId: string) => Promise<any | null>;
 };
 
 const defaultImageDeps: ImageProcessorDeps = {
@@ -66,7 +113,15 @@ const defaultImageDeps: ImageProcessorDeps = {
   publicObjectUrl,
   variantKey,
   mutateConvexSetImageProcessingResult,
+  mutateConvexMarkImageRejected,
+  mutateConvexCreateDedupeEvent,
+  queryConvexImageFingerprintBySha256,
+  queryConvexImageFingerprintsByPhashPrefix,
+  mutateConvexUpsertImageFingerprint,
+  queryConvexImageById,
 };
+
+const DEDUPE_WORKER_VERSION = "dedupe-v2-node-1";
 
 export const processImageJob = async (
   data: ImageProcessJobData,
@@ -82,6 +137,71 @@ export const processImageJob = async (
   );
 
   const originalBuffer = await toBuffer(original.Body);
+  const dedupeDepsReady =
+    typeof deps.mutateConvexMarkImageRejected === "function" &&
+    typeof deps.mutateConvexCreateDedupeEvent === "function" &&
+    typeof deps.queryConvexImageFingerprintBySha256 === "function" &&
+    typeof deps.queryConvexImageFingerprintsByPhashPrefix === "function" &&
+    typeof deps.mutateConvexUpsertImageFingerprint === "function";
+  const runtimeEnv = env as any;
+  const dedupeV2FromEnv = Boolean(runtimeEnv.IMAGE_DEDUPE_V2_ENABLED ?? false);
+  const orbEnabled = Boolean(runtimeEnv.IMAGE_DEDUPE_ORB_ENABLED ?? false);
+  const orbRequired = Boolean(runtimeEnv.IMAGE_DEDUPE_ORB_REQUIRED ?? false);
+  const orbVerifierUrl = String(runtimeEnv.IMAGE_DEDUPE_ORB_VERIFIER_URL || "");
+  const orbMinInliers = Number(runtimeEnv.IMAGE_DEDUPE_ORB_MIN_INLIERS ?? 20);
+  const orbMinInlierRatio = Number(runtimeEnv.IMAGE_DEDUPE_ORB_MIN_INLIER_RATIO ?? 0.25);
+  const orbMinMatches = Number(runtimeEnv.IMAGE_DEDUPE_ORB_MIN_MATCHES ?? 60);
+  const dedupeV2Enabled = ((data.dedupeV2 || dedupeV2FromEnv) ?? false) && dedupeDepsReady;
+  const dedupeStrongThreshold = Number(runtimeEnv.IMAGE_DEDUPE_PHASH_MAX_DISTANCE_STRONG ?? 8);
+  const dedupeWeakThreshold = Number(runtimeEnv.IMAGE_DEDUPE_PHASH_MAX_DISTANCE_WEAK ?? 14);
+  const startedAt = Date.now();
+
+  let sha256Pixels = "";
+  if (dedupeV2Enabled) {
+    let normalizedPipeline: any = sharp(originalBuffer);
+    if (typeof normalizedPipeline.rotate === "function") {
+      normalizedPipeline = normalizedPipeline.rotate();
+    }
+    if (typeof normalizedPipeline.removeAlpha === "function") {
+      normalizedPipeline = normalizedPipeline.removeAlpha();
+    }
+    if (typeof normalizedPipeline.toColorspace === "function") {
+      normalizedPipeline = normalizedPipeline.toColorspace("srgb");
+    }
+    const normalized = await normalizedPipeline.raw().toBuffer({ resolveWithObject: true });
+    sha256Pixels = createHash("sha256")
+      .update(`${normalized.info.width}x${normalized.info.height}|`)
+      .update(normalized.data)
+      .digest("hex");
+  }
+
+  if (dedupeV2Enabled) {
+    const exact = await deps.queryConvexImageFingerprintBySha256!(sha256Pixels);
+    if (exact?.imageId && exact.imageId !== imageId) {
+      await deps.mutateConvexMarkImageRejected!({
+        imageId,
+        reason: "sha256_exact",
+        matchedImageId: exact.imageId,
+        updatedAt: Date.now(),
+      });
+      await deps.mutateConvexCreateDedupeEvent!({
+        uploadImageId: imageId,
+        decision: "rejected",
+        reason: "sha256_exact",
+        matchedImageId: exact.imageId,
+        workerVersion: DEDUPE_WORKER_VERSION,
+        metrics: { durationMs: Date.now() - startedAt },
+        createdAt: Date.now(),
+      });
+      await deps.s3Client.send(
+        new DeleteObjectCommand({
+          Bucket: deps.storageBucket,
+          Key: key,
+        }),
+      );
+      return;
+    }
+  }
   const fallbackFormat: ImageFormat = ext === "png" ? "png" : "jpg";
   const rectOptions = {
     enabled: env.IMAGE_CROP_RECT_DETECT_ENABLED ?? true,
@@ -250,6 +370,168 @@ export const processImageJob = async (
     cropMode,
     stageReasons,
   });
+
+  if (dedupeV2Enabled) {
+    const fingerprint = await computeImageFingerprint(workingBuffer);
+    const phash64 = fingerprint.full;
+    const dhash64 = fingerprint.inner;
+    const phashPrefix = phash64.slice(0, 3);
+
+    const candidates = await deps.queryConvexImageFingerprintsByPhashPrefix!(phashPrefix, 120);
+    const shortlist: Array<{ imageId: string; distance: number }> = [];
+    for (const candidate of candidates) {
+      if (!candidate?.phash64 || candidate.imageId === imageId) continue;
+      const distance = hammingDistanceHex(phash64, candidate.phash64);
+      if (!Number.isFinite(distance) || distance > dedupeWeakThreshold) continue;
+      shortlist.push({ imageId: candidate.imageId, distance });
+    }
+    shortlist.sort((a, b) => a.distance - b.distance);
+    const bestMatch = shortlist[0] ?? null;
+
+    if (
+      orbEnabled &&
+      orbVerifierUrl &&
+      shortlist.length &&
+      typeof deps.queryConvexImageById === "function"
+    ) {
+      try {
+        const candidateRows = await Promise.all(
+          shortlist.slice(0, 25).map(async (entry) => {
+            const row = await deps.queryConvexImageById!(entry.imageId);
+            const url =
+              (row?.storageKeyCanonical ? deps.publicObjectUrl(row.storageKeyCanonical) : "") ||
+              row?.variantUrls?.full?.webp ||
+              row?.variantUrls?.full?.jpg ||
+              row?.variantUrls?.full?.png ||
+              row?.originalUrl ||
+              "";
+            return url ? { imageId: entry.imageId, url } : null;
+          }),
+        );
+        const orbCandidates = candidateRows.filter(
+          (item): item is { imageId: string; url: string } => Boolean(item?.url),
+        );
+        if (orbCandidates.length) {
+          const orb = await verifyOrbCandidates({
+            verifierUrl: orbVerifierUrl,
+            uploadBuffer: workingBuffer,
+            candidates: orbCandidates,
+            minInliers: orbMinInliers,
+            minInlierRatio: orbMinInlierRatio,
+            minMatches: orbMinMatches,
+          });
+
+          if (orb.verified && orb.matchedImageId) {
+            await deps.mutateConvexMarkImageRejected!({
+              imageId,
+              reason: "orb_verified",
+              matchedImageId: orb.matchedImageId,
+              scores: orb.scores,
+              updatedAt: Date.now(),
+            });
+            await deps.mutateConvexCreateDedupeEvent!({
+              uploadImageId: imageId,
+              decision: "rejected",
+              reason: "orb_verified",
+              matchedImageId: orb.matchedImageId,
+              scores: orb.scores,
+              workerVersion: DEDUPE_WORKER_VERSION,
+              metrics: {
+                durationMs: Date.now() - startedAt,
+                candidateCount: candidates.length,
+                shortlistCount: shortlist.length,
+              },
+              createdAt: Date.now(),
+            });
+            await deps.s3Client.send(
+              new DeleteObjectCommand({
+                Bucket: deps.storageBucket,
+                Key: key,
+              }),
+            );
+            return;
+          }
+        }
+      } catch (error) {
+        if (orbRequired) {
+          throw error;
+        }
+        await deps.mutateConvexCreateDedupeEvent!({
+          uploadImageId: imageId,
+          decision: "accepted",
+          reason: "orb_error_fallback",
+          workerVersion: DEDUPE_WORKER_VERSION,
+          metrics: {
+            durationMs: Date.now() - startedAt,
+            error: error instanceof Error ? error.message : String(error),
+          },
+          createdAt: Date.now(),
+        });
+      }
+    }
+
+    if (bestMatch && (!orbEnabled || !orbVerifierUrl || bestMatch.distance <= 2)) {
+      await deps.mutateConvexMarkImageRejected!({
+        imageId,
+        reason: bestMatch.distance <= dedupeStrongThreshold ? "phash_near_strong" : "phash_near",
+        matchedImageId: bestMatch.imageId,
+        scores: { phashDistance: bestMatch.distance },
+        updatedAt: Date.now(),
+      });
+      await deps.mutateConvexCreateDedupeEvent!({
+        uploadImageId: imageId,
+        decision: "rejected",
+        reason: "phash_near",
+        matchedImageId: bestMatch.imageId,
+        scores: { phashDistance: bestMatch.distance },
+        workerVersion: DEDUPE_WORKER_VERSION,
+        metrics: {
+          durationMs: Date.now() - startedAt,
+          candidateCount: candidates.length,
+          shortlistCount: shortlist.length,
+        },
+        createdAt: Date.now(),
+      });
+      await deps.s3Client.send(
+        new DeleteObjectCommand({
+          Bucket: deps.storageBucket,
+          Key: key,
+        }),
+      );
+      return;
+    }
+
+    await deps.mutateConvexUpsertImageFingerprint!({
+      imageId,
+      sha256Pixels,
+      phash64,
+      phashPrefix,
+      dhash64,
+      canonicalWidth: cropBox.width,
+      canonicalHeight: cropBox.height,
+      cropBox,
+      cropMeta: {
+        reason: resolvedCropDecision.reason,
+        mode: cropMode,
+        confidence: Number(finalConfidence.toFixed(4)),
+        stages: stageReasons,
+      },
+      workerVersion: DEDUPE_WORKER_VERSION,
+      createdAt: Date.now(),
+    });
+    await deps.mutateConvexCreateDedupeEvent!({
+      uploadImageId: imageId,
+      decision: "accepted",
+      reason: "accepted",
+      workerVersion: DEDUPE_WORKER_VERSION,
+      metrics: {
+        durationMs: Date.now() - startedAt,
+        candidateCount: candidates.length,
+        shortlistCount: shortlist.length,
+      },
+      createdAt: Date.now(),
+    });
+  }
 
   const variantUrls: Record<string, Record<string, unknown>> = {};
 

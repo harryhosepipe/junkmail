@@ -13,6 +13,7 @@ import {
   mutateConvexSetImageStatus,
   mutateConvexUpsertImageContent,
   queryConvexImageById,
+  queryConvexRecentImages,
   queryConvexImagesByPerceptualHashAnchor,
   queryConvexImageByUploadHash,
   queryConvexImageComments,
@@ -29,6 +30,7 @@ import {
 const MAX_UPLOAD_BYTES = 15 * 1024 * 1024;
 const ACCEPTED_TYPES = ["image/jpeg", "image/png"] as const;
 const PHASH_ANCHOR_LENGTH = 2;
+const RECENT_DUPLICATE_CANDIDATE_LIMIT = 400;
 
 const buildDuplicatePayload = async (args: {
   existing: {
@@ -128,7 +130,23 @@ export const createImageUpload = async (args: {
   const fingerprint = await computeImageFingerprint(data);
   const anchor = similarityAnchor(fingerprint, PHASH_ANCHOR_LENGTH);
   const candidates = await queryConvexImagesByPerceptualHashAnchor(anchor, 128);
-  const nearDuplicate = findNearDuplicate(fingerprint, candidates);
+  const seen = new Set<string>();
+  const candidatePool: Array<Record<string, any>> = [];
+  for (const candidate of candidates) {
+    if (!candidate?.imageId || seen.has(candidate.imageId)) continue;
+    seen.add(candidate.imageId);
+    candidatePool.push(candidate);
+  }
+
+  // Fallback: broaden search to recent images to catch crop variants that miss anchor bucketing.
+  const recent = await queryConvexRecentImages(RECENT_DUPLICATE_CANDIDATE_LIMIT);
+  for (const candidate of recent) {
+    if (!candidate?.imageId || seen.has(candidate.imageId)) continue;
+    seen.add(candidate.imageId);
+    candidatePool.push(candidate as Record<string, any>);
+  }
+
+  const nearDuplicate = findNearDuplicate(fingerprint, candidatePool);
   if (nearDuplicate) {
     return buildDuplicatePayload({ existing: nearDuplicate as any, duplicateType: "near" });
   }

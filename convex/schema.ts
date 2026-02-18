@@ -80,6 +80,7 @@ export default defineSchema({
     .index("by_expires_at", ["expiresAt"]),
   images: defineTable({
     imageId: v.string(),
+    uploadId: v.optional(v.string()),
     uploaderAuthUserId: v.string(),
     uploadHash: v.optional(v.string()),
     perceptualHashAnchor: v.optional(v.string()),
@@ -89,17 +90,54 @@ export default defineSchema({
     status: v.string(),
     originalUrl: v.optional(v.string()),
     originalStorageId: v.optional(v.string()),
+    storageKeyOriginal: v.optional(v.string()),
+    storageKeyCanonical: v.optional(v.string()),
+    mime: v.optional(v.string()),
+    width: v.optional(v.number()),
+    height: v.optional(v.number()),
+    rejectReason: v.optional(v.string()),
+    matchedImageId: v.optional(v.string()),
+    dedupeScores: v.optional(v.any()),
     variantUrls: v.optional(v.any()),
     createdAt: v.number(),
     updatedAt: v.number(),
     publishedAt: v.optional(v.number()),
   })
     .index("by_image_id", ["imageId"])
+    .index("by_upload_id", ["uploadId"])
     .index("by_upload_hash", ["uploadHash"])
     .index("by_perceptual_hash_anchor", ["perceptualHashAnchor"])
     .index("by_status", ["status"])
     .index("by_status_created_at", ["status", "createdAt"])
     .index("by_uploader_created_at", ["uploaderAuthUserId", "createdAt"]),
+  imageFingerprints: defineTable({
+    imageId: v.string(),
+    sha256Pixels: v.string(),
+    phash64: v.string(),
+    phashPrefix: v.string(),
+    dhash64: v.optional(v.string()),
+    canonicalWidth: v.optional(v.number()),
+    canonicalHeight: v.optional(v.number()),
+    cropBox: v.optional(v.any()),
+    cropMeta: v.optional(v.any()),
+    workerVersion: v.optional(v.string()),
+    createdAt: v.number(),
+  })
+    .index("by_image_id", ["imageId"])
+    .index("by_sha256_pixels", ["sha256Pixels"])
+    .index("by_phash_prefix", ["phashPrefix"]),
+  dedupeEvents: defineTable({
+    uploadImageId: v.string(),
+    decision: v.string(),
+    reason: v.string(),
+    matchedImageId: v.optional(v.string()),
+    scores: v.optional(v.any()),
+    metrics: v.optional(v.any()),
+    workerVersion: v.optional(v.string()),
+    createdAt: v.number(),
+  })
+    .index("by_upload_image_id", ["uploadImageId"])
+    .index("by_created_at", ["createdAt"]),
   imageComments: defineTable({
     commentId: v.string(),
     imageId: v.string(),
