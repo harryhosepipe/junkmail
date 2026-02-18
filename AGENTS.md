@@ -46,6 +46,18 @@ This project uses **bd** (beads) for issue tracking. Run `./bin/bd onboard` to g
 - Never hardcode configurable values directly in source when they belong in env.
 - For MVP in this project, values do not need to be secret-safe; prefer working defaults in env files so features run end-to-end locally.
 
+## Runtime Sync Rule (Containers)
+
+- If you change code used by a containerized service (example: `tools/orb_verifier/*`), you MUST rebuild and force-recreate the container before validating behavior:
+  ```bash
+  docker compose --profile orb up -d --build --force-recreate orb-verifier
+  ```
+- After recreate, you MUST verify the container is running the expected file contents (not just the latest image tag), for example:
+  ```bash
+  docker compose --profile orb exec -T orb-verifier sed -n '1,80p' /app/app.py
+  ```
+- If host source and in-container source differ, do not continue debugging app logic until runtime/source parity is fixed.
+
 <!-- BEGIN BEADS INTEGRATION -->
 
 ## Issue Tracking with bd (beads)
