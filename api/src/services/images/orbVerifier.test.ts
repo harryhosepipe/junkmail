@@ -52,4 +52,26 @@ describe("orbVerifier", () => {
     expect(result.verified).toBe(true);
     expect(result.matchedImageId).toBe("img-9");
   });
+
+  it("returns unverified on HTTP 422 without throwing", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 422,
+      json: async () => ({ detail: "unprocessable payload" }),
+    });
+    vi.stubGlobal("fetch", fetchMock as any);
+
+    const result = await verifyOrbCandidates({
+      verifierUrl: "http://localhost:9090/verify/orb",
+      uploadBuffer: Buffer.from([9, 9, 9]),
+      candidates: [{ imageId: "img-1", url: "https://example.com/a.jpg" }],
+      minInliers: 20,
+      minInlierRatio: 0.25,
+      minMatches: 60,
+      retries: 1,
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(result).toEqual({ verified: false });
+  });
 });

@@ -55,6 +55,11 @@ export const verifyOrbCandidates = async (args: {
       });
 
       if (!response.ok) {
+        if (response.status === 422) {
+          // Treat malformed/unsupported comparison payloads as "no verified match"
+          // so the dedupe pipeline can continue instead of crashing the worker job.
+          return { verified: false };
+        }
         if (response.status >= 500 && attempt < retries) {
           await new Promise((resolve) => setTimeout(resolve, (attempt + 1) * 150));
           continue;
