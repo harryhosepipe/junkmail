@@ -11,10 +11,12 @@ const state = vi.hoisted(() => ({
 
 const mutateConvexUpsertImageContent = vi.hoisted(() => vi.fn());
 const mutateConvexUpsertTelegramUser = vi.hoisted(() => vi.fn());
+const queryConvexImageByUploadHash = vi.hoisted(() => vi.fn());
 
 vi.mock("../convex/client.js", () => ({
   mutateConvexUpsertImageContent,
   mutateConvexUpsertTelegramUser,
+  queryConvexImageByUploadHash,
 }));
 
 vi.mock("../queue/index.js", () => ({
@@ -66,6 +68,7 @@ describe("telegram webhook", () => {
       state.convexUpsertValues = values;
       return { ok: true };
     });
+    queryConvexImageByUploadHash.mockResolvedValue(null);
     process.env.TELEGRAM_BOT_TOKEN = "test-token";
     process.env.TELEGRAM_ALLOWED_CHAT_IDS = "-100123";
     delete process.env.TELEGRAM_WEBHOOK_SECRET_TOKEN;

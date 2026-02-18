@@ -81,6 +81,7 @@ export default defineSchema({
   images: defineTable({
     imageId: v.string(),
     uploaderAuthUserId: v.string(),
+    uploadHash: v.optional(v.string()),
     title: v.optional(v.string()),
     description: v.optional(v.string()),
     status: v.string(),
@@ -92,6 +93,7 @@ export default defineSchema({
     publishedAt: v.optional(v.number()),
   })
     .index("by_image_id", ["imageId"])
+    .index("by_upload_hash", ["uploadHash"])
     .index("by_status", ["status"])
     .index("by_status_created_at", ["status", "createdAt"])
     .index("by_uploader_created_at", ["uploaderAuthUserId", "createdAt"]),

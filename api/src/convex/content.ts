@@ -18,6 +18,11 @@ const publicImagesByIdsRef = makeFunctionReference<
 const imageByIdRef = makeFunctionReference<"query", { imageId: string }, ConvexImageContent | null>(
   "content:getImageById",
 );
+const imageByUploadHashRef = makeFunctionReference<
+  "query",
+  { uploadHash: string },
+  ConvexImageContent | null
+>("content:getImageByUploadHash");
 const imageCommentsRef = makeFunctionReference<
   "query",
   { imageId: string; limit?: number },
@@ -45,6 +50,7 @@ const upsertImageRef = makeFunctionReference<
   {
     imageId: string;
     uploaderAuthUserId: string;
+    uploadHash?: string;
     title?: string;
     description?: string;
     status: string;
@@ -95,6 +101,11 @@ export const queryConvexImageById = async (imageId: string) => {
   return client.query(imageByIdRef, { imageId });
 };
 
+export const queryConvexImageByUploadHash = async (uploadHash: string) => {
+  const { client } = createConvexClient();
+  return client.query(imageByUploadHashRef, { uploadHash });
+};
+
 export const queryConvexImageComments = async (args: { imageId: string; limit?: number }) => {
   const { client } = createConvexClient();
   return client.query(imageCommentsRef, args);
@@ -120,6 +131,7 @@ export const mutateConvexCreateImageComment = async (args: {
 export const mutateConvexUpsertImageContent = async (args: {
   imageId: string;
   uploaderAuthUserId: string;
+  uploadHash?: string;
   title?: string;
   description?: string;
   status: string;

@@ -10,6 +10,7 @@ export const createImage = mutation({
   args: {
     imageId: v.string(),
     uploaderAuthUserId: v.string(),
+    uploadHash: v.optional(v.string()),
     title: v.optional(v.string()),
     description: v.optional(v.string()),
     status: v.string(),
@@ -33,6 +34,7 @@ export const createImage = mutation({
     await ctx.db.insert("images", {
       imageId: args.imageId,
       uploaderAuthUserId: args.uploaderAuthUserId,
+      uploadHash: normalizeText(args.uploadHash),
       title: normalizeText(args.title),
       description: normalizeText(args.description),
       status: args.status,
@@ -52,6 +54,7 @@ export const upsertImage = mutation({
   args: {
     imageId: v.string(),
     uploaderAuthUserId: v.string(),
+    uploadHash: v.optional(v.string()),
     title: v.optional(v.string()),
     description: v.optional(v.string()),
     status: v.string(),
@@ -71,6 +74,7 @@ export const upsertImage = mutation({
 
     const next = {
       uploaderAuthUserId: args.uploaderAuthUserId,
+      uploadHash: normalizeText(args.uploadHash),
       title: normalizeText(args.title),
       description: normalizeText(args.description),
       status: args.status,
@@ -112,6 +116,36 @@ export const getImageById = query({
     return {
       imageId: row.imageId,
       uploaderAuthUserId: row.uploaderAuthUserId,
+      uploadHash: row.uploadHash,
+      title: row.title,
+      description: row.description,
+      status: row.status,
+      originalUrl: row.originalUrl,
+      originalStorageId: row.originalStorageId,
+      variantUrls: row.variantUrls,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+      publishedAt: row.publishedAt,
+    };
+  },
+});
+
+export const getImageByUploadHash = query({
+  args: {
+    uploadHash: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const rows = await ctx.db
+      .query("images")
+      .withIndex("by_upload_hash", (q) => q.eq("uploadHash", args.uploadHash))
+      .take(1);
+    const row = rows[0];
+    if (!row) return null;
+
+    return {
+      imageId: row.imageId,
+      uploaderAuthUserId: row.uploaderAuthUserId,
+      uploadHash: row.uploadHash,
       title: row.title,
       description: row.description,
       status: row.status,
@@ -140,6 +174,7 @@ export const listRecentPublicImages = query({
     return rows.map((row) => ({
       imageId: row.imageId,
       uploaderAuthUserId: row.uploaderAuthUserId,
+      uploadHash: row.uploadHash,
       title: row.title,
       description: row.description,
       status: row.status,
@@ -167,6 +202,7 @@ export const listPublicImages = query({
     return rows.map((row) => ({
       imageId: row.imageId,
       uploaderAuthUserId: row.uploaderAuthUserId,
+      uploadHash: row.uploadHash,
       title: row.title,
       description: row.description,
       status: row.status,
@@ -200,6 +236,7 @@ export const listPublicImagesByIds = query({
       .map((row) => ({
         imageId: row.imageId,
         uploaderAuthUserId: row.uploaderAuthUserId,
+        uploadHash: row.uploadHash,
         title: row.title,
         description: row.description,
         status: row.status,
@@ -230,6 +267,7 @@ export const listUploaderImages = query({
     return rows.map((row) => ({
       imageId: row.imageId,
       uploaderAuthUserId: row.uploaderAuthUserId,
+      uploadHash: row.uploadHash,
       title: row.title,
       description: row.description,
       status: row.status,

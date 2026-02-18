@@ -219,7 +219,11 @@
       }
 
       const imageId = data?.id;
-      setStatus("Upload received. Processing image...", "success");
+      if (data?.duplicate) {
+        setStatus("This image was already uploaded. Showing existing item.", "info");
+      } else {
+        setStatus("Upload received. Processing image...", "success");
+      }
       if (imageId) {
         pollImage(imageId, { title: title.trim(), description: description.trim() });
       }

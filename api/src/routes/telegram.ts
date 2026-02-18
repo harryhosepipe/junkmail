@@ -1,11 +1,12 @@
 import { PutObjectCommand } from "@aws-sdk/client-s3";
-import { randomUUID } from "crypto";
+import { createHash, randomUUID } from "crypto";
 import { Hono } from "hono";
 import { imageQueue } from "../queue/index.js";
 import { redis } from "../queue/connection.js";
 import { originalKey } from "../storage/paths.js";
 import { publicObjectUrl, s3Client, storageBucket } from "../storage/client.js";
 import {
+  queryConvexImageByUploadHash,
   mutateConvexUpsertImageContent,
   mutateConvexUpsertTelegramUser,
 } from "../convex/client.js";
@@ -250,6 +251,12 @@ telegramRouter.post("/webhook", async (c) => {
       return c.json({ ok: true });
     }
 
+    const uploadHash = createHash("sha256").update(data).digest("hex");
+    const existing = await queryConvexImageByUploadHash(uploadHash);
+    if (existing) {
+      return c.json({ ok: true, duplicate: true, imageId: existing.imageId });
+    }
+
     const imageId = randomUUID();
     const key = originalKey(imageId, ext);
 
@@ -267,6 +274,7 @@ telegramRouter.post("/webhook", async (c) => {
     await mutateConvexUpsertImageContent({
       imageId,
       uploaderAuthUserId: uploaderId,
+      uploadHash,
       status: "processing",
       originalUrl,
       variantUrls: {},

@@ -1,5 +1,5 @@
 import { PutObjectCommand } from "@aws-sdk/client-s3";
-import { randomUUID } from "crypto";
+import { createHash, randomUUID } from "crypto";
 import { imageQueue } from "../../queue/index.js";
 import { originalKey } from "../../storage/paths.js";
 import { publicObjectUrl, s3Client, storageBucket } from "../../storage/client.js";
@@ -13,6 +13,7 @@ import {
   mutateConvexSetImageStatus,
   mutateConvexUpsertImageContent,
   queryConvexImageById,
+  queryConvexImageByUploadHash,
   queryConvexImageComments,
   queryConvexRatingsByImageIds,
 } from "../../convex/client.js";
@@ -55,9 +56,21 @@ export const createImageUpload = async (args: {
   ext: "jpg" | "png";
 }) => {
   const { authUser, title, description, upload, type, ext } = args;
+  const data = Buffer.from(await upload.arrayBuffer());
+  const uploadHash = createHash("sha256").update(data).digest("hex");
+
+  const existing = await queryConvexImageByUploadHash(uploadHash);
+  if (existing) {
+    return {
+      id: existing.imageId,
+      status: existing.status,
+      originalUrl: normalizePublicAssetUrl(existing.originalUrl || ""),
+      duplicate: true as const,
+    };
+  }
+
   const imageId = randomUUID();
   const key = originalKey(imageId, ext);
-  const data = Buffer.from(await upload.arrayBuffer());
 
   await s3Client.send(
     new PutObjectCommand({
@@ -80,6 +93,7 @@ export const createImageUpload = async (args: {
   await mutateConvexUpsertImageContent({
     imageId,
     uploaderAuthUserId: authUser.id,
+    uploadHash,
     title: title?.length ? title : undefined,
     description: description?.length ? description : undefined,
     status: "processing",
@@ -106,7 +120,12 @@ export const createImageUpload = async (args: {
     },
   );
 
-  return { id: imageId, status: "processing", originalUrl: normalizePublicAssetUrl(originalUrl) };
+  return {
+    id: imageId,
+    status: "processing",
+    originalUrl: normalizePublicAssetUrl(originalUrl),
+    duplicate: false as const,
+  };
 };
 
 export const loadImageDetail = async (imageId: string) => {

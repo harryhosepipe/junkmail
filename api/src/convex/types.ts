@@ -21,6 +21,7 @@ export type ConvexUserProfile = {
 export type ConvexImageContent = {
   imageId: string;
   uploaderAuthUserId: string;
+  uploadHash?: string;
   title?: string;
   description?: string;
   status: string;
