@@ -1,7 +1,6 @@
 import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { randomUUID } from "crypto";
 import { Hono } from "hono";
-import type { Context } from "hono";
 import { imageQueue } from "../queue/index.js";
 import { redis } from "../queue/connection.js";
 import { originalKey } from "../storage/paths.js";
@@ -26,6 +25,7 @@ import {
 } from "../convex/client.js";
 import { resolveAuthUserProfileById } from "../auth/userProfile.js";
 import { env } from "../env.js";
+import { readPayload } from "../http/readPayload.js";
 
 const MAX_UPLOAD_BYTES = 15 * 1024 * 1024;
 const ACCEPTED_TYPES = ["image/jpeg", "image/png"] as const;
@@ -34,23 +34,6 @@ const TOPLIST_CACHE_SECONDS = env.TOPLIST_CACHE_SECONDS ?? 90;
 const COMMENT_MAX_LENGTH = 500;
 
 const imagesRouter = new Hono();
-
-const readPayload = async (c: Context) => {
-  const contentType = c.req.header("content-type") || "";
-  if (contentType.includes("application/json")) {
-    try {
-      return await c.req.json();
-    } catch {
-      return {};
-    }
-  }
-
-  try {
-    return await c.req.parseBody();
-  } catch {
-    return {};
-  }
-};
 
 type ImageCard = {
   id: string;

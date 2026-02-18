@@ -187,16 +187,27 @@
     statusMessage = "Locked. Loading next...";
     errorMessage = "";
 
-    void sendVote({
+    // Wait for server acknowledgement before advancing UI.
+    // This avoids silently dropping votes when the request fails.
+    const votePromise = sendVote({
       imageAId,
       imageBId,
       winnerId,
       matchupToken: matchup?.matchup_token,
-    }).catch((err) => {
-      errorMessage = err?.message || "Vote failed. Please try again.";
     });
 
     const nextMatchup = await consumePrefetchedMatchup();
+    try {
+      await votePromise;
+    } catch (err) {
+      errorMessage = err?.message || "Vote failed. Please try again.";
+      busy = false;
+      loadingNext = false;
+      statusMessage = "";
+      lastChoice = null;
+      celebrateChoiceId = null;
+      return;
+    }
 
     if (nextMatchup) {
       const elapsed = Date.now() - voteStartedAt;

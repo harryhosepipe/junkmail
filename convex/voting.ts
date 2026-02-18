@@ -335,7 +335,14 @@ export const getTopRatings = query({
     const safeLimit = Math.max(1, Math.min(Math.floor(args.limit), 200));
     const minComparisons = Math.max(0, Math.floor(args.minComparisons));
 
-    const rows = await ctx.db.query("imageRatings").collect();
+    // Avoid full-table scans: first sample strong candidates by comparisons,
+    // then rank that candidate set by score.
+    const scanLimit = Math.max(safeLimit * 8, 400);
+    const rows = await ctx.db
+      .query("imageRatings")
+      .withIndex("by_comparisons")
+      .order("desc")
+      .take(scanLimit);
     return rows
       .filter((row) => row.comparisonsCount >= minComparisons)
       .sort((a, b) => b.score - a.score)

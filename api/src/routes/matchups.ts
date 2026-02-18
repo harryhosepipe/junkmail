@@ -1,8 +1,7 @@
-import { createHash } from "crypto";
 import { Hono } from "hono";
 import type { Context } from "hono";
-import { getCookie, setCookie } from "hono/cookie";
 import { generateToken } from "../auth/tokens.js";
+import { getOrCreateVoterId, hashWithSalt } from "../auth/voter.js";
 import { redis } from "../queue/connection.js";
 import {
   mutateConvexIssueMatchupToken,
@@ -14,7 +13,6 @@ import { env } from "../env.js";
 
 const matchupsRouter = new Hono();
 
-const VOTER_COOKIE_NAME = "jm_voter";
 const VOTE_HASH_SALT = env.VOTE_HASH_SALT ?? "junkmail-dev-vote";
 
 const NEW_EXPOSURE_THRESHOLD = env.MATCHUP_NEW_EXPOSURE ?? 5;
@@ -28,26 +26,6 @@ const MATCHUP_TOKEN_TTL_SECONDS = 5 * 60;
 const WEIGHT_NEW = env.MATCHUP_WEIGHT_NEW ?? 0.45;
 const WEIGHT_CLOSE = env.MATCHUP_WEIGHT_CLOSE ?? 0.4;
 const WEIGHT_RANDOM = env.MATCHUP_WEIGHT_RANDOM ?? 0.15;
-
-const hashValue = (value: string, salt: string) =>
-  createHash("sha256").update(`${salt}:${value}`).digest("hex");
-
-const getVoterId = (c: Context) => {
-  const existing = getCookie(c, VOTER_COOKIE_NAME);
-  if (existing) {
-    return existing;
-  }
-
-  const token = generateToken();
-  setCookie(c, VOTER_COOKIE_NAME, token, {
-    httpOnly: true,
-    sameSite: "Lax",
-    secure: env.NODE_ENV === "production",
-    path: "/",
-    maxAge: 60 * 60 * 24 * 365,
-  });
-  return token;
-};
 
 const pickRandomPair = <T>(items: T[]) => {
   if (items.length < 2) return null;
@@ -196,8 +174,8 @@ const loadMatchupPool = async (): Promise<MatchupItem[]> => {
 };
 
 export const createMatchupPayload = async (c: Context) => {
-  const voterId = getVoterId(c);
-  const voterHash = hashValue(voterId, VOTE_HASH_SALT);
+  const voterId = getOrCreateVoterId(c);
+  const voterHash = hashWithSalt(voterId, VOTE_HASH_SALT);
   const repeatKey = `matchup:last:${voterHash}`;
   const items = await loadMatchupPool();
 

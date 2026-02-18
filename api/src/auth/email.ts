@@ -37,5 +37,15 @@ export const sendMagicLinkEmail = async ({ to, link }: SendMagicLinkArgs) => {
     return;
   }
 
-  console.info("Magic link", { to, link });
+  // Never log raw auth tokens. Keep a safe debug link by stripping sensitive params.
+  let safeLink = link;
+  try {
+    const parsed = new URL(link);
+    parsed.searchParams.delete("token");
+    safeLink = parsed.toString();
+  } catch {
+    safeLink = "[invalid-link]";
+  }
+
+  console.info("Magic link", { to, link: safeLink });
 };

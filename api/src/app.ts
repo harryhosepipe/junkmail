@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
+import { randomUUID } from "crypto";
 import authRouter from "./routes/auth.js";
 import convexRouter from "./routes/convex.js";
 import feedRouter from "./routes/feed.js";
@@ -9,6 +10,7 @@ import matchupsRouter from "./routes/matchups.js";
 import telegramRouter from "./routes/telegram.js";
 import votesRouter from "./routes/votes.js";
 import { env } from "./env.js";
+import { toErrorResponse } from "./http/errors.js";
 
 export const createApp = () => {
   const app = new Hono();
@@ -21,16 +23,15 @@ export const createApp = () => {
     "http://web.localhost";
 
   app.use("*", logger());
+  app.use("*", async (c, next) => {
+    const requestId = randomUUID();
+    (c as any).set("requestId", requestId);
+    await next();
+    c.header("x-request-id", requestId);
+  });
 
   app.onError((err, c) => {
-    return c.json(
-      {
-        error: {
-          message: err.message || "Unexpected error",
-        },
-      },
-      500,
-    );
+    return toErrorResponse(err, c);
   });
 
   api.use(

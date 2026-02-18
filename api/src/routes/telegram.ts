@@ -2,10 +2,15 @@ import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { randomUUID } from "crypto";
 import { Hono } from "hono";
 import { imageQueue } from "../queue/index.js";
+import { redis } from "../queue/connection.js";
 import { originalKey } from "../storage/paths.js";
 import { publicObjectUrl, s3Client, storageBucket } from "../storage/client.js";
-import { mutateConvexUpsertImageContent, mutateConvexUpsertTelegramUser } from "../convex/client.js";
+import {
+  mutateConvexUpsertImageContent,
+  mutateConvexUpsertTelegramUser,
+} from "../convex/client.js";
 import { env } from "../env.js";
+import { serviceUnavailable } from "../http/errors.js";
 
 const MAX_UPLOAD_BYTES = 15 * 1024 * 1024;
 
@@ -172,6 +177,17 @@ telegramRouter.post("/webhook", async (c) => {
     return c.json({ ok: true });
   }
 
+  // Telegram may retry webhook deliveries. Cache update ids briefly so we do not
+  // duplicate image ingest when the same update is delivered again.
+  try {
+    const claim = await redis.set(`telegram:update:${update.update_id}`, "1", "EX", 60 * 60, "NX");
+    if (claim !== "OK") {
+      return c.json({ ok: true, duplicate: true });
+    }
+  } catch {
+    // If Redis is unavailable we still continue. Duplicate protection becomes best-effort.
+  }
+
   const chatId = String(message.chat?.id ?? "");
   if (!chatId) {
     return c.json({ ok: true });
@@ -224,54 +240,64 @@ telegramRouter.post("/webhook", async (c) => {
     return c.json({ ok: true });
   }
 
-  const uploaderId = await resolveOrCreateTelegramUploader(sender);
+  try {
+    const uploaderId = await resolveOrCreateTelegramUploader(sender);
 
-  const filePath = await fetchTelegramFilePath(fileId);
-  const data = await downloadTelegramFile(filePath);
+    const filePath = await fetchTelegramFilePath(fileId);
+    const data = await downloadTelegramFile(filePath);
 
-  if (data.length > MAX_UPLOAD_BYTES) {
-    return c.json({ ok: true });
-  }
+    if (data.length > MAX_UPLOAD_BYTES) {
+      return c.json({ ok: true });
+    }
 
-  const imageId = randomUUID();
-  const key = originalKey(imageId, ext);
+    const imageId = randomUUID();
+    const key = originalKey(imageId, ext);
 
-  await s3Client.send(
-    new PutObjectCommand({
-      Bucket: storageBucket,
-      Key: key,
-      Body: data,
-      ContentType: contentType,
-    }),
-  );
+    await s3Client.send(
+      new PutObjectCommand({
+        Bucket: storageBucket,
+        Key: key,
+        Body: data,
+        ContentType: contentType,
+      }),
+    );
 
-  const originalUrl = publicObjectUrl(key);
+    const originalUrl = publicObjectUrl(key);
 
-  await mutateConvexUpsertImageContent({
-    imageId,
-    uploaderAuthUserId: uploaderId,
-    status: "processing",
-    originalUrl,
-    variantUrls: {},
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
-  });
-
-  await imageQueue.add(
-    "process",
-    {
+    await mutateConvexUpsertImageContent({
       imageId,
-      key,
-      ext,
-      contentType,
-    },
-    {
-      attempts: 3,
-      backoff: { type: "exponential", delay: 5000 },
-    },
-  );
+      uploaderAuthUserId: uploaderId,
+      status: "processing",
+      originalUrl,
+      variantUrls: {},
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    });
 
-  return c.json({ ok: true, imageId }, 201);
+    await imageQueue.add(
+      "process",
+      {
+        imageId,
+        key,
+        ext,
+        contentType,
+      },
+      {
+        attempts: 3,
+        backoff: { type: "exponential", delay: 5000 },
+      },
+    );
+
+    return c.json({ ok: true, imageId }, 201);
+  } catch (err) {
+    const requestId = (c as any).get("requestId") as string | undefined;
+    console.error("[telegram] ingest failed", {
+      requestId,
+      updateId: update.update_id,
+      message: err instanceof Error ? err.message : String(err),
+    });
+    throw serviceUnavailable("Telegram ingest unavailable");
+  }
 });
 
 export default telegramRouter;

@@ -26,6 +26,12 @@ vi.mock("../queue/index.js", () => ({
   },
 }));
 
+vi.mock("../queue/connection.js", () => ({
+  redis: {
+    set: vi.fn(async () => "OK"),
+  },
+}));
+
 vi.mock("../storage/client.js", () => ({
   publicObjectUrl: vi.fn(() => "http://localhost/object"),
   s3Client: {

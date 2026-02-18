@@ -1,6 +1,4 @@
 import { Hono } from "hono";
-import type { Context } from "hono";
-import { createHash } from "crypto";
 import { getCookie } from "hono/cookie";
 import { sendMagicLinkEmail } from "../auth/email.js";
 import {
@@ -13,6 +11,7 @@ import {
 } from "../auth/session.js";
 import { ensureSameOrigin } from "../auth/csrf.js";
 import { generateToken, hashToken } from "../auth/tokens.js";
+import { hashWithSalt, VOTER_COOKIE_NAME } from "../auth/voter.js";
 import { resolveInvitedUploaderByEmail } from "../auth/userProfile.js";
 import {
   mutateConvexConsumeAuthToken,
@@ -23,34 +22,15 @@ import {
   queryConvexVoteCountForProfile,
 } from "../convex/client.js";
 import { env } from "../env.js";
+import { readPayload } from "../http/readPayload.js";
 
 const authRouter = new Hono();
 const MAGIC_LINK_TTL_MINUTES = env.MAGIC_LINK_TTL_MINUTES ?? 30;
-const VOTER_COOKIE_NAME = "jm_voter";
 const VOTE_HASH_SALT = env.VOTE_HASH_SALT ?? "junkmail-dev-vote";
 const ALIAS_MIN_LENGTH = 2;
 const ALIAS_MAX_LENGTH = 32;
 
-const readPayload = async (c: Context) => {
-  const contentType = c.req.header("content-type") || "";
-  if (contentType.includes("application/json")) {
-    try {
-      return await c.req.json();
-    } catch {
-      return {};
-    }
-  }
-
-  try {
-    return await c.req.parseBody();
-  } catch {
-    return {};
-  }
-};
-
 const normalizeEmail = (value: string) => value.trim().toLowerCase();
-const hashValue = (value: string, salt: string) =>
-  createHash("sha256").update(`${salt}:${value}`).digest("hex");
 
 const normalizeAlias = (value: string) => value.trim();
 
@@ -166,7 +146,7 @@ authRouter.get("/profile", async (c) => {
   }
 
   const voterId = getCookie(c, VOTER_COOKIE_NAME);
-  const voterHash = voterId ? hashValue(voterId, VOTE_HASH_SALT) : undefined;
+  const voterHash = voterId ? hashWithSalt(voterId, VOTE_HASH_SALT) : undefined;
 
   const [uploadStats, voteStats] = await Promise.all([
     queryConvexUploaderImageCount(user.id).catch(() => ({ count: 0 })),

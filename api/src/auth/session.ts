@@ -3,7 +3,11 @@ import { getCookie, setCookie, deleteCookie } from "hono/cookie";
 import { ensureSameOrigin } from "./csrf.js";
 import { generateToken, hashToken } from "./tokens.js";
 import { resolveAuthUserProfileById } from "./userProfile.js";
-import { mutateConvexCreateSession, mutateConvexDeleteSessionByTokenHash, queryConvexSessionUserAuthUserId } from "../convex/client.js";
+import {
+  mutateConvexCreateSession,
+  mutateConvexDeleteSessionByTokenHash,
+  queryConvexSessionUserAuthUserId,
+} from "../convex/client.js";
 import { env } from "../env.js";
 
 const SESSION_COOKIE_NAME = "jm_session";
