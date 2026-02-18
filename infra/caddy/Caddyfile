@@ -1,6 +1,6 @@
 {
-  # Use local CA certs for local/dev hostnames.
-  local_certs
+  # Local dev runs over plain HTTP (no local CA / trust steps).
+  auto_https off
 }
 
 # Single-origin dev front door:
@@ -23,7 +23,7 @@
 }
 
 # Local stable hostname.
-web.localhost {
+http://web.localhost {
   import web_frontdoor
 }
 
@@ -33,22 +33,22 @@ http://*.trycloudflare.com {
 }
 
 # Direct service hostnames (optional, but useful for debugging).
-api.localhost {
+http://api.localhost {
   reverse_proxy {env.API_UPSTREAM}
 }
 
-minio.localhost {
+http://minio.localhost {
   reverse_proxy {env.MINIO_UPSTREAM}
 }
 
-minio-console.localhost {
+http://minio-console.localhost {
   reverse_proxy {env.MINIO_CONSOLE_UPSTREAM}
 }
 
-convex.localhost {
+http://convex.localhost {
   reverse_proxy {env.CONVEX_UPSTREAM}
 }
 
-convex-site.localhost {
+http://convex-site.localhost {
   reverse_proxy {env.CONVEX_SITE_UPSTREAM}
 }

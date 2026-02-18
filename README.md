@@ -43,8 +43,7 @@ bun run dev:infra:init-storage
 
 Open:
 
-- Web (direct Astro): `http://localhost:4321`
-- Web (recommended via Caddy): `https://web.localhost`
+- Web (recommended): `http://localhost:4321`
 - API direct: `http://localhost:8787`
 - MinIO API: `http://localhost:9010`
 - MinIO Console: `http://localhost:9011`
@@ -84,10 +83,10 @@ bun run fmt
 
 Caddy routes one origin for local and tunnel usage:
 
-- `https://web.localhost/` -> web (`localhost:4321`)
-- `https://web.localhost/api/*` -> API (`localhost:8787`)
-- `https://web.localhost/assets/*` -> MinIO (`minio:9000`)
-- `https://convex.localhost/` -> Convex backend (`convex-backend:3210`)
+- `http://web.localhost/` -> web (`localhost:4321`)
+- `http://web.localhost/api/*` -> API (`localhost:8787`)
+- `http://web.localhost/assets/*` -> MinIO (`minio:9000`)
+- `http://convex.localhost/` -> Convex backend (`convex-backend:3210`)
 
 Start tunnel workflow:
 
@@ -111,27 +110,9 @@ CORS_ORIGIN=http://localhost:4321
 
 Then restart API/worker and request a new magic link.
 
-## HTTPS Trust in Windows (WSL2)
+## HTTPS in Local Dev
 
-Export Caddy's local root CA cert:
-
-```bash
-# First request triggers cert generation:
-# open https://web.localhost once in your browser.
-bun run dev:infra:export-caddy-ca
-```
-
-Then import into Windows trust store (PowerShell):
-
-```powershell
-# Elevated (recommended)
-Import-Certificate -FilePath "C:\path\to\caddy-local-root-ca.crt" -CertStoreLocation Cert:\LocalMachine\Root
-
-# Or current user only
-Import-Certificate -FilePath "C:\path\to\caddy-local-root-ca.crt" -CertStoreLocation Cert:\CurrentUser\Root
-```
-
-If certs rotate or Caddy volumes reset, export/import again.
+Current local setup is HTTP only. If secure local HTTPS is needed, track follow-up issue `junkmail-w77` (Caddy local CA trust workflow for Windows/WSL2).
 
 ## Telegram Photo Ingest (Optional)
 

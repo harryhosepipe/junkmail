@@ -10,7 +10,6 @@
     "dev": "bun run dev:infra && bun run dev:apps",
     "dev:infra": "docker compose --profile host up -d caddy redis minio convex-backend convex-dashboard",
     "dev:infra:init-storage": "docker compose --profile bootstrap run --rm minio-init",
-    "dev:infra:export-caddy-ca": "bash tools/export-caddy-root-ca.sh",
     "dev:apps": "concurrently -n api,web,worker \"bun --cwd api dev\" \"bun --cwd web dev\" \"bun --cwd api worker:dev\"",
     "dev:staging": "node infra/cloudflared/dev-staging.mjs",
     "convex:codegen": "bunx convex codegen",

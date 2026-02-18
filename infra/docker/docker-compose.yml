@@ -4,11 +4,8 @@ services:
     profiles: ["host"]
     ports:
       - "80:80"
-      - "443:443"
     volumes:
       - ../caddy/Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy_data:/data
-      - caddy_config:/config
     # Allow reverse_proxy to reach host-run dev servers on Linux.
     extra_hosts:
       - "host.docker.internal:host-gateway"
@@ -31,8 +28,8 @@ services:
       - ../../.env.local
     environment:
       # Used for generating URLs in Convex responses/UI.
-      CONVEX_CLOUD_ORIGIN: https://convex.localhost
-      CONVEX_SITE_ORIGIN: https://convex-site.localhost
+      CONVEX_CLOUD_ORIGIN: http://convex.localhost
+      CONVEX_SITE_ORIGIN: http://convex-site.localhost
       DO_NOT_REQUIRE_SSL: "1"
     volumes:
       - convex_data:/convex/data
@@ -43,7 +40,7 @@ services:
   convex-dashboard:
     image: ghcr.io/get-convex/convex-dashboard:latest
     environment:
-      NEXT_PUBLIC_DEPLOYMENT_URL: https://convex.localhost
+      NEXT_PUBLIC_DEPLOYMENT_URL: http://convex.localhost
     depends_on:
       - convex-backend
     ports:
@@ -85,5 +82,3 @@ volumes:
   redis_data:
   minio_data:
   convex_data:
-  caddy_data:
-  caddy_config:
