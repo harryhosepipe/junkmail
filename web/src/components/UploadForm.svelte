@@ -25,6 +25,7 @@
   let displayPreviewDescription = "";
   let displayPreviewLabel = "";
   const fileInputId = "upload-file-input";
+  const ACCEPTED_IMAGE_MIMES = new Set(["image/jpeg", "image/png"]);
 
   const setStatus = (message, mode = "info") => {
     status = message;
@@ -46,8 +47,16 @@
     localPreviewName = "";
   };
 
-  const handleFileChange = (event) => {
-    const nextFile = event.target.files?.[0] || null;
+  const clearSelectedFile = () => {
+    file = null;
+    resetPreview();
+    clearLocalPreview();
+    if (fileInput) {
+      fileInput.value = "";
+    }
+  };
+
+  const setSelectedFile = (nextFile) => {
     file = nextFile;
     resetPreview();
     clearLocalPreview();
@@ -57,11 +66,38 @@
     }
 
     localPreviewUrl = URL.createObjectURL(nextFile);
-    localPreviewName = nextFile.name;
+    localPreviewName =
+      nextFile.name || (nextFile.type === "image/png" ? "pasted-image.png" : "pasted-image.jpg");
   };
 
-  const chooseFile = () => {
-    fileInput?.click();
+  const handleFileChange = (event) => {
+    const nextFile = event.target.files?.[0] || null;
+    setSelectedFile(nextFile);
+  };
+
+  const isTextLikeTarget = (target) => {
+    if (!(target instanceof HTMLElement)) return false;
+    if (target.isContentEditable) return true;
+    if (target.tagName === "TEXTAREA") return true;
+    if (target.tagName !== "INPUT") return false;
+    const inputType = (target.type || "").toLowerCase();
+    return !["checkbox", "radio", "button", "submit", "file"].includes(inputType);
+  };
+
+  const handlePaste = (event) => {
+    if (isTextLikeTarget(event.target)) return;
+    const items = Array.from(event.clipboardData?.items || []);
+    const imageItem = items.find(
+      (item) => item.kind === "file" && ACCEPTED_IMAGE_MIMES.has((item.type || "").toLowerCase()),
+    );
+    if (!imageItem) return;
+
+    const pastedFile = imageItem.getAsFile();
+    if (!pastedFile) return;
+
+    event.preventDefault();
+    setSelectedFile(pastedFile);
+    setStatus("Pasted image ready to upload.", "info");
   };
 
   const loadSession = async () => {
@@ -133,7 +169,12 @@
       return;
     }
 
-    if (!/[.]jpe?g$/i.test(file.name) && !/[.]png$/i.test(file.name)) {
+    const fileName = (file.name || "").toLowerCase();
+    const fileType = (file.type || "").toLowerCase();
+    const hasAllowedExt = /[.]jpe?g$/i.test(fileName) || /[.]png$/i.test(fileName);
+    const hasAllowedType = ACCEPTED_IMAGE_MIMES.has(fileType);
+
+    if (!hasAllowedExt && !hasAllowedType) {
       setStatus("Only JPG or PNG files are allowed.", "error");
       return;
     }
@@ -179,10 +220,7 @@
 
       title = "";
       description = "";
-      file = null;
-      if (fileInput) {
-        fileInput.value = "";
-      }
+      clearSelectedFile();
     } catch (err) {
       setStatus("Upload failed. Try again.", "error");
     } finally {
@@ -209,6 +247,8 @@
     if (!initialUser) {
       loadSession();
     }
+    window.addEventListener("paste", handlePaste);
+    return () => window.removeEventListener("paste", handlePaste);
   });
 
   onDestroy(() => {
@@ -248,8 +288,10 @@
     {:else}
       <div class="upload-layout">
         <form class="upload-form" on:submit|preventDefault={handleUpload}>
-          <label class="field">
-            <span>Image file</span>
+          <div class="field">
+            <label for={fileInputId}>
+              <span>Image file</span>
+            </label>
             <input
               id={fileInputId}
               type="file"
@@ -259,21 +301,30 @@
               bind:this={fileInput}
               on:change={handleFileChange}
             />
-            <button
-              type="button"
-              class="file-cta"
-              aria-controls={fileInputId}
-              on:click={chooseFile}
-            >
+            <label for={fileInputId} class="file-cta">
               <span class="file-cta-main"
                 >{file ? "Pick a different image" : "Pick your junkmail image"}</span
               >
-              <span class="file-cta-sub">JPG or PNG, up to 15MB</span>
-            </button>
+              <span class="file-cta-sub"
+                >JPG or PNG, up to 15MB. You can also paste (Ctrl/Cmd+V).</span
+              >
+            </label>
             {#if file}
-              <div class="file-chip" aria-live="polite">{file.name}</div>
+              <div class="file-selected">
+                <div class="file-chip" aria-live="polite">{file.name}</div>
+                <button
+                  type="button"
+                  class="file-remove"
+                  on:click={() => {
+                    clearSelectedFile();
+                    setStatus("Image selection cleared.", "info");
+                  }}
+                >
+                  Remove image
+                </button>
+              </div>
             {/if}
-          </label>
+          </div>
           {#if file}
             <label class="field">
               <span>Title</span>
@@ -308,9 +359,11 @@
             {/if}
           </div>
           {#if displayPreviewUrl}
-            <img class="preview-image" src={displayPreviewUrl} alt="Selected junkmail" />
+            <div class="preview-media">
+              <img class="preview-image" src={displayPreviewUrl} alt="Selected junkmail" />
+            </div>
             <div class="preview-meta">
-              <div class="headline">{displayPreviewTitle}</div>
+              <div class="preview-title">{displayPreviewTitle}</div>
               {#if displayPreviewDescription}
                 <p class="subtle">{displayPreviewDescription}</p>
               {/if}
@@ -436,6 +489,29 @@
     white-space: nowrap;
   }
 
+  .file-selected {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .file-remove {
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: #fffdf9;
+    color: var(--ink-muted);
+    font-size: 12px;
+    font-weight: 600;
+    padding: 6px 10px;
+    cursor: pointer;
+  }
+
+  .file-remove:hover {
+    border-color: rgba(212, 90, 60, 0.45);
+    color: var(--accent-strong);
+  }
+
   .field textarea,
   .field input[type="text"] {
     padding: 12px 14px;
@@ -468,6 +544,8 @@
     box-shadow: var(--shadow);
     display: grid;
     gap: 12px;
+    min-width: 0;
+    overflow: hidden;
   }
 
   .preview-header {
@@ -499,18 +577,45 @@
     text-align: center;
   }
 
-  .preview-image {
+  .preview-media {
     width: 100%;
-    max-height: 420px;
+    min-height: 0;
     border-radius: 16px;
     border: 1px solid var(--border);
     box-shadow: var(--shadow);
     background: #fffdf9;
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+    padding: 8px;
+    box-sizing: border-box;
+  }
+
+  .preview-image {
+    width: 100%;
+    height: 100%;
+    display: block;
     object-fit: contain;
+  }
+
+  @media (max-width: 900px) {
+    .preview-media {
+      height: 220px;
+    }
   }
 
   .preview-meta {
     display: grid;
     gap: 8px;
+    min-width: 0;
+  }
+
+  .preview-title {
+    font-size: 24px;
+    line-height: 1.2;
+    font-weight: 700;
+    color: var(--bg-ink);
+    overflow-wrap: anywhere;
+    word-break: break-word;
   }
 </style>

@@ -98,6 +98,17 @@ export const EnvSchema = z.object({
   IMAGE_CROP_MIN_CONFIDENCE: NumFromString.optional(),
   IMAGE_CROP_MIN_TRIM_PIXELS: NumFromString.optional(),
   IMAGE_CROP_MIN_AREA_REMOVED_RATIO: NumFromString.optional(),
+  IMAGE_CROP_RECT_DETECT_ENABLED: BoolFromString.optional(),
+  IMAGE_CROP_RECT_ANALYSIS_MAX_DIM: NumFromString.optional(),
+  IMAGE_CROP_RECT_MIN_AREA_RATIO: NumFromString.optional(),
+  IMAGE_CROP_RECT_MIN_CONFIDENCE: NumFromString.optional(),
+  IMAGE_CROP_RECT_ASPECT_MIN: NumFromString.optional(),
+  IMAGE_CROP_RECT_ASPECT_MAX: NumFromString.optional(),
+  IMAGE_CROP_RECT_ROW_FOREGROUND_RATIO: NumFromString.optional(),
+  IMAGE_CROP_RECT_COL_FOREGROUND_RATIO: NumFromString.optional(),
+  IMAGE_CROP_RECT_COLOR_DISTANCE: NumFromString.optional(),
+  IMAGE_CROP_RECT_LUMA_DISTANCE: NumFromString.optional(),
+  IMAGE_CROP_RECT_CENTER_WEIGHT: NumFromString.optional(),
 
   // Telegram ingest (optional)
   TELEGRAM_BOT_TOKEN: z.string().optional(),

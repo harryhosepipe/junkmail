@@ -1,6 +1,6 @@
 import sharp from "sharp";
 import { describe, expect, it } from "vitest";
-import { analyzeBorderCrop, applyBorderCrop } from "./borderCrop.js";
+import { analyzeBorderCrop, applyBorderCrop, detectEmbeddedImageRect } from "./borderCrop.js";
 
 const makeBorderedPng = async (args: {
   width: number;
@@ -161,5 +161,46 @@ describe("borderCrop", () => {
 
     expect(metadata.width).toBe(decision.cropBox.width);
     expect(metadata.height).toBe(decision.cropBox.height);
+  });
+
+  it("detects centered embedded image rectangle in screenshot-like layout", async () => {
+    const width = 420;
+    const height = 760;
+    const channels = 3;
+    const raw = Buffer.alloc(width * height * channels);
+
+    for (let y = 0; y < height; y += 1) {
+      for (let x = 0; x < width; x += 1) {
+        let color: [number, number, number] = [242, 242, 242];
+        if (y < 90) color = [250, 250, 250];
+        if (y >= 180 && y < 620 && x >= 22 && x < 398) color = [40, 120, 220];
+        const offset = (y * width + x) * channels;
+        raw[offset] = color[0];
+        raw[offset + 1] = color[1];
+        raw[offset + 2] = color[2];
+      }
+    }
+
+    const input = await sharp(raw, { raw: { width, height, channels } }).png().toBuffer();
+    const decision = await detectEmbeddedImageRect(input);
+
+    expect(decision.applied).toBe(true);
+    expect(decision.cropBox.left).toBeGreaterThanOrEqual(16);
+    expect(decision.cropBox.top).toBeGreaterThanOrEqual(160);
+    expect(decision.cropBox.width).toBeGreaterThanOrEqual(340);
+    expect(decision.cropBox.height).toBeGreaterThanOrEqual(380);
+  });
+
+  it("skips embedded rect detection for full-frame photos", async () => {
+    const input = await makeBorderedPng({
+      width: 360,
+      height: 260,
+      border: 0,
+      borderColor: [0, 0, 0],
+      centerColor: [40, 130, 230],
+    });
+
+    const decision = await detectEmbeddedImageRect(input);
+    expect(decision.applied).toBe(false);
   });
 });

@@ -3,6 +3,8 @@ import sharp from "sharp";
 type BorderTone = "white" | "black";
 type Edge = "top" | "right" | "bottom" | "left";
 
+type Segment = { start: number; end: number };
+
 export type CropBox = {
   left: number;
   top: number;
@@ -24,6 +26,20 @@ export type BorderCropOptions = {
   minAreaRemovedRatio: number;
 };
 
+export type EmbeddedRectOptions = {
+  enabled: boolean;
+  analysisMaxDim: number;
+  minAreaRatio: number;
+  minConfidence: number;
+  minAspectRatio: number;
+  maxAspectRatio: number;
+  rowForegroundRatio: number;
+  colForegroundRatio: number;
+  colorDistanceThreshold: number;
+  lumaDistanceThreshold: number;
+  centerWeight: number;
+};
+
 export type BorderCropDecision = {
   applied: boolean;
   reason: string;
@@ -34,23 +50,65 @@ export type BorderCropDecision = {
   trimmed: Record<Edge, number>;
 };
 
+export type EmbeddedRectDecision = {
+  applied: boolean;
+  reason: string;
+  confidence: number;
+  originalWidth: number;
+  originalHeight: number;
+  cropBox: CropBox;
+};
+
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
 const toLuma = (r: number, g: number, b: number) => 0.2126 * r + 0.7152 * g + 0.0722 * b;
 
-const defaultOptions: BorderCropOptions = {
+const defaultBorderOptions: BorderCropOptions = {
   enabled: true,
   analysisMaxDim: 512,
   whiteThreshold: 248,
   blackThreshold: 8,
   lineDominance: 0.985,
   lineStdDevMax: 16,
-  maxTrimRatioPerSide: 0.18,
+  maxTrimRatioPerSide: 0.35,
   minRemainingRatio: 0.5,
   minConfidence: 0.8,
   minTrimPixels: 10,
   minAreaRemovedRatio: 0.01,
 };
+
+const defaultEmbeddedRectOptions: EmbeddedRectOptions = {
+  enabled: true,
+  analysisMaxDim: 640,
+  minAreaRatio: 0.16,
+  minConfidence: 0.56,
+  minAspectRatio: 0.45,
+  maxAspectRatio: 2.4,
+  rowForegroundRatio: 0.12,
+  colForegroundRatio: 0.12,
+  colorDistanceThreshold: 26,
+  lumaDistanceThreshold: 20,
+  centerWeight: 0.35,
+};
+
+const getInitialBorderDecision = (width: number, height: number): BorderCropDecision => ({
+  applied: false,
+  reason: "not-needed",
+  confidence: 0,
+  originalWidth: width,
+  originalHeight: height,
+  cropBox: { left: 0, top: 0, width, height },
+  trimmed: { top: 0, right: 0, bottom: 0, left: 0 },
+});
+
+const getInitialRectDecision = (width: number, height: number): EmbeddedRectDecision => ({
+  applied: false,
+  reason: "rect-not-needed",
+  confidence: 0,
+  originalWidth: width,
+  originalHeight: height,
+  cropBox: { left: 0, top: 0, width, height },
+});
 
 const lineStats = (
   data: Buffer,
@@ -148,24 +206,226 @@ const scanEdge = (args: {
   return { trimmed, confidence };
 };
 
+const findSegments = (flags: boolean[]): Segment[] => {
+  const segments: Segment[] = [];
+  let start = -1;
+  for (let i = 0; i < flags.length; i += 1) {
+    if (flags[i] && start < 0) start = i;
+    if (!flags[i] && start >= 0) {
+      segments.push({ start, end: i - 1 });
+      start = -1;
+    }
+  }
+  if (start >= 0) segments.push({ start, end: flags.length - 1 });
+  return segments;
+};
+
+const pickSegment = (segments: Segment[], centerIndex: number, maxSize: number) => {
+  if (!segments.length) return null;
+  let best: Segment | null = null;
+  let bestScore = -1;
+  for (const segment of segments) {
+    const size = segment.end - segment.start + 1;
+    const segCenter = (segment.start + segment.end) / 2;
+    const centerDistance = Math.abs(segCenter - centerIndex) / Math.max(1, maxSize / 2);
+    const sizeScore = clamp(size / maxSize, 0, 1);
+    const centerScore = 1 - clamp(centerDistance, 0, 1);
+    const score = sizeScore * 0.65 + centerScore * 0.35;
+    if (score > bestScore) {
+      bestScore = score;
+      best = segment;
+    }
+  }
+  return best;
+};
+
+const estimateCornerBackground = (
+  data: Buffer,
+  width: number,
+  height: number,
+  channels: number,
+  block: number,
+) => {
+  const samples: Array<{ r: number; g: number; b: number }> = [];
+  const corners: Array<[number, number]> = [
+    [0, 0],
+    [Math.max(0, width - block), 0],
+    [0, Math.max(0, height - block)],
+    [Math.max(0, width - block), Math.max(0, height - block)],
+  ];
+
+  for (const [sx, sy] of corners) {
+    for (let y = sy; y < Math.min(height, sy + block); y += 1) {
+      for (let x = sx; x < Math.min(width, sx + block); x += 1) {
+        const idx = (y * width + x) * channels;
+        const a = channels >= 4 ? data[idx + 3] / 255 : 1;
+        const r = data[idx] * a + 255 * (1 - a);
+        const g = data[idx + 1] * a + 255 * (1 - a);
+        const b = data[idx + 2] * a + 255 * (1 - a);
+        samples.push({ r, g, b });
+      }
+    }
+  }
+
+  if (!samples.length) return { r: 255, g: 255, b: 255, luma: 255 };
+
+  const avg = samples.reduce(
+    (acc, sample) => ({ r: acc.r + sample.r, g: acc.g + sample.g, b: acc.b + sample.b }),
+    { r: 0, g: 0, b: 0 },
+  );
+  const r = avg.r / samples.length;
+  const g = avg.g / samples.length;
+  const b = avg.b / samples.length;
+  return { r, g, b, luma: toLuma(r, g, b) };
+};
+
+export const detectEmbeddedImageRect = async (
+  input: Buffer,
+  options: Partial<EmbeddedRectOptions> = {},
+): Promise<EmbeddedRectDecision> => {
+  const opts = { ...defaultEmbeddedRectOptions, ...options };
+  const metadata = await sharp(input).metadata();
+  const originalWidth = metadata.width ?? 0;
+  const originalHeight = metadata.height ?? 0;
+  const initial = getInitialRectDecision(originalWidth, originalHeight);
+
+  if (!opts.enabled) return { ...initial, reason: "rect-disabled" };
+  if (originalWidth < 3 || originalHeight < 3)
+    return { ...initial, reason: "rect-invalid-dimensions" };
+
+  const scale = Math.min(1, opts.analysisMaxDim / Math.max(originalWidth, originalHeight));
+  const analysisWidth = Math.max(3, Math.round(originalWidth * scale));
+  const analysisHeight = Math.max(3, Math.round(originalHeight * scale));
+  const { data, info } = await sharp(input)
+    .resize({ width: analysisWidth, height: analysisHeight, fit: "fill", kernel: "nearest" })
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+  const channels = info.channels;
+
+  const cornerBlock = clamp(Math.floor(Math.min(analysisWidth, analysisHeight) * 0.08), 6, 36);
+  const bg = estimateCornerBackground(data, analysisWidth, analysisHeight, channels, cornerBlock);
+
+  const rowForegroundRatio = new Array<number>(analysisHeight).fill(0);
+  const colForegroundRatio = new Array<number>(analysisWidth).fill(0);
+
+  for (let y = 0; y < analysisHeight; y += 1) {
+    let rowFg = 0;
+    for (let x = 0; x < analysisWidth; x += 1) {
+      const idx = (y * analysisWidth + x) * channels;
+      const a = channels >= 4 ? data[idx + 3] / 255 : 1;
+      const r = data[idx] * a + 255 * (1 - a);
+      const g = data[idx + 1] * a + 255 * (1 - a);
+      const b = data[idx + 2] * a + 255 * (1 - a);
+      const dl = Math.abs(toLuma(r, g, b) - bg.luma);
+      const dr = r - bg.r;
+      const dg = g - bg.g;
+      const db = b - bg.b;
+      const colorDistance = Math.sqrt(dr * dr + dg * dg + db * db);
+      const isForeground =
+        colorDistance >= opts.colorDistanceThreshold || dl >= opts.lumaDistanceThreshold;
+      if (isForeground) {
+        rowFg += 1;
+        colForegroundRatio[x] += 1;
+      }
+    }
+    rowForegroundRatio[y] = rowFg / analysisWidth;
+  }
+
+  for (let x = 0; x < analysisWidth; x += 1) {
+    colForegroundRatio[x] /= analysisHeight;
+  }
+
+  const rowFlags = rowForegroundRatio.map((ratio) => ratio >= opts.rowForegroundRatio);
+  const colFlags = colForegroundRatio.map((ratio) => ratio >= opts.colForegroundRatio);
+  const rowSegment = pickSegment(findSegments(rowFlags), analysisHeight / 2, analysisHeight);
+  const colSegment = pickSegment(findSegments(colFlags), analysisWidth / 2, analysisWidth);
+
+  if (!rowSegment || !colSegment) {
+    return { ...initial, reason: "rect-no-candidate" };
+  }
+
+  const left = Math.max(0, Math.floor((colSegment.start / analysisWidth) * originalWidth));
+  const top = Math.max(0, Math.floor((rowSegment.start / analysisHeight) * originalHeight));
+  const right = Math.min(
+    originalWidth,
+    Math.ceil(((colSegment.end + 1) / analysisWidth) * originalWidth),
+  );
+  const bottom = Math.min(
+    originalHeight,
+    Math.ceil(((rowSegment.end + 1) / analysisHeight) * originalHeight),
+  );
+
+  const cropBox: CropBox = {
+    left,
+    top,
+    width: Math.max(1, right - left),
+    height: Math.max(1, bottom - top),
+  };
+
+  const areaRatio = (cropBox.width * cropBox.height) / (originalWidth * originalHeight);
+  if (areaRatio < opts.minAreaRatio) {
+    return { ...initial, reason: "rect-area-too-small", cropBox };
+  }
+
+  const aspectRatio = cropBox.width / cropBox.height;
+  if (aspectRatio < opts.minAspectRatio || aspectRatio > opts.maxAspectRatio) {
+    return { ...initial, reason: "rect-aspect-out-of-range", cropBox };
+  }
+
+  const centerX = cropBox.left + cropBox.width / 2;
+  const centerY = cropBox.top + cropBox.height / 2;
+  const dx = Math.abs(centerX - originalWidth / 2) / (originalWidth / 2);
+  const dy = Math.abs(centerY - originalHeight / 2) / (originalHeight / 2);
+  const centerScore = 1 - clamp((dx + dy) / 2, 0, 1);
+
+  const rowDensity =
+    rowForegroundRatio
+      .slice(rowSegment.start, rowSegment.end + 1)
+      .reduce((sum, value) => sum + value, 0) /
+    (rowSegment.end - rowSegment.start + 1);
+  const colDensity =
+    colForegroundRatio
+      .slice(colSegment.start, colSegment.end + 1)
+      .reduce((sum, value) => sum + value, 0) /
+    (colSegment.end - colSegment.start + 1);
+  const densityScore = clamp((rowDensity + colDensity) / 2, 0, 1);
+  const areaScore = clamp(areaRatio / 0.65, 0, 1);
+
+  const confidence = clamp(
+    centerScore * opts.centerWeight + areaScore * 0.35 + densityScore * (0.65 - opts.centerWeight),
+    0,
+    1,
+  );
+
+  if (confidence < opts.minConfidence) {
+    return {
+      ...initial,
+      reason: "rect-low-confidence",
+      confidence,
+      cropBox,
+    };
+  }
+
+  return {
+    applied: true,
+    reason: "rect-applied",
+    confidence,
+    originalWidth,
+    originalHeight,
+    cropBox,
+  };
+};
+
 export const analyzeBorderCrop = async (
   input: Buffer,
   options: Partial<BorderCropOptions> = {},
 ): Promise<BorderCropDecision> => {
-  const opts: BorderCropOptions = { ...defaultOptions, ...options };
+  const opts: BorderCropOptions = { ...defaultBorderOptions, ...options };
 
   const metadata = await sharp(input).metadata();
   const originalWidth = metadata.width ?? 0;
   const originalHeight = metadata.height ?? 0;
-  const initial: BorderCropDecision = {
-    applied: false,
-    reason: "not-needed",
-    confidence: 0,
-    originalWidth,
-    originalHeight,
-    cropBox: { left: 0, top: 0, width: originalWidth, height: originalHeight },
-    trimmed: { top: 0, right: 0, bottom: 0, left: 0 },
-  };
+  const initial = getInitialBorderDecision(originalWidth, originalHeight);
 
   if (!opts.enabled) return { ...initial, reason: "disabled" };
   if (originalWidth < 2 || originalHeight < 2) return { ...initial, reason: "invalid-dimensions" };
@@ -291,10 +551,15 @@ export const analyzeBorderCrop = async (
   };
 };
 
-export const applyBorderCrop = async (input: Buffer, decision: BorderCropDecision) => {
-  if (!decision.applied) return input;
-  const { left, top, width, height } = decision.cropBox;
+export const applyCropBox = async (input: Buffer, cropBox: CropBox) => {
+  const { left, top, width, height } = cropBox;
   return sharp(input).extract({ left, top, width, height }).toBuffer();
 };
 
-export const borderCropDefaults = defaultOptions;
+export const applyBorderCrop = async (input: Buffer, decision: BorderCropDecision) => {
+  if (!decision.applied) return input;
+  return applyCropBox(input, decision.cropBox);
+};
+
+export const borderCropDefaults = defaultBorderOptions;
+export const embeddedRectDefaults = defaultEmbeddedRectOptions;
