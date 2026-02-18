@@ -78,6 +78,15 @@ services:
       mc anonymous set download local/junkmail || true;
       "
 
+  orb-verifier:
+    profiles: ["orb"]
+    build:
+      context: ../../tools/orb_verifier
+    environment:
+      ORB_SHARED_SECRET: ${IMAGE_DEDUPE_ORB_SHARED_SECRET:-}
+    ports:
+      - "9090:9090"
+
 volumes:
   redis_data:
   minio_data:

@@ -148,6 +148,9 @@ export const processImageJob = async (
   const orbEnabled = Boolean(runtimeEnv.IMAGE_DEDUPE_ORB_ENABLED ?? false);
   const orbRequired = Boolean(runtimeEnv.IMAGE_DEDUPE_ORB_REQUIRED ?? false);
   const orbVerifierUrl = String(runtimeEnv.IMAGE_DEDUPE_ORB_VERIFIER_URL || "");
+  const orbSharedSecret = String(runtimeEnv.IMAGE_DEDUPE_ORB_SHARED_SECRET || "");
+  const orbTimeoutMs = Number(runtimeEnv.IMAGE_DEDUPE_ORB_TIMEOUT_MS ?? 3500);
+  const orbRetries = Number(runtimeEnv.IMAGE_DEDUPE_ORB_RETRIES ?? 2);
   const orbMinInliers = Number(runtimeEnv.IMAGE_DEDUPE_ORB_MIN_INLIERS ?? 20);
   const orbMinInlierRatio = Number(runtimeEnv.IMAGE_DEDUPE_ORB_MIN_INLIER_RATIO ?? 0.25);
   const orbMinMatches = Number(runtimeEnv.IMAGE_DEDUPE_ORB_MIN_MATCHES ?? 60);
@@ -419,6 +422,9 @@ export const processImageJob = async (
             minInliers: orbMinInliers,
             minInlierRatio: orbMinInlierRatio,
             minMatches: orbMinMatches,
+            sharedSecret: orbSharedSecret || undefined,
+            timeoutMs: Number.isFinite(orbTimeoutMs) ? orbTimeoutMs : 3500,
+            retries: Number.isFinite(orbRetries) ? orbRetries : 2,
           });
 
           if (orb.verified && orb.matchedImageId) {

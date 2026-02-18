@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import base64
+import os
 from typing import List, Optional
 
 import cv2
 import numpy as np
 import requests
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, Header, HTTPException
 from pydantic import BaseModel, Field
 
 
@@ -31,6 +32,7 @@ class VerifyResponse(BaseModel):
 
 
 app = FastAPI(title="junkmail-orb-verifier")
+SHARED_SECRET = os.getenv("ORB_SHARED_SECRET", "").strip()
 
 
 def decode_image_bytes(raw: bytes) -> Optional[np.ndarray]:
@@ -49,7 +51,12 @@ def health():
 
 
 @app.post("/verify/orb", response_model=VerifyResponse)
-def verify_orb(payload: VerifyRequest):
+def verify_orb(payload: VerifyRequest, authorization: Optional[str] = Header(default=None)):
+    if SHARED_SECRET:
+        expected = f"Bearer {SHARED_SECRET}"
+        if authorization != expected:
+            raise HTTPException(status_code=401, detail="Unauthorized")
+
     if not payload.candidates:
         return VerifyResponse(verified=False)
 
