@@ -644,6 +644,9 @@ export const setImageProcessingResult = mutation({
     imageId: v.string(),
     status: v.string(),
     variantUrls: v.optional(v.any()),
+    storageKeyCanonical: v.optional(v.string()),
+    width: v.optional(v.number()),
+    height: v.optional(v.number()),
     updatedAt: v.optional(v.number()),
     publishedAt: v.optional(v.number()),
   },
@@ -659,6 +662,9 @@ export const setImageProcessingResult = mutation({
     await ctx.db.patch(existing._id, {
       status: args.status,
       variantUrls: args.variantUrls,
+      storageKeyCanonical: normalizeText(args.storageKeyCanonical),
+      width: args.width,
+      height: args.height,
       updatedAt: args.updatedAt ?? Date.now(),
       publishedAt: args.publishedAt,
     });

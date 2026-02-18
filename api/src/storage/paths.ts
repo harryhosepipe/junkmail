@@ -8,3 +8,5 @@ export const originalKey = (imageId: string, ext: "jpg" | "png") =>
 
 export const variantKey = (imageId: string, size: ImageSize, format: ImageFormat) =>
   `${imageBasePath(imageId)}/${size}.${format}`;
+
+export const canonicalKey = (imageId: string) => `${imageBasePath(imageId)}/canonical.webp`;

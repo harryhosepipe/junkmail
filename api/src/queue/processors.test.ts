@@ -161,8 +161,8 @@ describe("queue processors", () => {
       },
     );
 
-    // 1 get original + (3 sizes * 3 puts)
-    expect(send).toHaveBeenCalledTimes(10);
+    // 1 get original + 1 canonical put + (3 sizes * 3 puts)
+    expect(send).toHaveBeenCalledTimes(11);
     expect(mutateConvexSetImageProcessingResult).toHaveBeenCalledTimes(1);
     expect(detectEmbeddedImageRect).toHaveBeenCalledTimes(1);
     expect(analyzeBorderCrop).toHaveBeenCalledTimes(1);

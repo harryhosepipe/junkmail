@@ -15,7 +15,7 @@ import {
 import { env } from "../env.js";
 import { verifyOrbCandidates } from "../services/images/orbVerifier.js";
 import { publicObjectUrl, s3Client, storageBucket } from "../storage/client.js";
-import { ImageFormat, ImageSize, variantKey } from "../storage/paths.js";
+import { canonicalKey, ImageFormat, ImageSize, variantKey } from "../storage/paths.js";
 import { extractStorageObjectKey } from "../storage/publicUrls.js";
 import { computeImageFingerprint, hammingDistanceHex } from "../services/images/perceptualHash.js";
 import {
@@ -45,6 +45,7 @@ const sizes: Record<ImageSize, number> = {
   full: 1600,
 };
 const MAX_CROP_PASSES = 3;
+const CANONICAL_MAX_DIM = 1536;
 
 export const toBuffer = async (body: unknown) => {
   if (!body || typeof body !== "object") {
@@ -68,6 +69,7 @@ type ImageProcessorDeps = {
     imageId: string;
     status: string;
     variantUrls?: unknown;
+    storageKeyCanonical?: string;
     updatedAt?: number;
     publishedAt?: number;
   }) => Promise<unknown>;
@@ -625,6 +627,22 @@ export const processImageJob = async (
   }
 
   const variantUrls: Record<string, Record<string, unknown>> = {};
+  const canonicalResized = sharp(workingBuffer).resize({
+    width: CANONICAL_MAX_DIM,
+    height: CANONICAL_MAX_DIM,
+    fit: "inside",
+    withoutEnlargement: true,
+  });
+  const canonicalBuffer = await canonicalResized.clone().webp({ quality: 90 }).toBuffer();
+  const canonicalStorageKey = canonicalKey(imageId);
+  await deps.s3Client.send(
+    new PutObjectCommand({
+      Bucket: deps.storageBucket,
+      Key: canonicalStorageKey,
+      Body: canonicalBuffer,
+      ContentType: "image/webp",
+    }),
+  );
 
   // Generate three display sizes and three formats per size so web clients can
   // choose the best format they support without extra server branching.
@@ -690,6 +708,7 @@ export const processImageJob = async (
     imageId,
     status: "public",
     variantUrls,
+    storageKeyCanonical: canonicalStorageKey,
     updatedAt: Date.now(),
     publishedAt: Date.now(),
   });

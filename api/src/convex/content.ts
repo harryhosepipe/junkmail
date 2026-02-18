@@ -98,6 +98,9 @@ const setImageProcessingResultRef = makeFunctionReference<
     imageId: string;
     status: string;
     variantUrls?: unknown;
+    storageKeyCanonical?: string;
+    width?: number;
+    height?: number;
     updatedAt?: number;
     publishedAt?: number;
   },
@@ -315,6 +318,9 @@ export const mutateConvexSetImageProcessingResult = async (args: {
   imageId: string;
   status: string;
   variantUrls?: unknown;
+  storageKeyCanonical?: string;
+  width?: number;
+  height?: number;
   updatedAt?: number;
   publishedAt?: number;
 }) => {
