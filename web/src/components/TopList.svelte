@@ -86,6 +86,7 @@
       { limit: 20, minComparisons },
       (rows) => {
         items = mergeToplist(Array.isArray(rows) ? rows : []);
+        connection = "live";
         realtimeUnavailable = false;
         state = "ready";
       },
