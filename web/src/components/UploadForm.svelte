@@ -148,6 +148,12 @@
     }
   };
 
+  const fetchImageDetail = async (imageId) => {
+    const response = await fetch(`${apiBaseUrl}/api/v1/images/${imageId}`);
+    if (!response.ok) return null;
+    return response.json();
+  };
+
   const pollImage = async (imageId, meta) => {
     const maxAttempts = 40;
     const interval = 3000;
@@ -193,6 +199,124 @@
     tick();
   };
 
+  const pollUploadStatus = async (uploadId, imageId, meta) => {
+    const maxAttempts = 40;
+    const interval = 3000;
+    let attempts = 0;
+
+    const tick = async () => {
+      attempts += 1;
+      try {
+        const response = await fetch(`${apiBaseUrl}/api/v1/uploads/${uploadId}/status`, {
+          credentials: "include",
+        });
+        if (!response.ok) throw new Error("status fetch failed");
+
+        const payload = await response.json();
+        if (payload?.status === "rejected") {
+          let matched = null;
+          if (payload?.matchedImageId) {
+            const detail = await fetchImageDetail(payload.matchedImageId);
+            if (detail) {
+              matched = {
+                id: detail.id,
+                status: detail.status,
+                originalUrl:
+                  detail?.variantUrls?.feed?.webp ||
+                  detail?.variantUrls?.feed?.jpg ||
+                  detail?.variantUrls?.feed?.png ||
+                  detail?.originalUrl ||
+                  "",
+                title: detail.title || null,
+                createdAt: detail.createdAt || null,
+                uploaderAlias: detail.uploaderAlias || null,
+              };
+            }
+          }
+          openDuplicateModal({
+            duplicateType: "near",
+            existing: matched || {
+              id: payload?.matchedImageId || null,
+              status: "rejected",
+              originalUrl: "",
+              title: null,
+              createdAt: null,
+              uploaderAlias: null,
+            },
+            error: {
+              message:
+                payload?.rejectReason ||
+                "Upload rejected because this image already exists in the library.",
+            },
+          });
+          setStatus("Duplicate detected and blocked.", "error");
+          return;
+        }
+
+        if (payload?.status === "public") {
+          await pollImage(imageId, meta);
+          return;
+        }
+
+        if (attempts < maxAttempts) {
+          setStatus("Processing image...", "info");
+          setTimeout(tick, interval);
+        } else {
+          setStatus("Still processing. Check back soon.", "info");
+        }
+      } catch (_err) {
+        if (attempts < maxAttempts) {
+          setTimeout(tick, interval);
+        } else {
+          setStatus("Could not confirm processing status.", "error");
+        }
+      }
+    };
+
+    tick();
+  };
+
+  const uploadLegacy = async ({ currentTitle, currentDescription }) => {
+    const formData = new FormData();
+    if (currentTitle) formData.append("title", currentTitle);
+    if (currentDescription) formData.append("description", currentDescription);
+    formData.append("file", file);
+
+    const response = await fetch(`${apiBaseUrl}/api/v1/images`, {
+      method: "POST",
+      body: formData,
+      credentials: "include",
+    });
+
+    if (response.status === 401 || response.status === 403) {
+      setStatus("Session expired. Request a new link.", "error");
+      authState = "guest";
+      return;
+    }
+
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      if (response.status === 409 && data?.duplicate && data?.duplicateType === "near") {
+        openDuplicateModal(data);
+        setStatus("Near-duplicate blocked.", "error");
+        return;
+      }
+      setStatus(data?.error?.message || "Upload failed.", "error");
+      return;
+    }
+
+    const imageId = data?.id;
+    if (data?.duplicate) {
+      openDuplicateModal(data);
+      setStatus("Duplicate detected. Showing existing item details.", "info");
+    } else {
+      setStatus("Upload received. Processing image...", "success");
+    }
+    if (imageId) {
+      pollImage(imageId, { title: currentTitle, description: currentDescription });
+    }
+  };
+
   const handleUpload = async () => {
     if (!file) {
       setStatus("Select a file first.", "error");
@@ -218,43 +342,70 @@
     setStatus("Uploading...", "info");
 
     try {
-      const formData = new FormData();
-      if (title.trim()) formData.append("title", title.trim());
-      if (description.trim()) formData.append("description", description.trim());
-      formData.append("file", file);
-
-      const response = await fetch(`${apiBaseUrl}/api/v1/images`, {
+      const currentTitle = title.trim();
+      const currentDescription = description.trim();
+      const initResponse = await fetch(`${apiBaseUrl}/api/v1/uploads/init`, {
         method: "POST",
-        body: formData,
+        headers: { "Content-Type": "application/json" },
         credentials: "include",
+        body: JSON.stringify({
+          title: currentTitle || undefined,
+          description: currentDescription || undefined,
+          mime: fileType || undefined,
+          size: file.size,
+          filename: file.name || undefined,
+        }),
       });
 
-      if (response.status === 401 || response.status === 403) {
-        setStatus("Session expired. Request a new link.", "error");
-        authState = "guest";
-        return;
-      }
-
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        if (response.status === 409 && data?.duplicate && data?.duplicateType === "near") {
-          openDuplicateModal(data);
-          setStatus("Near-duplicate blocked.", "error");
+      if (initResponse.status === 404 || initResponse.status === 405) {
+        await uploadLegacy({ currentTitle, currentDescription });
+      } else {
+        if (initResponse.status === 401 || initResponse.status === 403) {
+          setStatus("Session expired. Request a new link.", "error");
+          authState = "guest";
           return;
         }
-        setStatus(data?.error?.message || "Upload failed.", "error");
-        return;
-      }
+        if (!initResponse.ok) {
+          const errorData = await initResponse.json().catch(() => ({}));
+          setStatus(errorData?.error?.message || "Could not initialize upload.", "error");
+          return;
+        }
 
-      const imageId = data?.id;
-      if (data?.duplicate) {
-        openDuplicateModal(data);
-        setStatus("Duplicate detected. Showing existing item details.", "info");
-      } else {
+        const initData = await initResponse.json();
+        const uploadId = initData?.uploadId;
+        const imageId = initData?.imageId;
+        if (!uploadId || !imageId) {
+          setStatus("Upload initialization response was invalid.", "error");
+          return;
+        }
+
+        const completeForm = new FormData();
+        completeForm.append("uploadId", uploadId);
+        if (currentTitle) completeForm.append("title", currentTitle);
+        if (currentDescription) completeForm.append("description", currentDescription);
+        completeForm.append("file", file);
+
+        const completeResponse = await fetch(`${apiBaseUrl}/api/v1/uploads/complete`, {
+          method: "POST",
+          body: completeForm,
+          credentials: "include",
+        });
+        if (completeResponse.status === 401 || completeResponse.status === 403) {
+          setStatus("Session expired. Request a new link.", "error");
+          authState = "guest";
+          return;
+        }
+        if (!completeResponse.ok) {
+          const errorData = await completeResponse.json().catch(() => ({}));
+          setStatus(errorData?.error?.message || "Upload failed.", "error");
+          return;
+        }
+
         setStatus("Upload received. Processing image...", "success");
-      }
-      if (imageId) {
-        pollImage(imageId, { title: title.trim(), description: description.trim() });
+        pollUploadStatus(uploadId, imageId, {
+          title: currentTitle,
+          description: currentDescription,
+        });
       }
 
       title = "";
