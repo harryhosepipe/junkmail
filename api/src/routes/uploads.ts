@@ -19,7 +19,6 @@ const uploadsRouter = new Hono();
 
 uploadsRouter.post("/init", requireUploader, async (c) => {
   const body = await c.req.json().catch(() => ({}));
-  const title = typeof body?.title === "string" ? body.title.trim() : "";
   const description = typeof body?.description === "string" ? body.description.trim() : "";
   const mime = typeof body?.mime === "string" ? body.mime.trim() : "";
 
@@ -30,7 +29,6 @@ uploadsRouter.post("/init", requireUploader, async (c) => {
     imageId,
     uploadId,
     uploaderAuthUserId: authUser.id,
-    title: title || undefined,
     description: description || undefined,
     mime: mime || undefined,
     createdAt: Date.now(),
@@ -44,7 +42,7 @@ uploadsRouter.post("/init", requireUploader, async (c) => {
     upload: {
       mode: "multipart_complete",
       completeEndpoint: "/api/v1/uploads/complete",
-      fields: ["uploadId", "file", "title", "description"],
+      fields: ["uploadId", "file", "description"],
     },
   });
 });
@@ -77,7 +75,6 @@ uploadsRouter.post("/complete", requireUploader, async (c) => {
     return c.json({ error: { message: uploadCheck.message } }, uploadCheck.status as any);
   }
 
-  const title = typeof body.title === "string" ? body.title.trim() : pending.title || "";
   const description =
     typeof body.description === "string" ? body.description.trim() : pending.description || "";
 
@@ -99,9 +96,9 @@ uploadsRouter.post("/complete", requireUploader, async (c) => {
     imageId: pending.imageId,
     uploadId,
     uploaderAuthUserId: pending.uploaderAuthUserId,
-    title: title || undefined,
     description: description || undefined,
     status: "processing",
+    classificationStatus: "pending",
     uploadHash,
     originalUrl,
     storageKeyOriginal: key,
@@ -147,6 +144,9 @@ uploadsRouter.get("/:id/status", requireUploader, async (c) => {
     uploadId,
     imageId: row.imageId,
     status: row.status,
+    category: row.category ?? null,
+    classificationStatus: row.classificationStatus ?? null,
+    classificationError: row.classificationError ?? null,
     rejectReason: row.rejectReason ?? null,
     matchedImageId: row.matchedImageId ?? null,
     dedupeScores: row.dedupeScores ?? null,

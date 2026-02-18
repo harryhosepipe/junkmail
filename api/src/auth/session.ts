@@ -77,7 +77,26 @@ export const requireUploader = async (c: Context, next: Next) => {
     return c.json({ error: { message: "Unauthorized" } }, 401);
   }
 
-  if (user.role !== "uploader") {
+  if (user.role !== "uploader" && user.role !== "admin") {
+    return c.json({ error: { message: "Forbidden" } }, 403);
+  }
+
+  c.set("authUser", user);
+  return next();
+};
+
+export const requireAdmin = async (c: Context, next: Next) => {
+  const csrfError = ensureSameOrigin(c);
+  if (csrfError) {
+    return csrfError;
+  }
+
+  const user = await getSessionUser(c);
+  if (!user) {
+    return c.json({ error: { message: "Unauthorized" } }, 401);
+  }
+
+  if (user.role !== "admin") {
     return c.json({ error: { message: "Forbidden" } }, 403);
   }
 

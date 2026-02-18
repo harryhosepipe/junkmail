@@ -98,6 +98,11 @@ export default defineSchema({
     rejectReason: v.optional(v.string()),
     matchedImageId: v.optional(v.string()),
     dedupeScores: v.optional(v.any()),
+    category: v.optional(v.string()),
+    classificationStatus: v.optional(v.string()),
+    classificationError: v.optional(v.string()),
+    classificationModel: v.optional(v.string()),
+    classifiedAt: v.optional(v.number()),
     variantUrls: v.optional(v.any()),
     createdAt: v.number(),
     updatedAt: v.number(),
@@ -109,6 +114,8 @@ export default defineSchema({
     .index("by_perceptual_hash_anchor", ["perceptualHashAnchor"])
     .index("by_status", ["status"])
     .index("by_status_created_at", ["status", "createdAt"])
+    .index("by_category", ["category"])
+    .index("by_classification_status", ["classificationStatus"])
     .index("by_uploader_created_at", ["uploaderAuthUserId", "createdAt"]),
   imageFingerprints: defineTable({
     imageId: v.string(),

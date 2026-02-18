@@ -22,6 +22,7 @@ const mutateConvexProjectVoteEvent = vi.hoisted(() => vi.fn());
 const queueAdd = vi.hoisted(() => vi.fn());
 const redisIncr = vi.hoisted(() => vi.fn());
 const redisExpire = vi.hoisted(() => vi.fn());
+const redisTtl = vi.hoisted(() => vi.fn());
 
 vi.mock("../auth/csrf.js", () => ({
   ensureSameOrigin,
@@ -35,6 +36,7 @@ vi.mock("../queue/connection.js", () => ({
   redis: {
     incr: redisIncr,
     expire: redisExpire,
+    ttl: redisTtl,
   },
 }));
 
@@ -76,6 +78,7 @@ describe("votes route", () => {
     getSessionUser.mockImplementation(async () => state.sessionUser);
     redisIncr.mockImplementation(async () => state.rateLimitCount);
     redisExpire.mockResolvedValue(1);
+    redisTtl.mockResolvedValue(42);
     queryConvexPublicImagesByIds.mockImplementation(async () => state.imageRows);
     mutateConvexValidateAndConsumeMatchupToken.mockImplementation(async () => state.validation);
     mutateConvexCreateVoteEvent.mockResolvedValue({ ok: true, alreadyExists: false });
@@ -290,5 +293,31 @@ describe("votes route", () => {
     expect(replayCount).toBe(1);
     expect(queueAdd).toHaveBeenCalledTimes(1);
     expect(mutateConvexCreateVoteEvent).toHaveBeenCalledTimes(2);
+  });
+
+  it("returns retry details when rate limited", async () => {
+    state.rateLimitCount = 999;
+
+    const app = createTestApp();
+    const response = await app.request("http://localhost/api/v1/votes", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        cookie: "jm_voter=voter-limited",
+      },
+      body: JSON.stringify({
+        image_a_id: "img-a",
+        image_b_id: "img-b",
+        winner_id: "img-a",
+        matchup_token: "token-limited",
+      }),
+    });
+
+    expect(response.status).toBe(429);
+    expect(response.headers.get("retry-after")).toBe("42");
+    const body = await response.json();
+    expect(body?.error?.code).toBe("rate_limited");
+    expect(body?.error?.retryAfterSeconds).toBe(42);
+    expect(body?.error?.message).toContain("try again in 42s");
   });
 });

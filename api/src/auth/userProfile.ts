@@ -40,7 +40,7 @@ export const resolveAuthUserProfileById = async (authUserId: string) => {
 export const resolveInvitedUploaderByEmail = async (email: string) => {
   const emailLower = email.toLowerCase();
   const convex = await queryConvexUserProfileByEmail(emailLower);
-  if (convex?.role !== "uploader") {
+  if (convex?.role !== "uploader" && convex?.role !== "admin") {
     return null;
   }
   return mapConvexProfile(convex);

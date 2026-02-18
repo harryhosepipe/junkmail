@@ -124,6 +124,11 @@ export const EnvSchema = z.object({
   IMAGE_DEDUPE_ORB_MIN_MATCHES: NumFromString.optional(),
   IMAGE_DEDUPE_ORB_FORCE_ALL_CANDIDATES: BoolFromString.optional(),
   IMAGE_DEDUPE_ORB_FORCE_MAX_CANDIDATES: NumFromString.optional(),
+  IMAGE_CLASSIFICATION_ENABLED: BoolFromString.optional(),
+  IMAGE_CLASSIFICATION_TIMEOUT_MS: NumFromString.optional(),
+  IMAGE_CLASSIFICATION_MAX_RETRIES: NumFromString.optional(),
+  OPENAI_API_KEY: z.string().optional(),
+  OPENAI_MODEL_VISION: z.string().optional(),
 
   // Telegram ingest (optional)
   TELEGRAM_BOT_TOKEN: z.string().optional(),

@@ -158,8 +158,9 @@
       }),
     });
 
+    const payload = await response.json().catch(() => ({}));
     if (!response.ok) {
-      throw new Error("Vote failed. Please try again.");
+      throw new Error(payload?.error?.message || "Vote failed. Please try again.");
     }
   };
 
@@ -505,7 +506,7 @@
     padding: 8px 16px;
     border-radius: 999px;
     border: 1px solid var(--border);
-    background: #fffdf9;
+    background: #1f2436;
     font-weight: 600;
     cursor: pointer;
   }
@@ -519,7 +520,7 @@
     text-align: left;
     cursor: pointer;
     border: 1px solid var(--border);
-    background: #fffcf7;
+    background: #23293d;
     color: inherit;
     font-family: inherit;
     transition:
@@ -570,7 +571,7 @@
     aspect-ratio: 4 / 3;
     border-radius: 12px;
     border: 1px solid var(--border);
-    background: #fffdf9;
+    background: #1f2436;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -659,7 +660,7 @@
   }
 
   .skeleton {
-    background: linear-gradient(120deg, #f1e8db 0%, #fff4e8 50%, #f1e8db 100%);
+    background: linear-gradient(120deg, #2a3148 0%, #2d3550 50%, #2a3148 100%);
     background-size: 200% 100%;
     animation: shimmer 1.4s ease infinite;
   }

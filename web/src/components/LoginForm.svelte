@@ -102,7 +102,7 @@
     padding: 12px 14px;
     border-radius: 12px;
     border: 1px solid var(--border);
-    background: #fffdf9;
+    background: #1f2436;
     font-size: 16px;
     color: var(--bg-ink);
   }

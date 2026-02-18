@@ -1,7 +1,6 @@
 <script>
   import { onDestroy, onMount } from "svelte";
   import { convex, realtimeEnabled } from "../lib/convex";
-  import ImageDetailModal from "./ImageDetailModal.svelte";
 
   export let apiBaseUrl = "";
 
@@ -9,9 +8,6 @@
   let state = "loading";
   let connection = "connecting";
   const minComparisons = 0;
-  let modalOpen = false;
-  let modalImageId = "";
-  let modalPushedHistory = false;
 
   let unsubscribeToplist = null;
   let unsubscribeConnection = null;
@@ -103,65 +99,8 @@
     );
   };
 
-  const openImageModal = (id) => {
-    if (!id) return;
-    modalImageId = id;
-    modalOpen = true;
-
-    if (typeof window === "undefined") return;
-    const modalPath = `/image/${id}`;
-    if (window.location.pathname !== modalPath) {
-      window.history.pushState({ jmModal: true }, "", modalPath);
-      modalPushedHistory = true;
-    } else {
-      modalPushedHistory = false;
-    }
-  };
-
-  const handleCardClick = (event, id) => {
-    if (
-      event.defaultPrevented ||
-      event.button !== 0 ||
-      event.metaKey ||
-      event.ctrlKey ||
-      event.shiftKey ||
-      event.altKey
-    ) {
-      return;
-    }
-    event.preventDefault();
-    openImageModal(id);
-  };
-
-  const closeImageModal = () => {
-    if (typeof window !== "undefined" && modalPushedHistory) {
-      modalPushedHistory = false;
-      window.history.back();
-      return;
-    }
-    modalOpen = false;
-    modalImageId = "";
-  };
-
-  const handlePopstate = () => {
-    if (typeof window === "undefined") return;
-    const match = window.location.pathname.match(/^\/image\/([^/]+)$/);
-    if (match) {
-      modalImageId = match[1];
-      modalOpen = true;
-      modalPushedHistory = true;
-      return;
-    }
-    modalOpen = false;
-    modalImageId = "";
-    modalPushedHistory = false;
-  };
-
   onMount(async () => {
     state = "loading";
-    if (typeof window !== "undefined") {
-      window.addEventListener("popstate", handlePopstate);
-    }
 
     if (convex && realtimeEnabled) {
       unsubscribeConnection = convex.subscribeToConnectionState((next) => {
@@ -200,9 +139,6 @@
     if (unsubscribeConnection) {
       unsubscribeConnection();
       unsubscribeConnection = null;
-    }
-    if (typeof window !== "undefined") {
-      window.removeEventListener("popstate", handlePopstate);
     }
   });
 
@@ -244,11 +180,7 @@
   {/if}
   <div class="toplist">
     {#each items as item, index}
-      <a
-        class="top-row"
-        href={`/image/${item.id}`}
-        on:click={(event) => handleCardClick(event, item.id)}
-      >
+      <a class="top-row" href={`/image/${item.id}`}>
         <div class="top-rank">#{index + 1}</div>
         <div class="top-thumb">
           {#if item.thumb_url}
@@ -270,7 +202,6 @@
     {/each}
   </div>
 {/if}
-<ImageDetailModal {apiBaseUrl} imageId={modalImageId} open={modalOpen} on:close={closeImageModal} />
 
 <style>
   .toplist-header {
@@ -308,7 +239,7 @@
     padding: 12px 16px;
     border-radius: 16px;
     border: 1px solid var(--border);
-    background: #fffcf7;
+    background: #23293d;
     color: inherit;
     text-decoration: none;
     box-shadow: var(--shadow);
@@ -333,7 +264,7 @@
     aspect-ratio: 4 / 3;
     border-radius: 12px;
     border: 1px solid var(--border);
-    background: #fffdf9;
+    background: #1f2436;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -376,7 +307,7 @@
   }
 
   .skeleton {
-    background: linear-gradient(120deg, #f1e8db 0%, #fff4e8 50%, #f1e8db 100%);
+    background: linear-gradient(120deg, #2a3148 0%, #2d3550 50%, #2a3148 100%);
     background-size: 200% 100%;
     animation: shimmer 1.4s ease infinite;
   }
@@ -384,7 +315,7 @@
   .skeleton-line {
     height: 14px;
     border-radius: 999px;
-    background: linear-gradient(120deg, #f1e8db 0%, #fff4e8 50%, #f1e8db 100%);
+    background: linear-gradient(120deg, #2a3148 0%, #2d3550 50%, #2a3148 100%);
     background-size: 200% 100%;
     animation: shimmer 1.4s ease infinite;
   }

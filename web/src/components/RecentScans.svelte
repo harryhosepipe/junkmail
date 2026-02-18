@@ -76,7 +76,7 @@
     padding: 16px;
     border-radius: 16px;
     border: 1px solid var(--border);
-    background: #fffcf7;
+    background: #23293d;
     color: inherit;
     text-decoration: none;
     box-shadow: var(--shadow);
@@ -95,7 +95,7 @@
     aspect-ratio: 4 / 3;
     border-radius: 12px;
     overflow: hidden;
-    background: #fffdf9;
+    background: #1f2436;
     border: 1px solid var(--border);
     display: flex;
     align-items: center;
@@ -109,7 +109,7 @@
     height: auto;
     object-fit: contain;
     object-position: center;
-    background: #fffdf9;
+    background: #1f2436;
   }
 
   .scan-placeholder {
@@ -127,7 +127,7 @@
   }
 
   .skeleton {
-    background: linear-gradient(120deg, #f1e8db 0%, #fff4e8 50%, #f1e8db 100%);
+    background: linear-gradient(120deg, #2a3148 0%, #2d3550 50%, #2a3148 100%);
     background-size: 200% 100%;
     animation: shimmer 1.4s ease infinite;
   }
@@ -135,7 +135,7 @@
   .skeleton-line {
     height: 14px;
     border-radius: 999px;
-    background: linear-gradient(120deg, #f1e8db 0%, #fff4e8 50%, #f1e8db 100%);
+    background: linear-gradient(120deg, #2a3148 0%, #2d3550 50%, #2a3148 100%);
     background-size: 200% 100%;
     animation: shimmer 1.4s ease infinite;
   }

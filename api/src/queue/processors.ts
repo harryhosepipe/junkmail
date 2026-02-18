@@ -3,6 +3,9 @@ import { createHash } from "crypto";
 import sharp from "sharp";
 import {
   mutateConvexCreateDedupeEvent,
+  mutateConvexSetImageClassificationFailed,
+  mutateConvexSetImageClassificationPending,
+  mutateConvexSetImageClassificationResult,
   mutateConvexMarkImageRejected,
   mutateConvexProjectVoteEvent,
   mutateConvexSetImageProcessingResult,
@@ -14,6 +17,12 @@ import {
 } from "../convex/client.js";
 import { env } from "../env.js";
 import { verifyOrbCandidates } from "../services/images/orbVerifier.js";
+import {
+  classifyImageByUrl,
+  isClassificationEnabled,
+  sanitizeClassificationError,
+  type ImageCategory,
+} from "../services/images/classification.js";
 import { publicObjectUrl, s3Client, storageBucket } from "../storage/client.js";
 import { canonicalKey, ImageFormat, ImageSize, variantKey } from "../storage/paths.js";
 import { extractStorageObjectKey } from "../storage/publicUrls.js";
@@ -24,6 +33,7 @@ import {
   applyCropBox,
   detectEmbeddedImageRect,
 } from "./borderCrop.js";
+import { imageClassificationQueue } from "./index.js";
 
 export type ImageProcessJobData = {
   imageId: string;
@@ -37,6 +47,11 @@ export type ImageProcessJobData = {
 export type VoteProcessJobData = {
   voteEventId: string;
   createdAt: number;
+};
+
+export type ImageClassificationJobData = {
+  imageId: string;
+  imageUrl: string;
 };
 
 const sizes: Record<ImageSize, number> = {
@@ -110,6 +125,7 @@ type ImageProcessorDeps = {
     createdAt?: number;
   }) => Promise<unknown>;
   queryConvexImageById?: (imageId: string) => Promise<any | null>;
+  enqueueClassificationJob?: (data: ImageClassificationJobData) => Promise<unknown>;
 };
 
 const defaultImageDeps: ImageProcessorDeps = {
@@ -125,6 +141,7 @@ const defaultImageDeps: ImageProcessorDeps = {
   queryConvexRecentImageFingerprints,
   mutateConvexUpsertImageFingerprint,
   queryConvexImageById,
+  enqueueClassificationJob: (data) => imageClassificationQueue.add("classify", data),
 };
 
 const DEDUPE_WORKER_VERSION = "dedupe-v2-node-1";
@@ -415,7 +432,11 @@ export const processImageJob = async (
         candidateMap.set(candidate.imageId, candidate);
       }
     }
-    if (orbEnabled && orbVerifierUrl && typeof deps.queryConvexRecentImageFingerprints === "function") {
+    if (
+      orbEnabled &&
+      orbVerifierUrl &&
+      typeof deps.queryConvexRecentImageFingerprints === "function"
+    ) {
       const needsFallbackPool = orbForceAllCandidates || candidateMap.size < 25;
       if (needsFallbackPool) {
         const fallbackLimit = orbForceAllCandidates
@@ -457,37 +478,37 @@ export const processImageJob = async (
                 : 25,
             )
             .map(async (entry) => {
-            const row = await deps.queryConvexImageById!(entry.imageId);
-            const fallbackUrl =
-              row?.variantUrls?.full?.webp ||
-              row?.variantUrls?.full?.jpg ||
-              row?.variantUrls?.full?.png ||
-              row?.originalUrl ||
-              "";
-            const storageKey =
-              row?.storageKeyCanonical ||
-              extractStorageObjectKey(fallbackUrl) ||
-              extractStorageObjectKey(row?.originalUrl || "");
+              const row = await deps.queryConvexImageById!(entry.imageId);
+              const fallbackUrl =
+                row?.variantUrls?.full?.webp ||
+                row?.variantUrls?.full?.jpg ||
+                row?.variantUrls?.full?.png ||
+                row?.originalUrl ||
+                "";
+              const storageKey =
+                row?.storageKeyCanonical ||
+                extractStorageObjectKey(fallbackUrl) ||
+                extractStorageObjectKey(row?.originalUrl || "");
 
-            if (storageKey) {
-              try {
-                const candidateObject = await deps.s3Client.send(
-                  new GetObjectCommand({
-                    Bucket: deps.storageBucket,
-                    Key: storageKey,
-                  }),
-                );
-                const bytes = await toBuffer(candidateObject.Body);
-                return {
-                  imageId: entry.imageId,
-                  imageBase64: bytes.toString("base64"),
-                };
-              } catch {
-                // Fall through to URL-based candidate.
+              if (storageKey) {
+                try {
+                  const candidateObject = await deps.s3Client.send(
+                    new GetObjectCommand({
+                      Bucket: deps.storageBucket,
+                      Key: storageKey,
+                    }),
+                  );
+                  const bytes = await toBuffer(candidateObject.Body);
+                  return {
+                    imageId: entry.imageId,
+                    imageBase64: bytes.toString("base64"),
+                  };
+                } catch {
+                  // Fall through to URL-based candidate.
+                }
               }
-            }
 
-            return fallbackUrl ? { imageId: entry.imageId, url: fallbackUrl } : null;
+              return fallbackUrl ? { imageId: entry.imageId, url: fallbackUrl } : null;
             }),
         );
         const orbCandidates = candidateRows.filter((item) =>
@@ -712,14 +733,56 @@ export const processImageJob = async (
     updatedAt: Date.now(),
     publishedAt: Date.now(),
   });
+
+  if (isClassificationEnabled() && typeof deps.enqueueClassificationJob === "function") {
+    const canonicalUrl = deps.publicObjectUrl(canonicalStorageKey);
+    await deps.enqueueClassificationJob({
+      imageId,
+      imageUrl: canonicalUrl,
+    });
+  }
 };
 
 type VoteProcessorDeps = {
   mutateConvexProjectVoteEvent: (args: { voteEventId: string; now?: number }) => Promise<unknown>;
 };
 
+type ClassificationProcessorDeps = {
+  mutateConvexSetImageClassificationPending: (args: {
+    imageId: string;
+    model?: string;
+    updatedAt?: number;
+  }) => Promise<unknown>;
+  mutateConvexSetImageClassificationResult: (args: {
+    imageId: string;
+    title: string;
+    category: ImageCategory;
+    model?: string;
+    classifiedAt?: number;
+    updatedAt?: number;
+  }) => Promise<unknown>;
+  mutateConvexSetImageClassificationFailed: (args: {
+    imageId: string;
+    error: string;
+    model?: string;
+    updatedAt?: number;
+  }) => Promise<unknown>;
+  classifyImageByUrl: (imageUrl: string) => Promise<{
+    title: string;
+    category: ImageCategory;
+    model: string;
+  }>;
+};
+
 const defaultVoteDeps: VoteProcessorDeps = {
   mutateConvexProjectVoteEvent,
+};
+
+const defaultClassificationDeps: ClassificationProcessorDeps = {
+  mutateConvexSetImageClassificationPending,
+  mutateConvexSetImageClassificationResult,
+  mutateConvexSetImageClassificationFailed,
+  classifyImageByUrl,
 };
 
 export const processVoteJob = async (
@@ -730,4 +793,36 @@ export const processVoteJob = async (
     voteEventId: data.voteEventId,
     now: data.createdAt,
   });
+};
+
+export const processImageClassificationJob = async (
+  data: ImageClassificationJobData,
+  deps: ClassificationProcessorDeps = defaultClassificationDeps,
+) => {
+  const now = Date.now();
+  await deps.mutateConvexSetImageClassificationPending({
+    imageId: data.imageId,
+    model: env.OPENAI_MODEL_VISION || "gpt-4o-mini",
+    updatedAt: now,
+  });
+
+  try {
+    const classified = await deps.classifyImageByUrl(data.imageUrl);
+    await deps.mutateConvexSetImageClassificationResult({
+      imageId: data.imageId,
+      title: classified.title,
+      category: classified.category,
+      model: classified.model,
+      classifiedAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+  } catch (error) {
+    await deps.mutateConvexSetImageClassificationFailed({
+      imageId: data.imageId,
+      error: sanitizeClassificationError(error),
+      model: env.OPENAI_MODEL_VISION || "gpt-4o-mini",
+      updatedAt: Date.now(),
+    });
+    throw error;
+  }
 };

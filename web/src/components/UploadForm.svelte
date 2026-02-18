@@ -7,7 +7,6 @@
   let authState = initialUser ? "authed" : "guest";
   let userEmail = initialUser?.email ?? "";
   let userRole = initialUser?.role ?? "";
-  let title = "";
   let description = "";
   let file = null;
   let fileInput = null;
@@ -172,7 +171,7 @@
           const imageUrl = variant.webp || variant.jpg || variant.png || data.originalUrl;
           if (imageUrl) {
             previewUrl = imageUrl;
-            previewTitle = data.title || meta.title || "Untitled";
+            previewTitle = data.title || "Untitled";
             previewDescription = data.description || meta.description || "";
             previewVisible = true;
             clearLocalPreview();
@@ -276,9 +275,8 @@
     tick();
   };
 
-  const uploadLegacy = async ({ currentTitle, currentDescription }) => {
+  const uploadLegacy = async ({ currentDescription }) => {
     const formData = new FormData();
-    if (currentTitle) formData.append("title", currentTitle);
     if (currentDescription) formData.append("description", currentDescription);
     formData.append("file", file);
 
@@ -313,7 +311,7 @@
       setStatus("Upload received. Processing image...", "success");
     }
     if (imageId) {
-      pollImage(imageId, { title: currentTitle, description: currentDescription });
+      pollImage(imageId, { description: currentDescription });
     }
   };
 
@@ -342,14 +340,12 @@
     setStatus("Uploading...", "info");
 
     try {
-      const currentTitle = title.trim();
       const currentDescription = description.trim();
       const initResponse = await fetch(`${apiBaseUrl}/api/v1/uploads/init`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({
-          title: currentTitle || undefined,
           description: currentDescription || undefined,
           mime: fileType || undefined,
           size: file.size,
@@ -358,7 +354,7 @@
       });
 
       if (initResponse.status === 404 || initResponse.status === 405) {
-        await uploadLegacy({ currentTitle, currentDescription });
+        await uploadLegacy({ currentDescription });
       } else {
         if (initResponse.status === 401 || initResponse.status === 403) {
           setStatus("Session expired. Request a new link.", "error");
@@ -381,7 +377,6 @@
 
         const completeForm = new FormData();
         completeForm.append("uploadId", uploadId);
-        if (currentTitle) completeForm.append("title", currentTitle);
         if (currentDescription) completeForm.append("description", currentDescription);
         completeForm.append("file", file);
 
@@ -403,12 +398,10 @@
 
         setStatus("Upload received. Processing image...", "success");
         pollUploadStatus(uploadId, imageId, {
-          title: currentTitle,
           description: currentDescription,
         });
       }
 
-      title = "";
       description = "";
       // Keep local preview visible while processing and only swap when public image is ready.
       releaseSelectedFile();
@@ -454,7 +447,7 @@
       displayPreviewLabel = "Public";
     } else if (localPreviewUrl) {
       displayPreviewUrl = localPreviewUrl;
-      displayPreviewTitle = title.trim() || localPreviewName || "Selected image";
+      displayPreviewTitle = localPreviewName || "Selected image";
       displayPreviewDescription = description.trim();
       displayPreviewLabel = "Local";
     } else {
@@ -474,7 +467,7 @@
 {:else}
   <div class="auth-state">
     <p class="subtle">{userEmail ? `Signed in as ${userEmail}` : "Signed in"}</p>
-    {#if userRole !== "uploader"}
+    {#if userRole !== "uploader" && userRole !== "admin"}
       <p class="subtle">Your account is signed in but does not have uploader access.</p>
     {:else}
       <div class="upload-layout">
@@ -517,16 +510,6 @@
             {/if}
           </div>
           {#if file}
-            <label class="field">
-              <span>Title</span>
-              <input
-                type="text"
-                name="title"
-                placeholder="e.g. Final notice envelope"
-                maxlength="120"
-                bind:value={title}
-              />
-            </label>
             <label class="field">
               <span>Description</span>
               <textarea
@@ -668,7 +651,7 @@
     border-radius: 14px;
     border: 1px solid var(--border);
     text-align: left;
-    background: #fffdf9;
+    background: #1f2436;
     cursor: pointer;
     color: var(--bg-ink);
     box-shadow: 0 10px 22px -18px rgba(212, 90, 60, 0.7);
@@ -706,7 +689,7 @@
     padding: 6px 10px;
     border-radius: 999px;
     border: 1px solid var(--border);
-    background: #fffcf7;
+    background: #23293d;
     font-size: 12px;
     color: var(--ink-muted);
     overflow: hidden;
@@ -724,7 +707,7 @@
   .file-remove {
     border: 1px solid var(--border);
     border-radius: 999px;
-    background: #fffdf9;
+    background: #1f2436;
     color: var(--ink-muted);
     font-size: 12px;
     font-weight: 600;
@@ -742,7 +725,7 @@
     padding: 12px 14px;
     border-radius: 12px;
     border: 1px solid var(--border);
-    background: #fffdf9;
+    background: #1f2436;
     font-size: 15px;
     color: var(--bg-ink);
     font-family: inherit;
@@ -765,7 +748,7 @@
     border: 1px solid var(--border);
     border-radius: 18px;
     padding: 18px;
-    background: #fffcf7;
+    background: #23293d;
     box-shadow: var(--shadow);
     display: grid;
     gap: 12px;
@@ -786,7 +769,7 @@
     padding: 4px 10px;
     border-radius: 999px;
     border: 1px solid var(--border);
-    background: #fffdf9;
+    background: #1f2436;
     text-transform: uppercase;
     letter-spacing: 0.12em;
   }
@@ -808,7 +791,7 @@
     border-radius: 16px;
     border: 1px solid var(--border);
     box-shadow: var(--shadow);
-    background: #fffdf9;
+    background: #1f2436;
     display: grid;
     place-items: center;
     overflow: hidden;
@@ -858,7 +841,7 @@
     width: min(560px, 100%);
     border-radius: 18px;
     border: 1px solid var(--border);
-    background: #fffdf9;
+    background: #1f2436;
     box-shadow: var(--shadow);
     padding: 18px;
     display: grid;
@@ -881,7 +864,7 @@
     object-fit: contain;
     border-radius: 12px;
     border: 1px solid var(--border);
-    background: #fff;
+    background: #1f2436;
   }
 
   .duplicate-meta {

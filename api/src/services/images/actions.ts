@@ -10,6 +10,7 @@ import {
 } from "../../storage/publicUrls.js";
 import {
   mutateConvexCreateImageComment,
+  mutateConvexDeleteImageGraph,
   mutateConvexSetImageStatus,
   mutateConvexUpsertImageContent,
   queryConvexImageById,
@@ -113,13 +114,12 @@ export const validateUpload = (upload: unknown) => {
 
 export const createImageUpload = async (args: {
   authUser: { id: string; email?: string; alias?: string };
-  title?: string;
   description?: string;
   upload: { arrayBuffer: () => Promise<ArrayBuffer> };
   type: string;
   ext: "jpg" | "png";
 }) => {
-  const { authUser, title, description, upload, type, ext } = args;
+  const { authUser, description, upload, type, ext } = args;
   const data = Buffer.from(await upload.arrayBuffer());
   const uploadHash = createHash("sha256").update(data).digest("hex");
 
@@ -178,9 +178,9 @@ export const createImageUpload = async (args: {
     uploadHash,
     perceptualHashAnchor: anchor,
     perceptualHashes: fingerprint,
-    title: title?.length ? title : undefined,
     description: description?.length ? description : undefined,
     status: "processing",
+    classificationStatus: "pending",
     originalUrl,
     variantUrls: {},
     createdAt: Date.now(),
@@ -230,6 +230,9 @@ export const loadImageDetail = async (imageId: string) => {
     status: row.status,
     title: row.title ?? null,
     description: row.description ?? null,
+    category: row.category ?? null,
+    classificationStatus: row.classificationStatus ?? null,
+    classificationError: row.classificationError ?? null,
     originalUrl: normalizePublicAssetUrl(row.originalUrl || ""),
     variantUrls: normalizePublicAssetData(row.variantUrls),
     createdAt: new Date(row.createdAt),
@@ -318,4 +321,49 @@ export const reprocessImage = async (imageId: string) => {
   );
 
   return { ok: true as const };
+};
+
+const collectStorageKeys = (value: unknown, out: Set<string>) => {
+  if (!value) return;
+  if (typeof value === "string") {
+    const key = extractStorageObjectKey(value);
+    if (key) out.add(key);
+    return;
+  }
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      collectStorageKeys(item, out);
+    }
+    return;
+  }
+  if (typeof value === "object") {
+    for (const entry of Object.values(value as Record<string, unknown>)) {
+      collectStorageKeys(entry, out);
+    }
+  }
+};
+
+export const deleteImage = async (imageId: string) => {
+  const image = await queryConvexImageById(imageId);
+  if (!image) {
+    return { ok: false as const, status: 404 as const, message: "Image not found" };
+  }
+
+  const storageKeys = new Set<string>();
+  if (image.storageKeyOriginal) storageKeys.add(image.storageKeyOriginal);
+  if (image.storageKeyCanonical) storageKeys.add(image.storageKeyCanonical);
+  if (image.originalUrl) collectStorageKeys(image.originalUrl, storageKeys);
+  if (image.variantUrls) collectStorageKeys(image.variantUrls, storageKeys);
+
+  const result = await mutateConvexDeleteImageGraph({ imageId });
+  if (!result?.ok || !result?.deleted) {
+    return { ok: false as const, status: 404 as const, message: "Image not found" };
+  }
+
+  return {
+    ok: true as const,
+    imageId,
+    storageKeys: [...storageKeys],
+    deletedCounts: result.deletedCounts ?? {},
+  };
 };

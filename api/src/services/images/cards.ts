@@ -15,6 +15,8 @@ export type ImageCard = {
   id: string;
   title: string | null;
   description: string | null;
+  category: string | null;
+  classificationStatus: string | null;
   status: string;
   originalUrl: string;
   variantUrls: unknown;
@@ -60,6 +62,8 @@ export const fetchRecentImages = async (limit: number) => {
       id: row.imageId,
       title: row.title ?? null,
       description: row.description ?? null,
+      category: row.category ?? null,
+      classificationStatus: row.classificationStatus ?? null,
       status: row.status,
       originalUrl: normalizePublicAssetUrl(row.originalUrl || ""),
       variantUrls: normalizePublicAssetData(row.variantUrls),
@@ -109,6 +113,8 @@ export const fetchTopCards = async (limit: number, minComparisons = TOPLIST_MIN_
         id: row.imageId,
         title: row.title ?? null,
         description: row.description ?? null,
+        category: row.category ?? null,
+        classificationStatus: row.classificationStatus ?? null,
         status: row.status,
         originalUrl: normalizePublicAssetUrl(row.originalUrl || ""),
         variantUrls: normalizePublicAssetData(row.variantUrls),

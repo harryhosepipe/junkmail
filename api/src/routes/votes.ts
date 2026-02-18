@@ -46,15 +46,29 @@ const allowedByRateLimit = async (hash: string, prefix: string) => {
     const sustainedKey = rateLimitKey(prefix, hash, RATE_LIMIT_SUSTAINED_WINDOW);
     const burstCount = await incrementWithTtl(burstKey, RATE_LIMIT_BURST_WINDOW);
     if (burstCount > RATE_LIMIT_BURST) {
-      return false;
+      const ttl = await redis.ttl(burstKey).catch(() => -1);
+      return {
+        allowed: false,
+        retryAfterSeconds: ttl > 0 ? ttl : RATE_LIMIT_BURST_WINDOW,
+      };
     }
     const sustainedCount = await incrementWithTtl(sustainedKey, RATE_LIMIT_SUSTAINED_WINDOW);
     if (sustainedCount > RATE_LIMIT_SUSTAINED) {
-      return false;
+      const ttl = await redis.ttl(sustainedKey).catch(() => -1);
+      return {
+        allowed: false,
+        retryAfterSeconds: ttl > 0 ? ttl : RATE_LIMIT_SUSTAINED_WINDOW,
+      };
     }
-    return true;
+    return {
+      allowed: true,
+      retryAfterSeconds: 0,
+    };
   } catch {
-    return true;
+    return {
+      allowed: true,
+      retryAfterSeconds: 0,
+    };
   }
 };
 
@@ -82,12 +96,19 @@ votesRouter.post("/", async (c) => {
 
   const allowedIp = await allowedByRateLimit(ipHash, "ip");
   const allowedVoter = await allowedByRateLimit(voterHash, "voter");
-  if (!allowedIp || !allowedVoter) {
+  if (!allowedIp.allowed || !allowedVoter.allowed) {
+    const retryAfterSeconds = Math.max(
+      allowedIp.retryAfterSeconds,
+      allowedVoter.retryAfterSeconds,
+      1,
+    );
+    c.header("Retry-After", String(retryAfterSeconds));
     return c.json(
       {
         error: {
-          message: "Too many votes. Slow down.",
+          message: `Too many votes. Slow down and try again in ${retryAfterSeconds}s.`,
           code: "rate_limited",
+          retryAfterSeconds,
         },
       },
       429,

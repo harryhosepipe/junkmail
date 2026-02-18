@@ -51,7 +51,7 @@
     padding: 8px 14px;
     border-radius: 999px;
     border: 1px solid var(--border);
-    background: #fffdf9;
+    background: #1f2436;
     font-weight: 600;
     cursor: pointer;
   }

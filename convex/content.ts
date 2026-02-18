@@ -25,6 +25,11 @@ export const createImage = mutation({
     rejectReason: v.optional(v.string()),
     matchedImageId: v.optional(v.string()),
     dedupeScores: v.optional(v.any()),
+    category: v.optional(v.string()),
+    classificationStatus: v.optional(v.string()),
+    classificationError: v.optional(v.string()),
+    classificationModel: v.optional(v.string()),
+    classifiedAt: v.optional(v.number()),
     originalUrl: v.optional(v.string()),
     originalStorageId: v.optional(v.string()),
     variantUrls: v.optional(v.any()),
@@ -60,6 +65,11 @@ export const createImage = mutation({
       rejectReason: normalizeText(args.rejectReason),
       matchedImageId: normalizeText(args.matchedImageId),
       dedupeScores: args.dedupeScores,
+      category: normalizeText(args.category),
+      classificationStatus: normalizeText(args.classificationStatus),
+      classificationError: normalizeText(args.classificationError),
+      classificationModel: normalizeText(args.classificationModel),
+      classifiedAt: args.classifiedAt,
       originalUrl: normalizeText(args.originalUrl),
       originalStorageId: normalizeText(args.originalStorageId),
       variantUrls: args.variantUrls,
@@ -91,6 +101,11 @@ export const upsertImage = mutation({
     rejectReason: v.optional(v.string()),
     matchedImageId: v.optional(v.string()),
     dedupeScores: v.optional(v.any()),
+    category: v.optional(v.string()),
+    classificationStatus: v.optional(v.string()),
+    classificationError: v.optional(v.string()),
+    classificationModel: v.optional(v.string()),
+    classifiedAt: v.optional(v.number()),
     originalUrl: v.optional(v.string()),
     originalStorageId: v.optional(v.string()),
     variantUrls: v.optional(v.any()),
@@ -122,6 +137,11 @@ export const upsertImage = mutation({
       rejectReason: normalizeText(args.rejectReason),
       matchedImageId: normalizeText(args.matchedImageId),
       dedupeScores: args.dedupeScores,
+      category: normalizeText(args.category),
+      classificationStatus: normalizeText(args.classificationStatus),
+      classificationError: normalizeText(args.classificationError),
+      classificationModel: normalizeText(args.classificationModel),
+      classifiedAt: args.classifiedAt,
       originalUrl: normalizeText(args.originalUrl),
       originalStorageId: normalizeText(args.originalStorageId),
       variantUrls: args.variantUrls,
@@ -189,6 +209,11 @@ export const getImageById = query({
       perceptualHashes: row.perceptualHashes,
       title: row.title,
       description: row.description,
+      category: row.category,
+      classificationStatus: row.classificationStatus,
+      classificationError: row.classificationError,
+      classificationModel: row.classificationModel,
+      classifiedAt: row.classifiedAt,
       status: row.status,
       storageKeyOriginal: row.storageKeyOriginal,
       storageKeyCanonical: row.storageKeyCanonical,
@@ -229,6 +254,11 @@ export const getImageByUploadHash = query({
       perceptualHashes: row.perceptualHashes,
       title: row.title,
       description: row.description,
+      category: row.category,
+      classificationStatus: row.classificationStatus,
+      classificationError: row.classificationError,
+      classificationModel: row.classificationModel,
+      classifiedAt: row.classifiedAt,
       status: row.status,
       storageKeyOriginal: row.storageKeyOriginal,
       storageKeyCanonical: row.storageKeyCanonical,
@@ -269,6 +299,11 @@ export const getImageByUploadId = query({
       perceptualHashes: row.perceptualHashes,
       title: row.title,
       description: row.description,
+      category: row.category,
+      classificationStatus: row.classificationStatus,
+      classificationError: row.classificationError,
+      classificationModel: row.classificationModel,
+      classifiedAt: row.classifiedAt,
       status: row.status,
       originalUrl: row.originalUrl,
       originalStorageId: row.originalStorageId,
@@ -293,7 +328,6 @@ export const createPendingImage = mutation({
     imageId: v.string(),
     uploadId: v.string(),
     uploaderAuthUserId: v.string(),
-    title: v.optional(v.string()),
     description: v.optional(v.string()),
     mime: v.optional(v.string()),
     createdAt: v.optional(v.number()),
@@ -313,9 +347,9 @@ export const createPendingImage = mutation({
       imageId: args.imageId,
       uploadId: normalizeText(args.uploadId),
       uploaderAuthUserId: args.uploaderAuthUserId,
-      title: normalizeText(args.title),
       description: normalizeText(args.description),
       status: "pending",
+      classificationStatus: "pending",
       mime: normalizeText(args.mime),
       createdAt: args.createdAt ?? now,
       updatedAt: now,
@@ -401,6 +435,11 @@ export const listImagesByPerceptualHashAnchor = query({
       perceptualHashes: row.perceptualHashes,
       title: row.title,
       description: row.description,
+      category: row.category,
+      classificationStatus: row.classificationStatus,
+      classificationError: row.classificationError,
+      classificationModel: row.classificationModel,
+      classifiedAt: row.classifiedAt,
       status: row.status,
       originalUrl: row.originalUrl,
       originalStorageId: row.originalStorageId,
@@ -524,6 +563,11 @@ export const listPublicImagesByIds = query({
         perceptualHashes: row.perceptualHashes,
         title: row.title,
         description: row.description,
+        category: row.category,
+        classificationStatus: row.classificationStatus,
+        classificationError: row.classificationError,
+        classificationModel: row.classificationModel,
+        classifiedAt: row.classifiedAt,
         status: row.status,
         originalUrl: row.originalUrl,
         variantUrls: row.variantUrls,
@@ -557,6 +601,11 @@ export const listUploaderImages = query({
       perceptualHashes: row.perceptualHashes,
       title: row.title,
       description: row.description,
+      category: row.category,
+      classificationStatus: row.classificationStatus,
+      classificationError: row.classificationError,
+      classificationModel: row.classificationModel,
+      classifiedAt: row.classifiedAt,
       status: row.status,
       originalUrl: row.originalUrl,
       variantUrls: row.variantUrls,
@@ -670,6 +719,160 @@ export const setImageProcessingResult = mutation({
     });
 
     return { ok: true };
+  },
+});
+
+export const setImageClassificationPending = mutation({
+  args: {
+    imageId: v.string(),
+    model: v.optional(v.string()),
+    updatedAt: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const existing = await ctx.db
+      .query("images")
+      .withIndex("by_image_id", (q) => q.eq("imageId", args.imageId))
+      .unique();
+    if (!existing) {
+      throw new Error(`Image not found for imageId=${args.imageId}`);
+    }
+
+    await ctx.db.patch(existing._id, {
+      classificationStatus: "pending",
+      classificationError: undefined,
+      classificationModel: normalizeText(args.model),
+      updatedAt: args.updatedAt ?? Date.now(),
+    });
+
+    return { ok: true };
+  },
+});
+
+export const setImageClassificationResult = mutation({
+  args: {
+    imageId: v.string(),
+    title: v.string(),
+    category: v.string(),
+    model: v.optional(v.string()),
+    classifiedAt: v.optional(v.number()),
+    updatedAt: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const existing = await ctx.db
+      .query("images")
+      .withIndex("by_image_id", (q) => q.eq("imageId", args.imageId))
+      .unique();
+    if (!existing) {
+      throw new Error(`Image not found for imageId=${args.imageId}`);
+    }
+
+    const now = args.updatedAt ?? Date.now();
+    await ctx.db.patch(existing._id, {
+      title: normalizeText(args.title),
+      category: normalizeText(args.category),
+      classificationStatus: "completed",
+      classificationError: undefined,
+      classificationModel: normalizeText(args.model),
+      classifiedAt: args.classifiedAt ?? now,
+      updatedAt: now,
+    });
+
+    return { ok: true };
+  },
+});
+
+export const setImageClassificationFailed = mutation({
+  args: {
+    imageId: v.string(),
+    error: v.string(),
+    model: v.optional(v.string()),
+    updatedAt: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const existing = await ctx.db
+      .query("images")
+      .withIndex("by_image_id", (q) => q.eq("imageId", args.imageId))
+      .unique();
+    if (!existing) {
+      throw new Error(`Image not found for imageId=${args.imageId}`);
+    }
+
+    await ctx.db.patch(existing._id, {
+      classificationStatus: "failed",
+      classificationError: normalizeText(args.error),
+      classificationModel: normalizeText(args.model),
+      updatedAt: args.updatedAt ?? Date.now(),
+    });
+
+    return { ok: true };
+  },
+});
+
+export const deleteImageGraph = mutation({
+  args: {
+    imageId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const image = await ctx.db
+      .query("images")
+      .withIndex("by_image_id", (q) => q.eq("imageId", args.imageId))
+      .unique();
+    if (!image) {
+      return { ok: false, deleted: false };
+    }
+
+    const ratings = await ctx.db
+      .query("imageRatings")
+      .withIndex("by_image_id", (q) => q.eq("imageId", args.imageId))
+      .collect();
+    const comments = await ctx.db
+      .query("imageComments")
+      .withIndex("by_image_created_at", (q) => q.eq("imageId", args.imageId))
+      .collect();
+    const fingerprints = await ctx.db
+      .query("imageFingerprints")
+      .withIndex("by_image_id", (q) => q.eq("imageId", args.imageId))
+      .collect();
+    const uploadEvents = await ctx.db
+      .query("dedupeEvents")
+      .withIndex("by_upload_image_id", (q) => q.eq("uploadImageId", args.imageId))
+      .collect();
+    const winnerVotes = await ctx.db
+      .query("votes")
+      .withIndex("by_winner_id", (q) => q.eq("winnerId", args.imageId))
+      .collect();
+    const matchupTokens = await ctx.db.query("matchupTokens").collect();
+    const relatedTokens = matchupTokens.filter(
+      (token) => token.imageAId === args.imageId || token.imageBId === args.imageId,
+    );
+
+    const deletions = [
+      ...ratings.map((row) => row._id),
+      ...comments.map((row) => row._id),
+      ...fingerprints.map((row) => row._id),
+      ...uploadEvents.map((row) => row._id),
+      ...winnerVotes.map((row) => row._id),
+      ...relatedTokens.map((row) => row._id),
+      image._id,
+    ];
+
+    for (const id of deletions) {
+      await ctx.db.delete(id);
+    }
+
+    return {
+      ok: true,
+      deleted: true,
+      deletedCounts: {
+        ratings: ratings.length,
+        comments: comments.length,
+        fingerprints: fingerprints.length,
+        dedupeEvents: uploadEvents.length,
+        winnerVotes: winnerVotes.length,
+        matchupTokens: relatedTokens.length,
+        images: 1,
+      },
+    };
   },
 });
 

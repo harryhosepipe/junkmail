@@ -78,6 +78,11 @@ const upsertImageRef = makeFunctionReference<
     rejectReason?: string;
     matchedImageId?: string;
     dedupeScores?: unknown;
+    category?: string;
+    classificationStatus?: string;
+    classificationError?: string;
+    classificationModel?: string;
+    classifiedAt?: number;
     originalUrl?: string;
     originalStorageId?: string;
     variantUrls?: unknown;
@@ -106,6 +111,15 @@ const setImageProcessingResultRef = makeFunctionReference<
   },
   { ok: boolean }
 >("content:setImageProcessingResult");
+const deleteImageGraphRef = makeFunctionReference<
+  "mutation",
+  { imageId: string },
+  {
+    ok: boolean;
+    deleted: boolean;
+    deletedCounts?: Record<string, number>;
+  }
+>("content:deleteImageGraph");
 const setImagePerceptualHashesRef = makeFunctionReference<
   "mutation",
   {
@@ -122,7 +136,6 @@ const createPendingImageRef = makeFunctionReference<
     imageId: string;
     uploadId: string;
     uploaderAuthUserId: string;
-    title?: string;
     description?: string;
     mime?: string;
     createdAt?: number;
@@ -155,6 +168,37 @@ const markImageAcceptedRef = makeFunctionReference<
   },
   { ok: boolean }
 >("content:markImageAccepted");
+const setImageClassificationPendingRef = makeFunctionReference<
+  "mutation",
+  {
+    imageId: string;
+    model?: string;
+    updatedAt?: number;
+  },
+  { ok: boolean }
+>("content:setImageClassificationPending");
+const setImageClassificationResultRef = makeFunctionReference<
+  "mutation",
+  {
+    imageId: string;
+    title: string;
+    category: string;
+    model?: string;
+    classifiedAt?: number;
+    updatedAt?: number;
+  },
+  { ok: boolean }
+>("content:setImageClassificationResult");
+const setImageClassificationFailedRef = makeFunctionReference<
+  "mutation",
+  {
+    imageId: string;
+    error: string;
+    model?: string;
+    updatedAt?: number;
+  },
+  { ok: boolean }
+>("content:setImageClassificationFailed");
 const fingerprintByShaRef = makeFunctionReference<
   "query",
   { sha256Pixels: string },
@@ -293,6 +337,11 @@ export const mutateConvexUpsertImageContent = async (args: {
   rejectReason?: string;
   matchedImageId?: string;
   dedupeScores?: unknown;
+  category?: string;
+  classificationStatus?: string;
+  classificationError?: string;
+  classificationModel?: string;
+  classifiedAt?: number;
   originalUrl?: string;
   originalStorageId?: string;
   variantUrls?: unknown;
@@ -328,6 +377,11 @@ export const mutateConvexSetImageProcessingResult = async (args: {
   return client.mutation(setImageProcessingResultRef, args);
 };
 
+export const mutateConvexDeleteImageGraph = async (args: { imageId: string }) => {
+  const { client } = createConvexClient();
+  return client.mutation(deleteImageGraphRef, args);
+};
+
 export const mutateConvexSetImagePerceptualHashes = async (args: {
   imageId: string;
   perceptualHashAnchor?: string;
@@ -342,7 +396,6 @@ export const mutateConvexCreatePendingImage = async (args: {
   imageId: string;
   uploadId: string;
   uploaderAuthUserId: string;
-  title?: string;
   description?: string;
   mime?: string;
   createdAt?: number;
@@ -375,6 +428,37 @@ export const mutateConvexMarkImageAccepted = async (args: {
 }) => {
   const { client } = createConvexClient();
   return client.mutation(markImageAcceptedRef, args);
+};
+
+export const mutateConvexSetImageClassificationPending = async (args: {
+  imageId: string;
+  model?: string;
+  updatedAt?: number;
+}) => {
+  const { client } = createConvexClient();
+  return client.mutation(setImageClassificationPendingRef, args);
+};
+
+export const mutateConvexSetImageClassificationResult = async (args: {
+  imageId: string;
+  title: string;
+  category: string;
+  model?: string;
+  classifiedAt?: number;
+  updatedAt?: number;
+}) => {
+  const { client } = createConvexClient();
+  return client.mutation(setImageClassificationResultRef, args);
+};
+
+export const mutateConvexSetImageClassificationFailed = async (args: {
+  imageId: string;
+  error: string;
+  model?: string;
+  updatedAt?: number;
+}) => {
+  const { client } = createConvexClient();
+  return client.mutation(setImageClassificationFailedRef, args);
 };
 
 export const queryConvexImageFingerprintBySha256 = async (sha256Pixels: string) => {

@@ -149,7 +149,7 @@
     border: 1px solid var(--border);
     border-radius: 16px;
     padding: 16px;
-    background: #fffcf7;
+    background: #23293d;
     display: grid;
     gap: 8px;
     box-shadow: var(--shadow);
@@ -189,7 +189,7 @@
     border-radius: 999px;
     padding: 8px 14px;
     font: inherit;
-    background: #fff5e3;
+    background: #2b3248;
     color: var(--bg-ink);
     cursor: pointer;
   }
@@ -208,12 +208,12 @@
   }
 
   .profile-message.error {
-    background: #fff3f0;
+    background: #3a2a3c;
     color: #9a2e1f;
   }
 
   .profile-message.success {
-    background: #eefaf1;
+    background: #24384a;
     color: #1f6b37;
   }
 
@@ -221,7 +221,7 @@
     padding: 24px;
     border-radius: 16px;
     border: 1px dashed var(--border);
-    background: #fffdf9;
+    background: #1f2436;
     color: var(--ink-muted);
   }
 

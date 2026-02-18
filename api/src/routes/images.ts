@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { DeleteObjectCommand } from "@aws-sdk/client-s3";
 import { getSessionUser, requireUploader } from "../auth/session.js";
 import { ensureSameOrigin } from "../auth/csrf.js";
 import { parseCommentBody } from "../contracts/comments.js";
@@ -7,12 +8,14 @@ import { AppError } from "../http/errors.js";
 import { readPayload } from "../http/readPayload.js";
 import {
   createComment,
+  deleteImage,
   createImageUpload,
   loadImageDetail,
   reprocessImage,
   validateUpload,
 } from "../services/images/actions.js";
 import { fetchRecentImages, fetchTopCards, pickThumbUrl } from "../services/images/cards.js";
+import { s3Client, storageBucket } from "../storage/client.js";
 import { normalizePublicAssetUrl } from "../storage/publicUrls.js";
 
 const TOPLIST_MIN_COMPARISONS = env.TOPLIST_MIN_COMPARISONS ?? 10;
@@ -21,7 +24,6 @@ const imagesRouter = new Hono();
 
 imagesRouter.post("/", requireUploader, async (c) => {
   const body = await c.req.parseBody();
-  const title = typeof body.title === "string" ? body.title.trim() : "";
   const description = typeof body.description === "string" ? body.description.trim() : "";
 
   const uploadCheck = validateUpload(body.file);
@@ -32,7 +34,6 @@ imagesRouter.post("/", requireUploader, async (c) => {
   const authUser = (c as any).get("authUser") as { id: string; email?: string; alias?: string };
   const created = await createImageUpload({
     authUser,
-    title,
     description,
     upload: uploadCheck.upload,
     type: uploadCheck.type,
@@ -121,6 +122,38 @@ imagesRouter.post("/:id/reprocess", async (c) => {
   }
 
   return c.json({ ok: true });
+});
+
+imagesRouter.delete("/:id", requireUploader, async (c) => {
+  const imageId = c.req.param("id");
+  const result = await deleteImage(imageId);
+  if (!result.ok) {
+    return c.json({ error: { message: result.message } }, result.status as any);
+  }
+
+  const settled = await Promise.allSettled(
+    result.storageKeys.map((key) =>
+      s3Client.send(
+        new DeleteObjectCommand({
+          Bucket: storageBucket,
+          Key: key,
+        }),
+      ),
+    ),
+  );
+  const storageDeleted = settled.filter((item) => item.status === "fulfilled").length;
+  const storageFailed = settled.length - storageDeleted;
+
+  return c.json({
+    ok: true,
+    imageId: result.imageId,
+    deletedCounts: result.deletedCounts,
+    storage: {
+      attempted: settled.length,
+      deleted: storageDeleted,
+      failed: storageFailed,
+    },
+  });
 });
 
 export { fetchRecentImages, fetchTopCards };

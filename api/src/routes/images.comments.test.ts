@@ -27,6 +27,7 @@ const mutateConvexCreateImageComment = vi.hoisted(() => vi.fn());
 vi.mock("../auth/session.js", () => ({
   getSessionUser,
   requireUploader: vi.fn(),
+  requireAdmin: vi.fn(),
 }));
 
 vi.mock("../auth/csrf.js", () => ({

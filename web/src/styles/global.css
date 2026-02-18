@@ -1,15 +1,15 @@
 @import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&display=swap");
 
 :root {
-  color-scheme: light;
-  --bg: #f6f1e9;
-  --bg-ink: #161616;
-  --ink-muted: #4c4a45;
-  --accent: #d45a3c;
-  --accent-strong: #b4472e;
-  --panel: #fff8f0;
-  --border: #d8cfc2;
-  --shadow: 0 18px 40px -26px rgba(0, 0, 0, 0.35);
+  color-scheme: dark;
+  --bg: #121726;
+  --bg-ink: #e8ecff;
+  --ink-muted: #b8c0df;
+  --accent: #f3b3a5;
+  --accent-strong: #f8cabf;
+  --panel: #1b2236;
+  --border: #3e486a;
+  --shadow: 0 18px 40px -26px rgba(3, 8, 20, 0.75);
 }
 
 * {
@@ -20,7 +20,9 @@ body {
   margin: 0;
   font-family: "Space Grotesk", "Segoe UI", sans-serif;
   color: var(--bg-ink);
-  background: radial-gradient(circle at 20% 20%, #fff7ec, var(--bg));
+  background:
+    radial-gradient(circle at 15% 12%, #222b44 0%, rgba(34, 43, 68, 0) 42%),
+    radial-gradient(circle at 86% 18%, #2b3554 0%, rgba(43, 53, 84, 0) 36%), var(--bg);
   min-height: 100vh;
 }
 
@@ -61,7 +63,7 @@ a {
   padding: 8px 14px;
   border-radius: 999px;
   border: 1px solid var(--border);
-  background: #fffdf9;
+  background: #1f2436;
   font-size: 13px;
   font-weight: 600;
   color: var(--ink-muted);
@@ -80,7 +82,7 @@ a {
 
 .nav a:hover {
   border-color: var(--border);
-  background: #fffdf9;
+  background: #1f2436;
 }
 
 .hero {
@@ -120,7 +122,7 @@ a {
   padding: 8px 14px;
   border-radius: 999px;
   border: 1px solid var(--border);
-  background: #fffdf9;
+  background: #1f2436;
   font-weight: 600;
   color: var(--ink-muted);
 }
@@ -165,7 +167,7 @@ a {
   display: grid;
   place-items: center;
   color: var(--ink-muted);
-  background: #fffcf7;
+  background: #23293d;
 }
 
 .footer {
@@ -186,7 +188,7 @@ a {
   padding: 8px 12px;
   border-radius: 999px;
   border: 1px solid var(--border);
-  background: #fffdf9;
+  background: #1f2436;
   font-weight: 700;
   font-size: 13px;
   color: var(--ink-muted);
@@ -209,7 +211,7 @@ a {
   padding: 10px;
   border: 1px solid var(--border);
   border-radius: 12px;
-  background: #fffdf9;
+  background: #1f2436;
   box-shadow: var(--shadow);
 }
 
@@ -221,7 +223,7 @@ a {
 }
 
 .mobile-nav-links a:hover {
-  background: #fff7ec;
+  background: #1a2032;
 }
 
 @media (max-width: 860px) {
