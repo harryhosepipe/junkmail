@@ -125,7 +125,8 @@ export default defineSchema({
   })
     .index("by_image_id", ["imageId"])
     .index("by_sha256_pixels", ["sha256Pixels"])
-    .index("by_phash_prefix", ["phashPrefix"]),
+    .index("by_phash_prefix", ["phashPrefix"])
+    .index("by_created_at", ["createdAt"]),
   dedupeEvents: defineTable({
     uploadImageId: v.string(),
     decision: v.string(),

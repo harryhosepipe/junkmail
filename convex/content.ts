@@ -720,6 +720,16 @@ export const listImageFingerprintsByPhashPrefix = query({
   },
 });
 
+export const listRecentImageFingerprints = query({
+  args: {
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const limit = Math.max(1, Math.min(Math.floor(args.limit ?? 500), 2000));
+    return ctx.db.query("imageFingerprints").withIndex("by_created_at").order("desc").take(limit);
+  },
+});
+
 export const upsertImageFingerprint = mutation({
   args: {
     imageId: v.string(),

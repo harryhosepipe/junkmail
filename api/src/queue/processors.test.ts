@@ -501,4 +501,70 @@ describe("queue processors", () => {
     );
     expect(mutateConvexSetImageProcessingResult).not.toHaveBeenCalled();
   });
+
+  it("uses recent fingerprint fallback when prefix shortlist is empty", async () => {
+    process.env.IMAGE_DEDUPE_V2_ENABLED = "true";
+    process.env.IMAGE_DEDUPE_ORB_ENABLED = "true";
+    process.env.IMAGE_DEDUPE_ORB_VERIFIER_URL = "http://localhost:9090/verify/orb";
+    verifyOrbCandidates.mockResolvedValueOnce({
+      verified: true,
+      matchedImageId: "img-existing",
+      scores: { inliers: 41, inlierRatio: 0.44, matches: 132 },
+    });
+    hammingDistanceHex.mockReturnValue(8);
+
+    const send = vi
+      .fn()
+      .mockResolvedValueOnce({ Body: makeStream([[5, 5, 5]]) })
+      .mockResolvedValue({});
+    const mutateConvexSetImageProcessingResult = vi.fn(async () => ({ ok: true }));
+    const mutateConvexMarkImageRejected = vi.fn(async () => ({ ok: true }));
+    const mutateConvexCreateDedupeEvent = vi.fn(async () => ({ ok: true }));
+    const queryConvexImageFingerprintBySha256 = vi.fn(async () => null);
+    const queryConvexImageFingerprintsByPhashPrefix = vi.fn(async () => []);
+    const queryConvexRecentImageFingerprints = vi.fn(async () => [
+      { imageId: "img-existing", phash64: "cccccccccccccccc" },
+    ]);
+    const mutateConvexUpsertImageFingerprint = vi.fn(async () => ({ ok: true }));
+    const queryConvexImageById = vi.fn(async () => ({
+      imageId: "img-existing",
+      originalUrl: "https://assets.local/existing.jpg",
+      variantUrls: {},
+    }));
+
+    await processImageJob(
+      {
+        imageId: "img-new",
+        key: "images/img-new/original.jpg",
+        ext: "jpg",
+        contentType: "image/jpeg",
+        dedupeV2: true,
+      },
+      {
+        s3Client: { send },
+        storageBucket: "junkmail",
+        publicObjectUrl: (key) => `https://assets.local/${key}`,
+        variantKey: (imageId, size, format) => `${imageId}/${size}.${format}`,
+        mutateConvexSetImageProcessingResult,
+        mutateConvexMarkImageRejected,
+        mutateConvexCreateDedupeEvent,
+        queryConvexImageFingerprintBySha256,
+        queryConvexImageFingerprintsByPhashPrefix,
+        queryConvexRecentImageFingerprints,
+        mutateConvexUpsertImageFingerprint,
+        queryConvexImageById,
+      },
+    );
+
+    expect(queryConvexImageFingerprintsByPhashPrefix).toHaveBeenCalled();
+    expect(queryConvexRecentImageFingerprints).toHaveBeenCalledWith(500);
+    expect(verifyOrbCandidates).toHaveBeenCalledTimes(1);
+    expect(mutateConvexMarkImageRejected).toHaveBeenCalledWith(
+      expect.objectContaining({
+        imageId: "img-new",
+        reason: "orb_verified",
+        matchedImageId: "img-existing",
+      }),
+    );
+  });
 });

@@ -162,6 +162,11 @@ const fingerprintsByPrefixRef = makeFunctionReference<
   { phashPrefix: string; limit?: number },
   ConvexImageFingerprint[]
 >("content:listImageFingerprintsByPhashPrefix");
+const recentFingerprintsRef = makeFunctionReference<
+  "query",
+  { limit?: number },
+  ConvexImageFingerprint[]
+>("content:listRecentImageFingerprints");
 const upsertImageFingerprintRef = makeFunctionReference<
   "mutation",
   {
@@ -377,6 +382,11 @@ export const queryConvexImageFingerprintsByPhashPrefix = async (
 ) => {
   const { client } = createConvexClient();
   return client.query(fingerprintsByPrefixRef, { phashPrefix, limit });
+};
+
+export const queryConvexRecentImageFingerprints = async (limit?: number) => {
+  const { client } = createConvexClient();
+  return client.query(recentFingerprintsRef, { limit });
 };
 
 export const mutateConvexUpsertImageFingerprint = async (args: {

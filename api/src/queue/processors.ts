@@ -10,6 +10,7 @@ import {
   queryConvexImageById,
   queryConvexImageFingerprintBySha256,
   queryConvexImageFingerprintsByPhashPrefix,
+  queryConvexRecentImageFingerprints,
 } from "../convex/client.js";
 import { env } from "../env.js";
 import { verifyOrbCandidates } from "../services/images/orbVerifier.js";
@@ -92,6 +93,7 @@ type ImageProcessorDeps = {
     phashPrefix: string,
     limit?: number,
   ) => Promise<any[]>;
+  queryConvexRecentImageFingerprints?: (limit?: number) => Promise<any[]>;
   mutateConvexUpsertImageFingerprint?: (args: {
     imageId: string;
     sha256Pixels: string;
@@ -118,6 +120,7 @@ const defaultImageDeps: ImageProcessorDeps = {
   mutateConvexCreateDedupeEvent,
   queryConvexImageFingerprintBySha256,
   queryConvexImageFingerprintsByPhashPrefix,
+  queryConvexRecentImageFingerprints,
   mutateConvexUpsertImageFingerprint,
   queryConvexImageById,
 };
@@ -404,6 +407,18 @@ export const processImageJob = async (
     const candidateMap = new Map<string, any>();
     for (const group of grouped) {
       for (const candidate of group) {
+        if (!candidate?.imageId || candidate.imageId === imageId) continue;
+        candidateMap.set(candidate.imageId, candidate);
+      }
+    }
+    if (
+      orbEnabled &&
+      orbVerifierUrl &&
+      candidateMap.size < 25 &&
+      typeof deps.queryConvexRecentImageFingerprints === "function"
+    ) {
+      const recent = await deps.queryConvexRecentImageFingerprints(500);
+      for (const candidate of recent) {
         if (!candidate?.imageId || candidate.imageId === imageId) continue;
         candidateMap.set(candidate.imageId, candidate);
       }
