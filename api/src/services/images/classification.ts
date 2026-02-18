@@ -18,22 +18,23 @@ export type ImageCategory = (typeof IMAGE_CATEGORIES)[number];
 
 const CATEGORY_SET = new Set<string>(IMAGE_CATEGORIES);
 const DEFAULT_MODEL = "gpt-4o-mini";
+const DEFAULT_PROMPT_ID = "pmpt_69964f0c85348190b30ecd9e3c94844d0e11797725242f00";
+const DEFAULT_PROMPT_VERSION = "1";
 const TITLE_MAX_LENGTH = 120;
-
-const SYSTEM_PROMPT = [
-  "You classify junk mail images for a public gallery.",
-  "Return a concise title and one category from the allowed enum.",
-  "Do not include personal names unless necessary for identifying the mail piece.",
-  "Avoid markdown or extra fields.",
-].join(" ");
-
-const USER_PROMPT = "Classify this uploaded junk mail image and generate a short title.";
+const DESCRIPTION_MAX_LENGTH = 500;
 
 const normalizeTitle = (value: unknown) => {
   const raw = typeof value === "string" ? value.trim() : "";
   if (!raw) return "Untitled";
   if (raw.length <= TITLE_MAX_LENGTH) return raw;
   return raw.slice(0, TITLE_MAX_LENGTH).trim();
+};
+
+const normalizeDescription = (value: unknown) => {
+  const raw = typeof value === "string" ? value.trim() : "";
+  if (!raw) return "";
+  if (raw.length <= DESCRIPTION_MAX_LENGTH) return raw;
+  return raw.slice(0, DESCRIPTION_MAX_LENGTH).trim();
 };
 
 const normalizeCategory = (value: unknown): ImageCategory => {
@@ -58,28 +59,32 @@ export const classifyImageByUrl = async (imageUrl: string) => {
   }
 
   const model = env.OPENAI_MODEL_VISION || DEFAULT_MODEL;
+  const promptId = env.OPENAI_PROMPT_ID || DEFAULT_PROMPT_ID;
+  const promptVersion = env.OPENAI_PROMPT_VERSION || DEFAULT_PROMPT_VERSION;
   const timeoutMs = Number(env.IMAGE_CLASSIFICATION_TIMEOUT_MS ?? 10000);
   const client = new OpenAI({ apiKey });
-  const completion = await client.chat.completions.create(
+  const response = await client.responses.create(
     {
       model,
-      temperature: 0.1,
-      messages: [
-        {
-          role: "system",
-          content: SYSTEM_PROMPT,
-        },
+      prompt: {
+        id: promptId,
+        version: promptVersion,
+      },
+      input: [
         {
           role: "user",
           content: [
-            { type: "text", text: USER_PROMPT },
-            { type: "image_url", image_url: { url: imageUrl, detail: "low" } },
+            {
+              type: "input_image",
+              image_url: imageUrl,
+              detail: "low",
+            },
           ],
         },
       ],
-      response_format: {
-        type: "json_schema",
-        json_schema: {
+      text: {
+        format: {
+          type: "json_schema",
           name: "junkmail_image_classification",
           strict: true,
           schema: {
@@ -87,9 +92,10 @@ export const classifyImageByUrl = async (imageUrl: string) => {
             additionalProperties: false,
             properties: {
               title: { type: "string" },
-              category: { type: "string", enum: IMAGE_CATEGORIES },
+              classification: { type: "string", enum: IMAGE_CATEGORIES },
+              description: { type: "string" },
             },
-            required: ["title", "category"],
+            required: ["title", "classification", "description"],
           },
         },
       },
@@ -99,11 +105,16 @@ export const classifyImageByUrl = async (imageUrl: string) => {
     },
   );
 
-  const content = completion.choices[0]?.message?.content || "";
-  const parsed = JSON.parse(content || "{}") as { title?: unknown; category?: unknown };
+  const content = response.output_text || "";
+  const parsed = JSON.parse(content || "{}") as {
+    title?: unknown;
+    classification?: unknown;
+    description?: unknown;
+  };
   return {
     title: normalizeTitle(parsed.title),
-    category: normalizeCategory(parsed.category),
+    category: normalizeCategory(parsed.classification),
+    description: normalizeDescription(parsed.description),
     model,
   };
 };

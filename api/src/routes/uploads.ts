@@ -145,6 +145,7 @@ uploadsRouter.get("/:id/status", requireUploader, async (c) => {
     imageId: row.imageId,
     status: row.status,
     category: row.category ?? null,
+    classification: row.category ?? null,
     classificationStatus: row.classificationStatus ?? null,
     classificationError: row.classificationError ?? null,
     rejectReason: row.rejectReason ?? null,

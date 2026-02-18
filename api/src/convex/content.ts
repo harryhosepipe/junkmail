@@ -183,6 +183,7 @@ const setImageClassificationResultRef = makeFunctionReference<
     imageId: string;
     title: string;
     category: string;
+    description?: string;
     model?: string;
     classifiedAt?: number;
     updatedAt?: number;
@@ -443,6 +444,7 @@ export const mutateConvexSetImageClassificationResult = async (args: {
   imageId: string;
   title: string;
   category: string;
+  description?: string;
   model?: string;
   classifiedAt?: number;
   updatedAt?: number;

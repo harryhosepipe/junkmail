@@ -129,6 +129,8 @@ export const EnvSchema = z.object({
   IMAGE_CLASSIFICATION_MAX_RETRIES: NumFromString.optional(),
   OPENAI_API_KEY: z.string().optional(),
   OPENAI_MODEL_VISION: z.string().optional(),
+  OPENAI_PROMPT_ID: z.string().optional(),
+  OPENAI_PROMPT_VERSION: z.string().optional(),
 
   // Telegram ingest (optional)
   TELEGRAM_BOT_TOKEN: z.string().optional(),

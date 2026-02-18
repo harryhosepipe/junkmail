@@ -753,6 +753,7 @@ export const setImageClassificationResult = mutation({
     imageId: v.string(),
     title: v.string(),
     category: v.string(),
+    description: v.optional(v.string()),
     model: v.optional(v.string()),
     classifiedAt: v.optional(v.number()),
     updatedAt: v.optional(v.number()),
@@ -770,6 +771,7 @@ export const setImageClassificationResult = mutation({
     await ctx.db.patch(existing._id, {
       title: normalizeText(args.title),
       category: normalizeText(args.category),
+      description: normalizeText(args.description),
       classificationStatus: "completed",
       classificationError: undefined,
       classificationModel: normalizeText(args.model),

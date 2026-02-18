@@ -757,6 +757,7 @@ type ClassificationProcessorDeps = {
     imageId: string;
     title: string;
     category: ImageCategory;
+    description?: string;
     model?: string;
     classifiedAt?: number;
     updatedAt?: number;
@@ -770,6 +771,7 @@ type ClassificationProcessorDeps = {
   classifyImageByUrl: (imageUrl: string) => Promise<{
     title: string;
     category: ImageCategory;
+    description: string;
     model: string;
   }>;
 };
@@ -812,6 +814,7 @@ export const processImageClassificationJob = async (
       imageId: data.imageId,
       title: classified.title,
       category: classified.category,
+      description: classified.description,
       model: classified.model,
       classifiedAt: Date.now(),
       updatedAt: Date.now(),

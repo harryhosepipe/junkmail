@@ -231,6 +231,7 @@ export const loadImageDetail = async (imageId: string) => {
     title: row.title ?? null,
     description: row.description ?? null,
     category: row.category ?? null,
+    classification: row.category ?? null,
     classificationStatus: row.classificationStatus ?? null,
     classificationError: row.classificationError ?? null,
     originalUrl: normalizePublicAssetUrl(row.originalUrl || ""),
