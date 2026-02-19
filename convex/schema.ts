@@ -99,10 +99,6 @@ export default defineSchema({
     matchedImageId: v.optional(v.string()),
     dedupeScores: v.optional(v.any()),
     category: v.optional(v.string()),
-    classificationStatus: v.optional(v.string()),
-    classificationError: v.optional(v.string()),
-    classificationModel: v.optional(v.string()),
-    classifiedAt: v.optional(v.number()),
     variantUrls: v.optional(v.any()),
     createdAt: v.number(),
     updatedAt: v.number(),
@@ -115,7 +111,6 @@ export default defineSchema({
     .index("by_status", ["status"])
     .index("by_status_created_at", ["status", "createdAt"])
     .index("by_category", ["category"])
-    .index("by_classification_status", ["classificationStatus"])
     .index("by_uploader_created_at", ["uploaderAuthUserId", "createdAt"]),
   imageFingerprints: defineTable({
     imageId: v.string(),
@@ -157,19 +152,4 @@ export default defineSchema({
     .index("by_comment_id", ["commentId"])
     .index("by_image_created_at", ["imageId", "createdAt"])
     .index("by_user_created_at", ["userAuthUserId", "createdAt"]),
-  imageClassifications: defineTable({
-    imageId: v.string(),
-    title: v.optional(v.string()),
-    category: v.optional(v.string()),
-    description: v.optional(v.string()),
-    status: v.string(),
-    error: v.optional(v.string()),
-    model: v.optional(v.string()),
-    classifiedAt: v.optional(v.number()),
-    createdAt: v.number(),
-    updatedAt: v.number(),
-  })
-    .index("by_image_id", ["imageId"])
-    .index("by_status", ["status"])
-    .index("by_updated_at", ["updatedAt"]),
 });

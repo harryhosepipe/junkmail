@@ -39,10 +39,6 @@ export type ConvexImageContent = {
   matchedImageId?: string;
   dedupeScores?: unknown;
   category?: string;
-  classificationStatus?: string;
-  classificationError?: string;
-  classificationModel?: string;
-  classifiedAt?: number;
   variantUrls?: unknown;
   createdAt: number;
   updatedAt: number;

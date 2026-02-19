@@ -1,4 +1,0 @@
-# Wrapper compose file so `docker compose ...` works from repo root.
-# The real compose lives in infra/ to keep the repo organized.
-include:
-  - path: infra/docker/docker-compose.yml

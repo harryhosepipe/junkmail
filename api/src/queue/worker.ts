@@ -1,7 +1,7 @@
 import { Worker } from "bullmq";
 import { redis } from "./connection.js";
 import { getEnv } from "../env.js";
-import { processImageClassificationJob, processImageJob, processVoteJob } from "./processors.js";
+import { processImageJob, processVoteJob } from "./processors.js";
 
 // Fail fast if env is missing/invalid.
 getEnv();
@@ -42,21 +42,4 @@ const voteWorker = new Worker(
 voteWorker.on("failed", (job, err) => {
   const id = job?.id ?? "unknown";
   console.error(`[queue] vote-writes job failed`, id, err);
-});
-
-const imageClassificationWorker = new Worker(
-  "image-classification",
-  async (job) => {
-    await processImageClassificationJob(
-      job.data as { imageId: string; storageKey: string; mimeType: string },
-    );
-  },
-  {
-    connection: redis,
-  },
-);
-
-imageClassificationWorker.on("failed", (job, err) => {
-  const id = job?.id ?? "unknown";
-  console.error(`[queue] image-classification job failed`, id, err);
 });

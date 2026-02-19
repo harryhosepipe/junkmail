@@ -3,9 +3,6 @@ import { createHash } from "crypto";
 import sharp from "sharp";
 import {
   mutateConvexCreateDedupeEvent,
-  mutateConvexSetImageClassificationFailed,
-  mutateConvexSetImageClassificationPending,
-  mutateConvexSetImageClassificationResult,
   mutateConvexMarkImageRejected,
   mutateConvexProjectVoteEvent,
   mutateConvexSetImageProcessingResult,
@@ -17,11 +14,6 @@ import {
 } from "../convex/client.js";
 import { env } from "../env.js";
 import { verifyOrbCandidates } from "../services/images/orbVerifier.js";
-import {
-  classifyImageByUrl,
-  isClassificationEnabled,
-  sanitizeClassificationError,
-} from "../services/images/classification.js";
 import { publicObjectUrl, s3Client, storageBucket } from "../storage/client.js";
 import { canonicalKey, ImageFormat, ImageSize, variantKey } from "../storage/paths.js";
 import { extractStorageObjectKey } from "../storage/publicUrls.js";
@@ -32,7 +24,6 @@ import {
   applyCropBox,
   detectEmbeddedImageRect,
 } from "./borderCrop.js";
-import { imageClassificationQueue } from "./index.js";
 
 export type ImageProcessJobData = {
   imageId: string;
@@ -46,12 +37,6 @@ export type ImageProcessJobData = {
 export type VoteProcessJobData = {
   voteEventId: string;
   createdAt: number;
-};
-
-export type ImageClassificationJobData = {
-  imageId: string;
-  storageKey: string;
-  mimeType: string;
 };
 
 const sizes: Record<ImageSize, number> = {
@@ -125,7 +110,6 @@ type ImageProcessorDeps = {
     createdAt?: number;
   }) => Promise<unknown>;
   queryConvexImageById?: (imageId: string) => Promise<any | null>;
-  enqueueClassificationJob?: (data: ImageClassificationJobData) => Promise<unknown>;
 };
 
 const defaultImageDeps: ImageProcessorDeps = {
@@ -141,7 +125,6 @@ const defaultImageDeps: ImageProcessorDeps = {
   queryConvexRecentImageFingerprints,
   mutateConvexUpsertImageFingerprint,
   queryConvexImageById,
-  enqueueClassificationJob: (data) => imageClassificationQueue.add("classify", data),
 };
 
 const DEDUPE_WORKER_VERSION = "dedupe-v2-node-1";
@@ -733,62 +716,14 @@ export const processImageJob = async (
     updatedAt: Date.now(),
     publishedAt: Date.now(),
   });
-
-  if (isClassificationEnabled() && typeof deps.enqueueClassificationJob === "function") {
-    await deps.enqueueClassificationJob({
-      imageId,
-      storageKey: canonicalStorageKey,
-      mimeType: "image/webp",
-    });
-  }
 };
 
 type VoteProcessorDeps = {
   mutateConvexProjectVoteEvent: (args: { voteEventId: string; now?: number }) => Promise<unknown>;
 };
 
-type ClassificationProcessorDeps = {
-  s3Client: { send: (command: any) => Promise<any> };
-  storageBucket: string;
-  mutateConvexSetImageClassificationPending: (args: {
-    imageId: string;
-    model?: string;
-    updatedAt?: number;
-  }) => Promise<unknown>;
-  mutateConvexSetImageClassificationResult: (args: {
-    imageId: string;
-    title: string;
-    category: string;
-    description?: string;
-    model?: string;
-    classifiedAt?: number;
-    updatedAt?: number;
-  }) => Promise<unknown>;
-  mutateConvexSetImageClassificationFailed: (args: {
-    imageId: string;
-    error: string;
-    model?: string;
-    updatedAt?: number;
-  }) => Promise<unknown>;
-  classifyImageByImageDataUrl: (imageDataUrl: string) => Promise<{
-    title: string;
-    category: string;
-    description: string;
-    model: string;
-  }>;
-};
-
 const defaultVoteDeps: VoteProcessorDeps = {
   mutateConvexProjectVoteEvent,
-};
-
-const defaultClassificationDeps: ClassificationProcessorDeps = {
-  s3Client,
-  storageBucket,
-  mutateConvexSetImageClassificationPending,
-  mutateConvexSetImageClassificationResult,
-  mutateConvexSetImageClassificationFailed,
-  classifyImageByImageDataUrl: classifyImageByUrl,
 };
 
 export const processVoteJob = async (
@@ -799,45 +734,4 @@ export const processVoteJob = async (
     voteEventId: data.voteEventId,
     now: data.createdAt,
   });
-};
-
-export const processImageClassificationJob = async (
-  data: ImageClassificationJobData,
-  deps: ClassificationProcessorDeps = defaultClassificationDeps,
-) => {
-  const now = Date.now();
-  await deps.mutateConvexSetImageClassificationPending({
-    imageId: data.imageId,
-    model: env.OPENAI_MODEL_VISION || "gpt-4o-mini",
-    updatedAt: now,
-  });
-
-  try {
-    const imageObject = await deps.s3Client.send(
-      new GetObjectCommand({
-        Bucket: deps.storageBucket,
-        Key: data.storageKey,
-      }),
-    );
-    const imageBuffer = await toBuffer(imageObject.Body);
-    const imageDataUrl = `data:${data.mimeType};base64,${imageBuffer.toString("base64")}`;
-    const classified = await deps.classifyImageByImageDataUrl(imageDataUrl);
-    await deps.mutateConvexSetImageClassificationResult({
-      imageId: data.imageId,
-      title: classified.title,
-      category: classified.category,
-      description: classified.description,
-      model: classified.model,
-      classifiedAt: Date.now(),
-      updatedAt: Date.now(),
-    });
-  } catch (error) {
-    await deps.mutateConvexSetImageClassificationFailed({
-      imageId: data.imageId,
-      error: sanitizeClassificationError(error),
-      model: env.OPENAI_MODEL_VISION || "gpt-4o-mini",
-      updatedAt: Date.now(),
-    });
-    throw error;
-  }
 };

@@ -137,12 +137,7 @@
   };
 
   const summarizeItems = (rows) =>
-    rows
-      .map(
-        (row) =>
-          `${row?.id || ""}|${row?.title || ""}|${row?.classificationStatus || ""}|${row?.status || ""}`,
-      )
-      .join("::");
+    rows.map((row) => `${row?.id || ""}|${row?.title || ""}|${row?.status || ""}`).join("::");
 
   const refreshRecent = async () => {
     if (refreshInFlight) return;
@@ -170,8 +165,7 @@
     }
   };
 
-  const hasPendingCards = () =>
-    baseItems.some((item) => item?.classificationStatus === "pending" || !item?.title);
+  const hasPendingCards = () => baseItems.some((item) => item?.status !== "public");
 
   const clearRefreshTimer = () => {
     if (!refreshTimer) return;

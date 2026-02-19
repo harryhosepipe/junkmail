@@ -6,28 +6,16 @@ const normalizeText = (value?: string) => {
   return trimmed && trimmed.length ? trimmed : undefined;
 };
 
-const loadImageClassification = async (ctx: any, imageId: string) => {
-  const rows = await ctx.db
-    .query("imageClassifications")
-    .withIndex("by_image_id", (q: any) => q.eq("imageId", imageId))
-    .take(1);
-  return rows[0] ?? null;
-};
-
-const mapImageRowWithClassification = (row: any, classification: any) => ({
+const mapImageRow = (row: any) => ({
   imageId: row.imageId,
   uploadId: row.uploadId,
   uploaderAuthUserId: row.uploaderAuthUserId,
   uploadHash: row.uploadHash,
   perceptualHashAnchor: row.perceptualHashAnchor,
   perceptualHashes: row.perceptualHashes,
-  title: classification?.title,
-  description: classification?.description,
-  category: classification?.category,
-  classificationStatus: classification?.status ?? row.classificationStatus,
-  classificationError: classification?.error ?? row.classificationError,
-  classificationModel: classification?.model ?? row.classificationModel,
-  classifiedAt: classification?.classifiedAt ?? row.classifiedAt,
+  title: row.title,
+  description: row.description,
+  category: row.category,
   status: row.status,
   storageKeyOriginal: row.storageKeyOriginal,
   storageKeyCanonical: row.storageKeyCanonical,
@@ -65,10 +53,6 @@ export const createImage = mutation({
     matchedImageId: v.optional(v.string()),
     dedupeScores: v.optional(v.any()),
     category: v.optional(v.string()),
-    classificationStatus: v.optional(v.string()),
-    classificationError: v.optional(v.string()),
-    classificationModel: v.optional(v.string()),
-    classifiedAt: v.optional(v.number()),
     originalUrl: v.optional(v.string()),
     originalStorageId: v.optional(v.string()),
     variantUrls: v.optional(v.any()),
@@ -105,10 +89,6 @@ export const createImage = mutation({
       matchedImageId: normalizeText(args.matchedImageId),
       dedupeScores: args.dedupeScores,
       category: normalizeText(args.category),
-      classificationStatus: normalizeText(args.classificationStatus),
-      classificationError: normalizeText(args.classificationError),
-      classificationModel: normalizeText(args.classificationModel),
-      classifiedAt: args.classifiedAt,
       originalUrl: normalizeText(args.originalUrl),
       originalStorageId: normalizeText(args.originalStorageId),
       variantUrls: args.variantUrls,
@@ -141,10 +121,6 @@ export const upsertImage = mutation({
     matchedImageId: v.optional(v.string()),
     dedupeScores: v.optional(v.any()),
     category: v.optional(v.string()),
-    classificationStatus: v.optional(v.string()),
-    classificationError: v.optional(v.string()),
-    classificationModel: v.optional(v.string()),
-    classifiedAt: v.optional(v.number()),
     originalUrl: v.optional(v.string()),
     originalStorageId: v.optional(v.string()),
     variantUrls: v.optional(v.any()),
@@ -177,10 +153,6 @@ export const upsertImage = mutation({
       matchedImageId: normalizeText(args.matchedImageId),
       dedupeScores: args.dedupeScores,
       category: normalizeText(args.category),
-      classificationStatus: normalizeText(args.classificationStatus),
-      classificationError: normalizeText(args.classificationError),
-      classificationModel: normalizeText(args.classificationModel),
-      classifiedAt: args.classifiedAt,
       originalUrl: normalizeText(args.originalUrl),
       originalStorageId: normalizeText(args.originalStorageId),
       variantUrls: args.variantUrls,
@@ -238,8 +210,7 @@ export const getImageById = query({
     if (!row) {
       return null;
     }
-    const classification = await loadImageClassification(ctx, row.imageId);
-    return mapImageRowWithClassification(row, classification);
+    return mapImageRow(row);
   },
 });
 
@@ -254,8 +225,7 @@ export const getImageByUploadHash = query({
       .take(1);
     const row = rows[0];
     if (!row) return null;
-    const classification = await loadImageClassification(ctx, row.imageId);
-    return mapImageRowWithClassification(row, classification);
+    return mapImageRow(row);
   },
 });
 
@@ -270,8 +240,7 @@ export const getImageByUploadId = query({
       .take(1);
     const row = rows[0];
     if (!row) return null;
-    const classification = await loadImageClassification(ctx, row.imageId);
-    return mapImageRowWithClassification(row, classification);
+    return mapImageRow(row);
   },
 });
 
@@ -387,10 +356,6 @@ export const listImagesByPerceptualHashAnchor = query({
       title: row.title,
       description: row.description,
       category: row.category,
-      classificationStatus: row.classificationStatus,
-      classificationError: row.classificationError,
-      classificationModel: row.classificationModel,
-      classifiedAt: row.classifiedAt,
       status: row.status,
       originalUrl: row.originalUrl,
       originalStorageId: row.originalStorageId,
@@ -413,11 +378,7 @@ export const listRecentPublicImages = query({
       .withIndex("by_status_created_at", (q) => q.eq("status", "public"))
       .order("desc")
       .take(limit);
-
-    const classifications = await Promise.all(
-      rows.map((row) => loadImageClassification(ctx, row.imageId)),
-    );
-    return rows.map((row, index) => mapImageRowWithClassification(row, classifications[index]));
+    return rows.map((row) => mapImageRow(row));
   },
 });
 
@@ -495,12 +456,7 @@ export const listPublicImagesByIds = query({
     const filteredRows = rows
       .filter((row): row is NonNullable<typeof row> => Boolean(row))
       .filter((row) => row.status === "public");
-    const classifications = await Promise.all(
-      filteredRows.map((row) => loadImageClassification(ctx, row.imageId)),
-    );
-    return filteredRows.map((row, index) =>
-      mapImageRowWithClassification(row, classifications[index]),
-    );
+    return filteredRows.map((row) => mapImageRow(row));
   },
 });
 
@@ -518,11 +474,7 @@ export const listUploaderImages = query({
       )
       .order("desc")
       .take(limit);
-
-    const classifications = await Promise.all(
-      rows.map((row) => loadImageClassification(ctx, row.imageId)),
-    );
-    return rows.map((row, index) => mapImageRowWithClassification(row, classifications[index]));
+    return rows.map((row) => mapImageRow(row));
   },
 });
 
@@ -632,147 +584,6 @@ export const setImageProcessingResult = mutation({
   },
 });
 
-export const setImageClassificationPending = mutation({
-  args: {
-    imageId: v.string(),
-    model: v.optional(v.string()),
-    updatedAt: v.optional(v.number()),
-  },
-  handler: async (ctx, args) => {
-    const existing = await ctx.db
-      .query("images")
-      .withIndex("by_image_id", (q) => q.eq("imageId", args.imageId))
-      .unique();
-    if (!existing) {
-      throw new Error(`Image not found for imageId=${args.imageId}`);
-    }
-
-    const now = args.updatedAt ?? Date.now();
-    const classificationRows = await ctx.db
-      .query("imageClassifications")
-      .withIndex("by_image_id", (q) => q.eq("imageId", args.imageId))
-      .take(1);
-    const classification = classificationRows[0];
-    const payload = {
-      imageId: args.imageId,
-      status: "pending",
-      error: undefined,
-      model: normalizeText(args.model),
-      updatedAt: now,
-    };
-
-    if (classification) {
-      await ctx.db.patch(classification._id, payload);
-    } else {
-      await ctx.db.insert("imageClassifications", {
-        ...payload,
-        createdAt: now,
-      });
-    }
-
-    await ctx.db.patch(existing._id, { updatedAt: now });
-
-    return { ok: true };
-  },
-});
-
-export const setImageClassificationResult = mutation({
-  args: {
-    imageId: v.string(),
-    title: v.string(),
-    category: v.string(),
-    description: v.optional(v.string()),
-    model: v.optional(v.string()),
-    classifiedAt: v.optional(v.number()),
-    updatedAt: v.optional(v.number()),
-  },
-  handler: async (ctx, args) => {
-    const existing = await ctx.db
-      .query("images")
-      .withIndex("by_image_id", (q) => q.eq("imageId", args.imageId))
-      .unique();
-    if (!existing) {
-      throw new Error(`Image not found for imageId=${args.imageId}`);
-    }
-
-    const now = args.updatedAt ?? Date.now();
-    const classificationRows = await ctx.db
-      .query("imageClassifications")
-      .withIndex("by_image_id", (q) => q.eq("imageId", args.imageId))
-      .take(1);
-    const classification = classificationRows[0];
-    const payload = {
-      imageId: args.imageId,
-      title: normalizeText(args.title),
-      category: normalizeText(args.category),
-      description: normalizeText(args.description),
-      status: "completed",
-      error: undefined,
-      model: normalizeText(args.model),
-      classifiedAt: args.classifiedAt ?? now,
-      updatedAt: now,
-    };
-
-    if (classification) {
-      await ctx.db.patch(classification._id, payload);
-    } else {
-      await ctx.db.insert("imageClassifications", {
-        ...payload,
-        createdAt: now,
-      });
-    }
-
-    await ctx.db.patch(existing._id, { updatedAt: now });
-
-    return { ok: true };
-  },
-});
-
-export const setImageClassificationFailed = mutation({
-  args: {
-    imageId: v.string(),
-    error: v.string(),
-    model: v.optional(v.string()),
-    updatedAt: v.optional(v.number()),
-  },
-  handler: async (ctx, args) => {
-    const existing = await ctx.db
-      .query("images")
-      .withIndex("by_image_id", (q) => q.eq("imageId", args.imageId))
-      .unique();
-    if (!existing) {
-      throw new Error(`Image not found for imageId=${args.imageId}`);
-    }
-
-    const now = args.updatedAt ?? Date.now();
-    const classificationRows = await ctx.db
-      .query("imageClassifications")
-      .withIndex("by_image_id", (q) => q.eq("imageId", args.imageId))
-      .take(1);
-    const classification = classificationRows[0];
-    const payload = {
-      imageId: args.imageId,
-      status: "failed",
-      error: normalizeText(args.error),
-      model: normalizeText(args.model),
-      updatedAt: now,
-    };
-
-    if (classification) {
-      await ctx.db.patch(classification._id, payload);
-    } else {
-      await ctx.db.insert("imageClassifications", {
-        ...payload,
-        createdAt: now,
-      });
-    }
-
-    await ctx.db.patch(existing._id, { updatedAt: now });
-
-    return { ok: true };
-  },
-});
-
 export const deleteImageGraph = mutation({
   args: {
     imageId: v.string(),
@@ -794,10 +605,6 @@ export const deleteImageGraph = mutation({
       .query("imageComments")
       .withIndex("by_image_created_at", (q) => q.eq("imageId", args.imageId))
       .collect();
-    const classifications = await ctx.db
-      .query("imageClassifications")
-      .withIndex("by_image_id", (q) => q.eq("imageId", args.imageId))
-      .collect();
     const fingerprints = await ctx.db
       .query("imageFingerprints")
       .withIndex("by_image_id", (q) => q.eq("imageId", args.imageId))
@@ -818,7 +625,6 @@ export const deleteImageGraph = mutation({
     const deletions = [
       ...ratings.map((row) => row._id),
       ...comments.map((row) => row._id),
-      ...classifications.map((row) => row._id),
       ...fingerprints.map((row) => row._id),
       ...uploadEvents.map((row) => row._id),
       ...winnerVotes.map((row) => row._id),
@@ -836,7 +642,6 @@ export const deleteImageGraph = mutation({
       deletedCounts: {
         ratings: ratings.length,
         comments: comments.length,
-        classifications: classifications.length,
         fingerprints: fingerprints.length,
         dedupeEvents: uploadEvents.length,
         winnerVotes: winnerVotes.length,
