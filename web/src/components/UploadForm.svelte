@@ -166,22 +166,30 @@
           throw new Error("fetch failed");
         }
         const data = await response.json();
+        const isClassificationPending = data?.classificationStatus === "pending";
+        const isClassificationDone =
+          data?.classificationStatus === "completed" || data?.classificationStatus === "failed";
         if (data.status === "public") {
           const variant = data?.variantUrls?.feed || data?.variantUrls?.full || {};
           const imageUrl = variant.webp || variant.jpg || variant.png || data.originalUrl;
           if (imageUrl) {
             previewUrl = imageUrl;
-            previewTitle = data.title || "Untitled";
+            previewTitle = data.title || (isClassificationPending ? "Processing" : "Untitled");
             previewDescription = data.description || meta.description || "";
             previewVisible = true;
             clearLocalPreview();
-            setStatus("Image is public.", "success");
-            return;
+            if (isClassificationDone) {
+              setStatus("Image is public.", "success");
+              return;
+            }
           }
         }
 
         if (attempts < maxAttempts) {
-          setStatus("Processing image...", "info");
+          setStatus(
+            data.status === "public" ? "Image is public. Classifying..." : "Processing image...",
+            "info",
+          );
           setTimeout(tick, interval);
         } else {
           setStatus("Still processing. Check back soon.", "info");

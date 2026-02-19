@@ -8,7 +8,9 @@
   let state = "loading";
   let baseItems = [];
   let unsubscribeRatings = null;
+  let refreshTimer = null;
   let realtimeUnavailable = false;
+  let latestRatings = [];
 
   const placeholders = Array.from({ length: 6 });
 
@@ -73,7 +75,8 @@
     };
   };
 
-  const mergeWithRatings = (ratings = []) => {
+  const mergeWithRatings = (ratings = latestRatings) => {
+    latestRatings = ratings;
     const ratingById = new Map(
       ratings.map((rating) => [
         rating.imageId,
@@ -131,21 +134,46 @@
     );
   };
 
+  const summarizeItems = (rows) =>
+    rows
+      .map(
+        (row) =>
+          `${row?.id || ""}|${row?.title || ""}|${row?.classificationStatus || ""}|${row?.status || ""}`,
+      )
+      .join("::");
+
+  const refreshRecent = async () => {
+    const response = await fetch(`${apiBaseUrl}/api/v1/images/recent?limit=8`);
+    if (!response.ok) {
+      throw new Error("fetch failed");
+    }
+    const data = await response.json();
+    const rows = Array.isArray(data?.items) ? data.items : [];
+    const prevIds = baseItems.map((item) => item.id).join(",");
+    const nextIds = rows.map((item) => item.id).join(",");
+    const changed = summarizeItems(rows) !== summarizeItems(baseItems);
+    baseItems = rows;
+    if (prevIds !== nextIds) {
+      subscribeRatings();
+      return;
+    }
+    if (changed) {
+      mergeWithRatings();
+    }
+  };
+
   onMount(async () => {
     state = "loading";
     try {
-      const response = await fetch(`${apiBaseUrl}/api/v1/images/recent?limit=8`);
-      if (!response.ok) {
-        state = "error";
-        return;
-      }
-      const data = await response.json();
-      baseItems = Array.isArray(data?.items) ? data.items : [];
+      await refreshRecent();
       items = baseItems;
       subscribeRatings();
       if (!baseItems.length) {
         state = "ready";
       }
+      refreshTimer = setInterval(() => {
+        refreshRecent().catch(() => null);
+      }, 3000);
     } catch {
       state = "error";
     }
@@ -155,6 +183,10 @@
     if (unsubscribeRatings) {
       unsubscribeRatings();
       unsubscribeRatings = null;
+    }
+    if (refreshTimer) {
+      clearInterval(refreshTimer);
+      refreshTimer = null;
     }
   });
 </script>
@@ -214,7 +246,7 @@
           {/if}
         </div>
         <div class="feed-meta">
-          <div class="feed-title">{item?.title || "Untitled"}</div>
+          <div class="feed-title">{item?.title || "Processing"}</div>
           <div class="feed-subtle">Appearances: {item?.votes ?? 0}</div>
         </div>
       </a>
