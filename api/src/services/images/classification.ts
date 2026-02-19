@@ -15,6 +15,44 @@ export const sanitizeClassificationError = (error: unknown) => {
   return "classification_failed";
 };
 
+const extractFirstJsonObject = (text: string) => {
+  const start = text.indexOf("{");
+  if (start < 0) {
+    throw new Error("No JSON object found in classification response");
+  }
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  for (let i = start; i < text.length; i += 1) {
+    const ch = text[i];
+    if (inString) {
+      if (escaped) {
+        escaped = false;
+      } else if (ch === "\\") {
+        escaped = true;
+      } else if (ch === '"') {
+        inString = false;
+      }
+      continue;
+    }
+    if (ch === '"') {
+      inString = true;
+      continue;
+    }
+    if (ch === "{") {
+      depth += 1;
+      continue;
+    }
+    if (ch === "}") {
+      depth -= 1;
+      if (depth === 0) {
+        return text.slice(start, i + 1);
+      }
+    }
+  }
+  throw new Error("Unterminated JSON object in classification response");
+};
+
 export const classifyImageByUrl = async (imageUrl: string) => {
   const apiKey = env.OPENAI_API_KEY;
   if (!apiKey || apiKey === "replace-me") {
@@ -63,8 +101,9 @@ export const classifyImageByUrl = async (imageUrl: string) => {
     response = await runRequest(timeoutMs * 2);
   }
 
-  const content = response.output_text || "{}";
-  const parsed = JSON.parse(content) as {
+  const content = response.output_text || "";
+  const jsonText = extractFirstJsonObject(content);
+  const parsed = JSON.parse(jsonText) as {
     title?: unknown;
     classification?: unknown;
     description?: unknown;
