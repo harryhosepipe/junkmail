@@ -41,9 +41,9 @@ Junkmail is a public image gallery for junkmail photos with:
 │   └── config/                 # Shared env loader/schema/spawn helpers
 ├── tools/                      # Guardrails + external verifier service
 ├── web/                        # Astro/Svelte frontend
-├── .env.defaults               # Baseline env defaults
-├── .env.example                # Example env file template
-├── .env.local                  # Local development env overrides
+├── api/.env.example            # API env template
+├── web/.env.example            # Web env template
+├── convex/.env.example         # Convex env template
 ├── package.json                # Workspace scripts and top-level commands
 └── README.md                   # Main setup and developer instructions
 ```

@@ -8,12 +8,18 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const AppEnvSchema = z.enum(["local", "staging", "production"]);
 
-const ConvexEnvSchema = z.object({
+const WebEnvSchema = z.object({
   APP_ENV: AppEnvSchema.default("local"),
-  NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
+  API_BASE_URL: z.string().url().default("http://localhost:8787"),
+  API_PROXY_TARGET: z.string().url().optional(),
+  API_PROXY_ORIGIN: z.string().url().optional(),
+  WEB_ORIGIN: z.string().url().optional(),
+  APP_ORIGIN: z.string().url().optional(),
+  ASSETS_PROXY_TARGET: z.string().url().default("http://localhost:9010"),
+  CONVEX_PROXY_TARGET: z.string().url().default("http://localhost:3210"),
 });
 
-function readEnvFile(path: string): Record<string, string> {
+function readEnvFile(path) {
   try {
     return dotenvParse(readFileSync(path));
   } catch {
@@ -21,30 +27,27 @@ function readEnvFile(path: string): Record<string, string> {
   }
 }
 
-function envFileForAppEnv(appEnv: z.infer<typeof AppEnvSchema>) {
+function envFileForAppEnv(appEnv) {
   if (appEnv === "local") return ".env";
   if (appEnv === "staging") return ".env.staging";
   return ".env.production";
 }
 
-function loadConvexEnv() {
+function loadWebEnv() {
   const appEnv = AppEnvSchema.catch("local").parse(process.env.APP_ENV);
   const envFilePath = resolve(__dirname, envFileForAppEnv(appEnv));
   const fileValues = readEnvFile(envFilePath);
   const merged = { ...fileValues, ...process.env };
 
-  const parsed = ConvexEnvSchema.safeParse(merged);
+  const parsed = WebEnvSchema.safeParse(merged);
   if (!parsed.success) {
     const issues = parsed.error.issues
       .map((issue) => `${issue.path.join(".") || "(root)"}: ${issue.message}`)
       .join("\n");
-    throw new Error(`Invalid convex env configuration:\n${issues}`);
+    throw new Error(`Invalid web env configuration:\n${issues}`);
   }
+
   return parsed.data;
 }
 
-const parsedEnv = loadConvexEnv();
-
-export const env = {
-  NODE_ENV: parsedEnv.NODE_ENV,
-} as const;
+export const webEnv = loadWebEnv();

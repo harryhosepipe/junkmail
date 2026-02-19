@@ -236,7 +236,7 @@ Base: /api/v1
 - Check port availability before choosing port mappings
 - Default local ports: Postgres 5433, Redis 6379, MinIO 9010/9011
 - Require MINIO_PUBLIC_URL for correct public URLs
-- API and worker must load .env.local (dotenv) in dev
+- API and worker must load `api/.env` in dev
 - Smoke tests after feature changes:
   - GET /api/v1/health
   - Upload a sample image and verify variants in MinIO

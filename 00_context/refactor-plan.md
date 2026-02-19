@@ -8,6 +8,7 @@ This plan aligns the codebase with `00_context/guidelines.md`, focusing on reduc
 - Establish explicit ownership for state transitions (especially image lifecycle and voting projection).
 - Replace CRUD-style mutation surfaces with intent-first commands where practical.
 - Improve local discoverability of module context/invariants.
+- Enforce per-app configuration ownership with app-local, Zod-validated `.env` loaders.
 - Preserve current runtime behavior while refactoring incrementally.
 
 ## Non-goals
@@ -15,6 +16,7 @@ This plan aligns the codebase with `00_context/guidelines.md`, focusing on reduc
 - No rewrite of frontend UX or major feature changes.
 - No immediate schema redesign that requires risky data migration unless needed for invariants.
 - No broad framework/library swap.
+- No temporary root-level shared `.env` fallback.
 
 ## Current pain points (from code audit)
 
@@ -22,6 +24,7 @@ This plan aligns the codebase with `00_context/guidelines.md`, focusing on reduc
 2. Some infra concerns leak into routes (e.g., direct S3 delete command in route handler).
 3. Convex content module exposes broad CRUD-like mutation APIs (`upsert`, `set*`) that blur invariants.
 4. Boundary documentation is sparse (root README only).
+5. Env/config ownership is ambiguous; runtime config risks leaking across app boundaries.
 
 ## Guiding constraints
 
@@ -29,6 +32,7 @@ This plan aligns the codebase with `00_context/guidelines.md`, focusing on reduc
 - Maintain backward-compatible HTTP responses during transition.
 - Preserve queue fallback behavior for vote projection durability.
 - Refactor behind existing route contracts first; only then adjust external response models if needed.
+- Keep env reads localized to app-specific loaders; no direct `process.env` usage outside loader modules.
 
 ---
 
@@ -52,6 +56,32 @@ This plan aligns the codebase with `00_context/guidelines.md`, focusing on reduc
 ### Exit criteria
 
 - Existing behavior has test coverage sufficient to detect regressions during boundary extraction.
+
+---
+
+## Phase 0.5: Per-App Env Ownership and Zod Validation
+
+### Deliverables
+
+- Create app-local env files and typed loaders:
+  - `apps/astro/.env` + `apps/astro/src/env.ts`
+  - `apps/convex/.env` + `apps/convex/env.ts`
+  - Repeat for any additional runtime app/package.
+- Validate all required env vars at startup via Zod.
+- Replace direct `process.env.*` reads in app code with imports from local env modules.
+- Document each app's required variables and defaults policy near its loader.
+
+### Migration notes
+
+- Keep secret names stable where possible; change only ownership/location, not behavior.
+- If CI currently depends on root `.env`, migrate pipeline injection to app-scoped vars in the same PR or immediately after.
+- Fail fast on invalid/missing env values.
+
+### Exit criteria
+
+- No runtime app reads `process.env` directly outside its env loader.
+- Each app has exactly one env entrypoint and one Zod schema.
+- Local dev and CI boot successfully with app-scoped env files.
 
 ---
 
@@ -179,7 +209,7 @@ Add boundary READMEs that document ownership, invariants, dependencies, and trad
 
 ## Cross-cutting standards to enforce during refactor
 
-- Keep env usage constrained to shared loaders/approved files (existing guardrails remain mandatory).
+- Keep env usage constrained to app-local loaders only (`apps/<app>/.../env.ts`).
 - Prefer action/verb naming over CRUD in new or modified workflows.
 - Avoid adding abstraction layers unless they reduce coupling or are reused by at least 2 concrete consumers.
 - Keep third-party SDK types/imports at infra edges (`storage`, `queue`, adapters).
@@ -205,10 +235,11 @@ bun --cwd web typecheck
 ## Suggested rollout order (PR sequence)
 
 1. `PR-1`: baseline tests + invariants doc.
-2. `PR-2`: thin routes + extract image/vote use-cases, no behavior change.
-3. `PR-3`: Convex explicit command API + wrapper migration + compatibility shims.
-4. `PR-4`: domain/result DTO separation and mapper introduction.
-5. `PR-5`: boundary READMEs and final cleanup (remove deprecated wrappers).
+2. `PR-2`: app-local env loaders + Zod schemas + remove direct `process.env` usage.
+3. `PR-3`: thin routes + extract image/vote use-cases, no behavior change.
+4. `PR-4`: Convex explicit command API + wrapper migration + compatibility shims.
+5. `PR-5`: domain/result DTO separation and mapper introduction.
+6. `PR-6`: boundary READMEs and final cleanup (remove deprecated wrappers).
 
 ## Risks and mitigations
 
@@ -218,6 +249,8 @@ bun --cwd web typecheck
   - Mitigation: preserve existing fallback path and add explicit tests for enqueue failure.
 - Risk: migration churn from renamed Convex mutations.
   - Mitigation: temporary compatibility wrappers in `api/src/convex/*` and staged callsite migration.
+- Risk: env breakage in local/CI from scope migration.
+  - Mitigation: ship app-local `.env.example` files, validate early with Zod, and test startup in CI for each app.
 
 ## Completion definition
 

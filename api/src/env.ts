@@ -1,20 +1,29 @@
 import { loadEnv, type Env } from "@repo/config/env";
+import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 let cached: Env | null = null;
+const appDir = resolve(fileURLToPath(new URL("..", import.meta.url)));
+
+function loadApiEnv(includeLocalFile = true): Env {
+  return loadEnv({
+    // Keep env ownership in the API app boundary.
+    rootDir: appDir,
+    defaultsFile: resolve(appDir, ".env.defaults"),
+    localFile: includeLocalFile ? resolve(appDir, ".env") : "__missing__.api.env",
+    stagingFile: resolve(appDir, ".env.staging"),
+    productionFile: resolve(appDir, ".env.production"),
+  });
+}
 
 export function getEnv(): Env {
-  // Tests should not accidentally read local developer secrets from `.env.local`.
+  // Tests should not accidentally read local developer secrets from `api/.env`.
   // Also, tests mutate process.env, so don't cache in that case.
   if (process.env.NODE_ENV === "test") {
-    return loadEnv({
-      // Point to missing files (loadEnv will treat them as empty).
-      localFile: "__missing__.env.local",
-      stagingFile: "__missing__.env.staging",
-      productionFile: "__missing__.env.production",
-    });
+    return loadApiEnv(false);
   }
   if (cached) return cached;
-  cached = loadEnv();
+  cached = loadApiEnv(true);
   return cached;
 }
 

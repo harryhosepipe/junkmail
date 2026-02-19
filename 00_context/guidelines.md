@@ -167,13 +167,19 @@ Either approach can work, but we must preserve boundaries and prevent “everyth
 
 ## 10) Environment variables and configuration
 
-### Rule: Configuration must be centralized, typed/validated, and non-duplicated.
+### Rule: Configuration must be owned per app/service, typed/validated, and non-duplicated.
 
 **Guideline:**
-- One configuration entrypoint (e.g., `config/` or `env.ts`).
-- Validate required vars at startup.
-- Do not scatter `process.env.X` across the codebase.
-- Avoid duplicated variable definitions or subtly different defaults.
+- Each app/service has its own `.env` and its own env module.
+- Each env module validates with Zod at startup and exports typed config.
+- Do not scatter `process.env.X` across the codebase; import typed config instead.
+- Avoid duplicated variable definitions or subtly different defaults across modules.
+- Do not use a root shared `.env` as the source of truth.
+
+**Monorepo pattern (required):**
+- `apps/astro/.env` with `apps/astro/src/env.ts` (Zod schema + parse)
+- `apps/convex/.env` with `apps/convex/env.ts` (Zod schema + parse)
+- Add the same pattern for every new app/package that needs runtime config.
 
 **Separation:**
 - “Runtime configuration” (env vars) ≠ “application constants” ≠ “feature flags”

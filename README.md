@@ -21,10 +21,12 @@ For a short setup path, see `docs/QUICKSTART.md`.
 bun install
 ```
 
-2. Create local env:
+2. Create local env per app:
 
 ```bash
-cp .env.example .env.local
+cp api/.env.example api/.env
+cp web/.env.example web/.env
+cp convex/.env.example convex/.env
 ```
 
 3. Start everything:
@@ -77,7 +79,7 @@ bun run fmt
 
 - Direct `process.env` usage is blocked outside approved env loader/config files.
 - Escape hatches are allowed for test and migration files.
-- `.env.example` keys must stay aligned with `packages/config/src/env.schema.ts`.
+- `api/.env.example` keys must stay aligned with `packages/config/src/env.schema.ts`.
 
 ## Caddy + Staging Tunnel
 
@@ -100,7 +102,7 @@ This creates a `trycloudflare.com` URL and starts infra + apps with origin env v
 
 If Caddy in Docker cannot reach host-run API/web, `web.localhost` routes may return `502`.
 
-Use direct localhost origins in `.env.local` for auth links:
+Use direct localhost origins in `api/.env` for auth links:
 
 ```dotenv
 WEB_ORIGIN=http://localhost:4321
@@ -117,7 +119,7 @@ Current local setup is HTTP only. If secure local HTTPS is needed, track follow-
 ## Telegram Photo Ingest (Optional)
 
 1. Create a bot with `@BotFather`, add it to your private group/channel.
-2. Set `.env.local` values:
+2. Set `api/.env` values:
    - `TELEGRAM_BOT_TOKEN`
    - `TELEGRAM_ALLOWED_CHAT_IDS`
    - `TELEGRAM_WEBHOOK_SECRET_TOKEN` (recommended)

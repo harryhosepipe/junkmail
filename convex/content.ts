@@ -6,6 +6,25 @@ const normalizeText = (value?: string) => {
   return trimmed && trimmed.length ? trimmed : undefined;
 };
 
+const INITIAL_RATING_SCORE = 0;
+const INITIAL_RATING_UNCERTAINTY = 1;
+
+const ensureRatingForPublicImage = async (ctx: any, imageId: string, updatedAt: number) => {
+  const existing = await ctx.db
+    .query("imageRatings")
+    .withIndex("by_image_id", (q: any) => q.eq("imageId", imageId))
+    .unique();
+  if (existing) return;
+
+  await ctx.db.insert("imageRatings", {
+    imageId,
+    score: INITIAL_RATING_SCORE,
+    uncertainty: INITIAL_RATING_UNCERTAINTY,
+    comparisonsCount: 0,
+    updatedAt,
+  });
+};
+
 const mapImageRow = (row: any) => ({
   imageId: row.imageId,
   uploadId: row.uploadId,
@@ -162,6 +181,9 @@ export const upsertImage = mutation({
 
     if (existing) {
       await ctx.db.patch(existing._id, next);
+      if (next.status === "public") {
+        await ensureRatingForPublicImage(ctx, args.imageId, now);
+      }
       return { ok: true };
     }
 
@@ -170,6 +192,9 @@ export const upsertImage = mutation({
       createdAt: args.createdAt ?? now,
       ...next,
     });
+    if (next.status === "public") {
+      await ensureRatingForPublicImage(ctx, args.imageId, now);
+    }
 
     return { ok: true };
   },
@@ -322,15 +347,20 @@ export const markImageAccepted = mutation({
       .unique();
     if (!existing) return { ok: false };
 
+    const nextStatus = normalizeText(args.status) || "public";
+    const now = args.updatedAt ?? Date.now();
     await ctx.db.patch(existing._id, {
-      status: normalizeText(args.status) || "public",
+      status: nextStatus,
       storageKeyCanonical: normalizeText(args.storageKeyCanonical),
       width: args.width,
       height: args.height,
       variantUrls: args.variantUrls,
-      updatedAt: args.updatedAt ?? Date.now(),
+      updatedAt: now,
       publishedAt: args.publishedAt ?? Date.now(),
     });
+    if (nextStatus === "public") {
+      await ensureRatingForPublicImage(ctx, args.imageId, now);
+    }
     return { ok: true };
   },
 });
@@ -540,11 +570,15 @@ export const setImageStatus = mutation({
       throw new Error(`Image not found for imageId=${args.imageId}`);
     }
 
+    const now = args.updatedAt ?? Date.now();
     await ctx.db.patch(existing._id, {
       status: args.status,
-      updatedAt: args.updatedAt ?? Date.now(),
+      updatedAt: now,
       publishedAt: args.publishedAt,
     });
+    if (args.status === "public") {
+      await ensureRatingForPublicImage(ctx, args.imageId, now);
+    }
 
     return { ok: true };
   },
@@ -570,15 +604,19 @@ export const setImageProcessingResult = mutation({
       throw new Error(`Image not found for imageId=${args.imageId}`);
     }
 
+    const now = args.updatedAt ?? Date.now();
     await ctx.db.patch(existing._id, {
       status: args.status,
       variantUrls: args.variantUrls,
       storageKeyCanonical: normalizeText(args.storageKeyCanonical),
       width: args.width,
       height: args.height,
-      updatedAt: args.updatedAt ?? Date.now(),
+      updatedAt: now,
       publishedAt: args.publishedAt,
     });
+    if (args.status === "public") {
+      await ensureRatingForPublicImage(ctx, args.imageId, now);
+    }
 
     return { ok: true };
   },

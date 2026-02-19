@@ -142,11 +142,6 @@ export const EnvSchema = z.object({
   REALTIME_TEST_DRAIN_TIMEOUT_MS: NumFromString.optional(),
   REALTIME_TEST_DRAIN_POLL_MS: NumFromString.optional(),
 
-  // Convex rating params (currently used from convex/ directly)
-  BRADLEY_TERRY_K: NumFromString.optional(),
-  RATING_INITIAL_SCORE: NumFromString.optional(),
-  RATING_INITIAL_UNCERTAINTY: NumFromString.optional(),
-  RATING_MIN_UNCERTAINTY: NumFromString.optional(),
 });
 
 export type Env = z.infer<typeof EnvSchema>;

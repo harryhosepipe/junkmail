@@ -25,7 +25,7 @@ services:
   convex-backend:
     image: ghcr.io/get-convex/convex-backend:latest
     env_file:
-      - ../../.env.local
+      - ../../convex/.env
     environment:
       # Used for generating URLs in Convex responses/UI.
       CONVEX_CLOUD_ORIGIN: http://convex.localhost

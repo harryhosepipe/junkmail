@@ -1,16 +1,17 @@
 import { defineConfig, envField } from "astro/config";
 import node from "@astrojs/node";
 import svelte from "@astrojs/svelte";
+import { webEnv } from "./env.mjs";
 
 const apiProxyTarget =
-  process.env.API_PROXY_TARGET ?? process.env.API_BASE_URL ?? "http://localhost:8787";
+  webEnv.API_PROXY_TARGET ?? webEnv.API_BASE_URL ?? "http://localhost:8787";
 const apiProxyOrigin =
-  process.env.API_PROXY_ORIGIN ??
-  process.env.WEB_ORIGIN ??
-  process.env.APP_ORIGIN ??
+  webEnv.API_PROXY_ORIGIN ??
+  webEnv.WEB_ORIGIN ??
+  webEnv.APP_ORIGIN ??
   "http://web.localhost";
-const assetsProxyTarget = process.env.ASSETS_PROXY_TARGET ?? "http://localhost:9010";
-const convexProxyTarget = process.env.CONVEX_PROXY_TARGET ?? "http://localhost:3210";
+const assetsProxyTarget = webEnv.ASSETS_PROXY_TARGET ?? "http://localhost:9010";
+const convexProxyTarget = webEnv.CONVEX_PROXY_TARGET ?? "http://localhost:3210";
 
 export default defineConfig({
   output: "static",

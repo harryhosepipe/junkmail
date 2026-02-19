@@ -10,6 +10,7 @@ const ALLOWED_PROCESS_ENV_FILES = new Set([
   "packages/config/src/spawn.ts",
   "api/src/env.ts",
   "web/astro.config.mjs",
+  "web/env.mjs",
   "infra/cloudflared/dev-staging.mjs",
   "convex/env.ts",
   "tools/check-env-guardrails.mjs",
@@ -67,7 +68,7 @@ const parseEnvSchemaKeys = () => {
 };
 
 const parseEnvExampleKeys = () => {
-  const example = readFileSync(".env.example", "utf8");
+  const example = readFileSync("api/.env.example", "utf8");
   return new Set([...example.matchAll(/^([A-Z][A-Z0-9_]+)=/gm)].map((m) => m[1]));
 };
 
@@ -97,9 +98,9 @@ if (processEnvViolations.length) {
 
 if (missingInExample.length || missingInSchema.length) {
   failed = true;
-  console.error("Env contract failed: .env.example and EnvSchema must stay aligned.");
+  console.error("Env contract failed: api/.env.example and EnvSchema must stay aligned.");
   if (missingInExample.length) {
-    console.error("Missing in .env.example:");
+    console.error("Missing in api/.env.example:");
     for (const key of missingInExample) console.error(`- ${key}`);
   }
   if (missingInSchema.length) {

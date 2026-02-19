@@ -1,12 +1,11 @@
 import { mutation, query } from "./_generated/server";
 import type { MutationCtx } from "./_generated/server";
 import { v } from "convex/values";
-import { env } from "./env";
 
-const LEARNING_RATE = env.BRADLEY_TERRY_K;
-const INITIAL_SCORE = env.RATING_INITIAL_SCORE;
-const INITIAL_UNCERTAINTY = env.RATING_INITIAL_UNCERTAINTY;
-const MIN_UNCERTAINTY = env.RATING_MIN_UNCERTAINTY;
+const LEARNING_RATE = 0.15;
+const INITIAL_SCORE = 0;
+const INITIAL_UNCERTAINTY = 1;
+const MIN_UNCERTAINTY = 0.15;
 
 export const TOKEN_VALIDATION_ACCEPTED = "accepted";
 export const TOKEN_VALIDATION_INVALID = "rejected_invalid_token";
