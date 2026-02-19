@@ -30,6 +30,18 @@ export const ensureSameOrigin = (c: Context) => {
   }
 
   const origin = getOrigin(c);
+  let requestOrigin: string | null = null;
+  try {
+    requestOrigin = new URL(c.req.url).origin;
+  } catch {
+    requestOrigin = null;
+  }
+
+  // Primary check: same-origin requests are always allowed.
+  if (origin && requestOrigin && origin === requestOrigin) {
+    return null;
+  }
+
   if (!origin) {
     if (isProd) {
       return c.json({ error: { message: "Origin required" } }, 403);
