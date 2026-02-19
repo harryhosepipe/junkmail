@@ -9,6 +9,8 @@
   let baseItems = [];
   let unsubscribeRatings = null;
   let refreshTimer = null;
+  let refreshInFlight = false;
+  let visibilityHandler = null;
   let realtimeUnavailable = false;
   let latestRatings = [];
 
@@ -143,23 +145,55 @@
       .join("::");
 
   const refreshRecent = async () => {
-    const response = await fetch(`${apiBaseUrl}/api/v1/images/recent?limit=8`);
-    if (!response.ok) {
-      throw new Error("fetch failed");
+    if (refreshInFlight) return;
+    refreshInFlight = true;
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/v1/images/recent?limit=8`);
+      if (!response.ok) {
+        throw new Error("fetch failed");
+      }
+      const data = await response.json();
+      const rows = Array.isArray(data?.items) ? data.items : [];
+      const prevIds = baseItems.map((item) => item.id).join(",");
+      const nextIds = rows.map((item) => item.id).join(",");
+      const changed = summarizeItems(rows) !== summarizeItems(baseItems);
+      baseItems = rows;
+      if (prevIds !== nextIds) {
+        subscribeRatings();
+        return;
+      }
+      if (changed) {
+        mergeWithRatings();
+      }
+    } finally {
+      refreshInFlight = false;
     }
-    const data = await response.json();
-    const rows = Array.isArray(data?.items) ? data.items : [];
-    const prevIds = baseItems.map((item) => item.id).join(",");
-    const nextIds = rows.map((item) => item.id).join(",");
-    const changed = summarizeItems(rows) !== summarizeItems(baseItems);
-    baseItems = rows;
-    if (prevIds !== nextIds) {
-      subscribeRatings();
+  };
+
+  const hasPendingCards = () =>
+    baseItems.some((item) => item?.classificationStatus === "pending" || !item?.title);
+
+  const clearRefreshTimer = () => {
+    if (!refreshTimer) return;
+    clearInterval(refreshTimer);
+    refreshTimer = null;
+  };
+
+  const updateRefreshTimer = () => {
+    clearRefreshTimer();
+    if (typeof document !== "undefined" && document.visibilityState !== "visible") {
       return;
     }
-    if (changed) {
-      mergeWithRatings();
+    if (!hasPendingCards()) {
+      return;
     }
+    refreshTimer = setInterval(() => {
+      refreshRecent()
+        .then(() => {
+          updateRefreshTimer();
+        })
+        .catch(() => null);
+    }, 3000);
   };
 
   onMount(async () => {
@@ -171,22 +205,28 @@
       if (!baseItems.length) {
         state = "ready";
       }
-      refreshTimer = setInterval(() => {
-        refreshRecent().catch(() => null);
-      }, 3000);
+      updateRefreshTimer();
     } catch {
       state = "error";
     }
   });
+
+  if (typeof document !== "undefined") {
+    visibilityHandler = () => {
+      updateRefreshTimer();
+    };
+    document.addEventListener("visibilitychange", visibilityHandler);
+  }
 
   onDestroy(() => {
     if (unsubscribeRatings) {
       unsubscribeRatings();
       unsubscribeRatings = null;
     }
-    if (refreshTimer) {
-      clearInterval(refreshTimer);
-      refreshTimer = null;
+    clearRefreshTimer();
+    if (typeof document !== "undefined" && visibilityHandler) {
+      document.removeEventListener("visibilitychange", visibilityHandler);
+      visibilityHandler = null;
     }
   });
 </script>
