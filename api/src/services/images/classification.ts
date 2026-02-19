@@ -138,23 +138,6 @@ export const classifyImageByUrl = async (imageUrl: string) => {
           ],
         },
       ],
-      text: {
-        format: {
-          type: "json_schema",
-          name: "junkmail_image_classification",
-          strict: true,
-          schema: {
-            type: "object",
-            additionalProperties: false,
-            properties: {
-              title: { type: "string" },
-              classification: { type: "string" },
-              description: { type: "string" },
-            },
-            required: ["title", "classification", "description"],
-          },
-        },
-      },
     },
     {
       signal: AbortSignal.timeout(Number.isFinite(timeoutMs) ? timeoutMs : 10000),
