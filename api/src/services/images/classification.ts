@@ -4,6 +4,7 @@ import { env } from "../../env.js";
 const DEFAULT_MODEL = "gpt-4o-mini";
 const DEFAULT_PROMPT_ID = "pmpt_69964f0c85348190b30ecd9e3c94844d0e11797725242f00";
 const DEFAULT_PROMPT_VERSION = "1";
+const DEFAULT_TIMEOUT_MS = 30000;
 
 export const isClassificationEnabled = () => Boolean(env.IMAGE_CLASSIFICATION_ENABLED ?? true);
 
@@ -22,31 +23,45 @@ export const classifyImageByUrl = async (imageUrl: string) => {
 
   const promptId = env.OPENAI_PROMPT_ID || DEFAULT_PROMPT_ID;
   const promptVersion = env.OPENAI_PROMPT_VERSION || DEFAULT_PROMPT_VERSION;
-  const timeoutMs = Number(env.IMAGE_CLASSIFICATION_TIMEOUT_MS ?? 10000);
+  const configuredTimeoutMs = Number(env.IMAGE_CLASSIFICATION_TIMEOUT_MS ?? DEFAULT_TIMEOUT_MS);
+  const timeoutMs = Number.isFinite(configuredTimeoutMs)
+    ? Math.max(1000, Math.floor(configuredTimeoutMs))
+    : DEFAULT_TIMEOUT_MS;
   const client = new OpenAI({ apiKey });
-  const response = await client.responses.create(
-    {
-      prompt: {
-        id: promptId,
-        version: promptVersion,
+  const requestBody = {
+    prompt: {
+      id: promptId,
+      version: promptVersion,
+    },
+    input: [
+      {
+        role: "user" as const,
+        content: [
+          {
+            type: "input_image" as const,
+            image_url: imageUrl,
+            detail: "low" as const,
+          },
+        ],
       },
-      input: [
-        {
-          role: "user",
-          content: [
-            {
-              type: "input_image",
-              image_url: imageUrl,
-              detail: "low",
-            },
-          ],
-        },
-      ],
-    },
-    {
-      signal: AbortSignal.timeout(Number.isFinite(timeoutMs) ? timeoutMs : 10000),
-    },
-  );
+    ],
+  };
+  const runRequest = (ms: number) =>
+    client.responses.create(requestBody, {
+      signal: AbortSignal.timeout(ms),
+    });
+
+  let response;
+  try {
+    response = await runRequest(timeoutMs);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "";
+    const isAbort = /aborted|abort/i.test(message);
+    if (!isAbort) {
+      throw error;
+    }
+    response = await runRequest(timeoutMs * 2);
+  }
 
   const content = response.output_text || "{}";
   const parsed = JSON.parse(content) as {
