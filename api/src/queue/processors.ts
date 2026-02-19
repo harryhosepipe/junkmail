@@ -21,7 +21,6 @@ import {
   classifyImageByUrl,
   isClassificationEnabled,
   sanitizeClassificationError,
-  type ImageCategory,
 } from "../services/images/classification.js";
 import { publicObjectUrl, s3Client, storageBucket } from "../storage/client.js";
 import { canonicalKey, ImageFormat, ImageSize, variantKey } from "../storage/paths.js";
@@ -759,7 +758,7 @@ type ClassificationProcessorDeps = {
   mutateConvexSetImageClassificationResult: (args: {
     imageId: string;
     title: string;
-    category: ImageCategory;
+    category: string;
     description?: string;
     model?: string;
     classifiedAt?: number;
@@ -773,7 +772,7 @@ type ClassificationProcessorDeps = {
   }) => Promise<unknown>;
   classifyImageByImageDataUrl: (imageDataUrl: string) => Promise<{
     title: string;
-    category: ImageCategory;
+    category: string;
     description: string;
     model: string;
   }>;

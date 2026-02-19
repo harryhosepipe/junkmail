@@ -16,18 +16,28 @@ export const IMAGE_CATEGORIES = [
 
 export type ImageCategory = (typeof IMAGE_CATEGORIES)[number];
 
-const CATEGORY_SET = new Set<string>(IMAGE_CATEGORIES);
 const DEFAULT_MODEL = "gpt-4o-mini";
 const DEFAULT_PROMPT_ID = "pmpt_69964f0c85348190b30ecd9e3c94844d0e11797725242f00";
 const DEFAULT_PROMPT_VERSION = "1";
-const TITLE_MAX_LENGTH = 120;
+const TITLE_MAX_WORDS = 4;
+const CATEGORY_MAX_LENGTH = 80;
 const DESCRIPTION_MAX_LENGTH = 500;
 
+const stripKnownLabel = (value: string) =>
+  value
+    .replace(/^ARTEFACT NAME\s*:\s*/i, "")
+    .replace(/^ARTIFACT NAME\s*:\s*/i, "")
+    .replace(/^TITLE\s*:\s*/i, "")
+    .replace(/^GENRE\s*:\s*/i, "")
+    .trim();
+
 const normalizeTitle = (value: unknown) => {
-  const raw = typeof value === "string" ? value.trim() : "";
+  const raw = typeof value === "string" ? stripKnownLabel(value.trim()) : "";
   if (!raw) return "Untitled";
-  if (raw.length <= TITLE_MAX_LENGTH) return raw;
-  return raw.slice(0, TITLE_MAX_LENGTH).trim();
+  const singleLine = raw.split(/\r?\n/)[0]?.trim() || raw;
+  const words = singleLine.split(/\s+/).filter(Boolean);
+  const limited = words.slice(0, TITLE_MAX_WORDS).join(" ").trim();
+  return limited || "Untitled";
 };
 
 const normalizeDescription = (value: unknown) => {
@@ -37,10 +47,58 @@ const normalizeDescription = (value: unknown) => {
   return raw.slice(0, DESCRIPTION_MAX_LENGTH).trim();
 };
 
-const normalizeCategory = (value: unknown): ImageCategory => {
-  const raw = typeof value === "string" ? value.trim() : "";
-  if (CATEGORY_SET.has(raw)) return raw as ImageCategory;
-  return "other";
+const normalizeCategory = (value: unknown): string => {
+  const raw = typeof value === "string" ? stripKnownLabel(value.trim()) : "";
+  if (!raw) return "other";
+  if (raw.length <= CATEGORY_MAX_LENGTH) return raw;
+  return raw.slice(0, CATEGORY_MAX_LENGTH).trim();
+};
+
+const safeJsonParse = (value: string): Record<string, unknown> | null => {
+  try {
+    const parsed = JSON.parse(value);
+    if (parsed && typeof parsed === "object") {
+      return parsed as Record<string, unknown>;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+};
+
+const extractLabeledField = (text: string, label: string) => {
+  const re = new RegExp(`(?:^|\\n)\\s*${label}\\s*:\\s*([^\\n]+)`, "i");
+  return text.match(re)?.[1]?.trim() || "";
+};
+
+const parseClassificationOutput = (content: string) => {
+  const parsed = safeJsonParse(content) || {};
+  let title = parsed.title;
+  let classification = parsed.classification;
+  let description = parsed.description;
+
+  if (typeof title === "string") {
+    const nested = safeJsonParse(title.trim());
+    if (nested) {
+      title = nested.title ?? title;
+      classification = classification ?? nested.classification;
+      description = description ?? nested.description;
+    }
+  }
+
+  const fallbackTitle =
+    extractLabeledField(content, "ARTEFACT NAME") || extractLabeledField(content, "ARTIFACT NAME");
+  const fallbackClassification =
+    extractLabeledField(content, "GENRE") || extractLabeledField(content, "CLASSIFICATION");
+  const fallbackDescription =
+    extractLabeledField(content, "DESCRIPTION") ||
+    extractLabeledField(content, "WHAT IS HAPPENING \\(LITERAL\\)");
+
+  return {
+    title: title ?? fallbackTitle,
+    classification: classification ?? fallbackClassification,
+    description: description ?? fallbackDescription,
+  };
 };
 
 export const isClassificationEnabled = () => Boolean(env.IMAGE_CLASSIFICATION_ENABLED ?? true);
@@ -90,7 +148,7 @@ export const classifyImageByUrl = async (imageUrl: string) => {
             additionalProperties: false,
             properties: {
               title: { type: "string" },
-              classification: { type: "string", enum: IMAGE_CATEGORIES },
+              classification: { type: "string" },
               description: { type: "string" },
             },
             required: ["title", "classification", "description"],
@@ -104,11 +162,7 @@ export const classifyImageByUrl = async (imageUrl: string) => {
   );
 
   const content = response.output_text || "";
-  const parsed = JSON.parse(content || "{}") as {
-    title?: unknown;
-    classification?: unknown;
-    description?: unknown;
-  };
+  const parsed = parseClassificationOutput(content);
   return {
     title: normalizeTitle(parsed.title),
     category: normalizeCategory(parsed.classification),
