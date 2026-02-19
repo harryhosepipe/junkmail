@@ -720,8 +720,7 @@
     color: var(--accent-strong);
   }
 
-  .field textarea,
-  .field input[type="text"] {
+  .field textarea {
     padding: 12px 14px;
     border-radius: 12px;
     border: 1px solid var(--border);

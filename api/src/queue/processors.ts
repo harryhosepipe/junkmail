@@ -51,7 +51,8 @@ export type VoteProcessJobData = {
 
 export type ImageClassificationJobData = {
   imageId: string;
-  imageUrl: string;
+  storageKey: string;
+  mimeType: string;
 };
 
 const sizes: Record<ImageSize, number> = {
@@ -735,10 +736,10 @@ export const processImageJob = async (
   });
 
   if (isClassificationEnabled() && typeof deps.enqueueClassificationJob === "function") {
-    const canonicalUrl = deps.publicObjectUrl(canonicalStorageKey);
     await deps.enqueueClassificationJob({
       imageId,
-      imageUrl: canonicalUrl,
+      storageKey: canonicalStorageKey,
+      mimeType: "image/webp",
     });
   }
 };
@@ -748,6 +749,8 @@ type VoteProcessorDeps = {
 };
 
 type ClassificationProcessorDeps = {
+  s3Client: { send: (command: any) => Promise<any> };
+  storageBucket: string;
   mutateConvexSetImageClassificationPending: (args: {
     imageId: string;
     model?: string;
@@ -768,7 +771,7 @@ type ClassificationProcessorDeps = {
     model?: string;
     updatedAt?: number;
   }) => Promise<unknown>;
-  classifyImageByUrl: (imageUrl: string) => Promise<{
+  classifyImageByImageDataUrl: (imageDataUrl: string) => Promise<{
     title: string;
     category: ImageCategory;
     description: string;
@@ -781,10 +784,12 @@ const defaultVoteDeps: VoteProcessorDeps = {
 };
 
 const defaultClassificationDeps: ClassificationProcessorDeps = {
+  s3Client,
+  storageBucket,
   mutateConvexSetImageClassificationPending,
   mutateConvexSetImageClassificationResult,
   mutateConvexSetImageClassificationFailed,
-  classifyImageByUrl,
+  classifyImageByImageDataUrl: classifyImageByUrl,
 };
 
 export const processVoteJob = async (
@@ -809,7 +814,15 @@ export const processImageClassificationJob = async (
   });
 
   try {
-    const classified = await deps.classifyImageByUrl(data.imageUrl);
+    const imageObject = await deps.s3Client.send(
+      new GetObjectCommand({
+        Bucket: deps.storageBucket,
+        Key: data.storageKey,
+      }),
+    );
+    const imageBuffer = await toBuffer(imageObject.Body);
+    const imageDataUrl = `data:${data.mimeType};base64,${imageBuffer.toString("base64")}`;
+    const classified = await deps.classifyImageByImageDataUrl(imageDataUrl);
     await deps.mutateConvexSetImageClassificationResult({
       imageId: data.imageId,
       title: classified.title,

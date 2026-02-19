@@ -47,7 +47,9 @@ voteWorker.on("failed", (job, err) => {
 const imageClassificationWorker = new Worker(
   "image-classification",
   async (job) => {
-    await processImageClassificationJob(job.data as { imageId: string; imageUrl: string });
+    await processImageClassificationJob(
+      job.data as { imageId: string; storageKey: string; mimeType: string },
+    );
   },
   {
     connection: redis,
