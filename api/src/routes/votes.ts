@@ -7,7 +7,8 @@ import { parseVotePayload, type VotePayload } from "../contracts/votes.js";
 import { redis } from "../queue/connection.js";
 import { env } from "../env.js";
 import { AppError } from "../http/errors.js";
-import { submitVote } from "../services/votes/submitVote.js";
+import { executeSubmitVote } from "../application/voting/SubmitVote.js";
+import { mapVoteSubmitDomainToHttp } from "../presentation/http/votes/mappers.js";
 
 const votesRouter = new Hono();
 
@@ -115,14 +116,15 @@ votesRouter.post("/", async (c) => {
     );
   }
 
-  const result = await submitVote({
+  const result = await executeSubmitVote({
     payload,
     voterHash,
     ipHash,
     sessionUserId: sessionUser?.id,
   });
 
-  return c.json(result.body, result.status);
+  const response = mapVoteSubmitDomainToHttp(result);
+  return c.json(response.body, response.status as any);
 });
 
 export default votesRouter;

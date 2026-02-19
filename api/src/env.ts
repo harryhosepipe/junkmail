@@ -5,6 +5,11 @@ import { fileURLToPath } from "node:url";
 let cached: Env | null = null;
 const appDir = resolve(fileURLToPath(new URL("..", import.meta.url)));
 
+// API env ownership:
+// - Required keys and typing are defined in packages/config/src/env.schema.ts.
+// - Defaults live in api/.env.defaults.
+// - app-scoped overrides live in api/.env(.staging|.production).
+// - process env wins last for CI/runtime injection.
 function loadApiEnv(includeLocalFile = true): Env {
   return loadEnv({
     // Keep env ownership in the API app boundary.

@@ -1,4 +1,7 @@
-import { mutateConvexSetImagePerceptualHashes, queryConvexPublicImages } from "../convex/client.js";
+import {
+  mutateConvexRecordImagePerceptualHashes,
+  queryConvexPublicImages,
+} from "../convex/client.js";
 import { computeImageFingerprint, similarityAnchor } from "../services/images/perceptualHash.js";
 
 const ANCHOR_LENGTH = 2;
@@ -22,7 +25,7 @@ async function main() {
       const fingerprint = await computeImageFingerprint(bytes);
       const anchor = similarityAnchor(fingerprint, ANCHOR_LENGTH);
 
-      const result = await mutateConvexSetImagePerceptualHashes({
+      const result = await mutateConvexRecordImagePerceptualHashes({
         imageId: row.imageId,
         perceptualHashAnchor: anchor,
         perceptualHashes: fingerprint,

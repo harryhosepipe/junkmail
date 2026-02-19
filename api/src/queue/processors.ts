@@ -5,8 +5,8 @@ import {
   mutateConvexCreateDedupeEvent,
   mutateConvexMarkImageRejected,
   mutateConvexProjectVoteEvent,
-  mutateConvexSetImageProcessingResult,
-  mutateConvexUpsertImageFingerprint,
+  mutateConvexMarkImageProcessingComplete,
+  mutateConvexRecordImageFingerprint,
   queryConvexImageById,
   queryConvexImageFingerprintBySha256,
   queryConvexImageFingerprintsByPhashPrefix,
@@ -65,7 +65,7 @@ type ImageProcessorDeps = {
   storageBucket: string;
   publicObjectUrl: (key: string) => string;
   variantKey: (imageId: string, size: ImageSize, format: ImageFormat) => string;
-  mutateConvexSetImageProcessingResult: (args: {
+  mutateConvexMarkImageProcessingComplete: (args: {
     imageId: string;
     status: string;
     variantUrls?: unknown;
@@ -96,7 +96,7 @@ type ImageProcessorDeps = {
     limit?: number,
   ) => Promise<any[]>;
   queryConvexRecentImageFingerprints?: (limit?: number) => Promise<any[]>;
-  mutateConvexUpsertImageFingerprint?: (args: {
+  mutateConvexRecordImageFingerprint?: (args: {
     imageId: string;
     sha256Pixels: string;
     phash64: string;
@@ -117,13 +117,13 @@ const defaultImageDeps: ImageProcessorDeps = {
   storageBucket,
   publicObjectUrl,
   variantKey,
-  mutateConvexSetImageProcessingResult,
+  mutateConvexMarkImageProcessingComplete,
   mutateConvexMarkImageRejected,
   mutateConvexCreateDedupeEvent,
   queryConvexImageFingerprintBySha256,
   queryConvexImageFingerprintsByPhashPrefix,
   queryConvexRecentImageFingerprints,
-  mutateConvexUpsertImageFingerprint,
+  mutateConvexRecordImageFingerprint,
   queryConvexImageById,
 };
 
@@ -163,7 +163,7 @@ export const processImageJob = async (
     typeof deps.mutateConvexCreateDedupeEvent === "function" &&
     typeof deps.queryConvexImageFingerprintBySha256 === "function" &&
     typeof deps.queryConvexImageFingerprintsByPhashPrefix === "function" &&
-    typeof deps.mutateConvexUpsertImageFingerprint === "function";
+    typeof deps.mutateConvexRecordImageFingerprint === "function";
   const runtimeEnv = env as any;
   const dedupeV2FromEnv = Boolean(runtimeEnv.IMAGE_DEDUPE_V2_ENABLED ?? false);
   const orbEnabled = Boolean(runtimeEnv.IMAGE_DEDUPE_ORB_ENABLED ?? false);
@@ -598,7 +598,7 @@ export const processImageJob = async (
       return;
     }
 
-    await deps.mutateConvexUpsertImageFingerprint!({
+    await deps.mutateConvexRecordImageFingerprint!({
       imageId,
       sha256Pixels,
       phash64,
@@ -708,7 +708,7 @@ export const processImageJob = async (
     };
   }
 
-  await deps.mutateConvexSetImageProcessingResult({
+  await deps.mutateConvexMarkImageProcessingComplete({
     imageId,
     status: "public",
     variantUrls,

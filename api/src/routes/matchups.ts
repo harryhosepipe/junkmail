@@ -1,10 +1,10 @@
 import { Hono } from "hono";
-import { createMatchupPayload } from "../services/matchups/createMatchupPayload.js";
+import { executeGetNextMatchup } from "../application/voting/GetNextMatchup.js";
 
 const matchupsRouter = new Hono();
 
 matchupsRouter.get("/next", async (c) => {
-  const payload = await createMatchupPayload(c);
+  const payload = await executeGetNextMatchup(c);
   if (!payload) {
     return c.json({ error: { message: "Not enough images" } }, 404);
   }
@@ -12,5 +12,5 @@ matchupsRouter.get("/next", async (c) => {
   return c.json(payload);
 });
 
-export { createMatchupPayload };
+export { executeGetNextMatchup as createMatchupPayload };
 export default matchupsRouter;

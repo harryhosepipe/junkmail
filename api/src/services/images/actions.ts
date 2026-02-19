@@ -11,8 +11,8 @@ import {
 import {
   mutateConvexCreateImageComment,
   mutateConvexDeleteImageGraph,
-  mutateConvexSetImageStatus,
-  mutateConvexUpsertImageContent,
+  mutateConvexMarkImageProcessingRequested,
+  mutateConvexRecordImageUploadProcessing,
   queryConvexImageById,
   queryConvexRecentImages,
   queryConvexImagesByPerceptualHashAnchor,
@@ -27,6 +27,7 @@ import {
   similarityAnchor,
   type ImageFingerprint,
 } from "./perceptualHash.js";
+import type { ImageUploadDomainResult } from "../../domain/images/types.js";
 
 const MAX_UPLOAD_BYTES = 15 * 1024 * 1024;
 const ACCEPTED_TYPES = ["image/jpeg", "image/png"] as const;
@@ -44,7 +45,7 @@ const buildDuplicatePayload = async (args: {
     description?: string;
   };
   duplicateType: "exact" | "near";
-}) => {
+}): Promise<ImageUploadDomainResult> => {
   const { existing, duplicateType } = args;
   const uploader = await resolveAuthUserProfileById(existing.uploaderAuthUserId);
   const uploadedAtIso = new Date(existing.createdAt ?? Date.now()).toISOString();
@@ -55,13 +56,12 @@ const buildDuplicatePayload = async (args: {
       : "This image was already uploaded.";
 
   return {
+    kind: "duplicate",
     id: existing.imageId,
     status: existing.status,
     originalUrl: normalizePublicAssetUrl(existing.originalUrl || ""),
-    duplicate: true as const,
     duplicateType,
-    httpStatus: duplicateType === "near" ? 409 : 200,
-    error: { message },
+    duplicateMessage: message,
     existing: {
       id: existing.imageId,
       status: existing.status,
@@ -118,7 +118,7 @@ export const createImageUpload = async (args: {
   upload: { arrayBuffer: () => Promise<ArrayBuffer> };
   type: string;
   ext: "jpg" | "png";
-}) => {
+}): Promise<ImageUploadDomainResult> => {
   const { authUser, description, upload, type, ext } = args;
   const data = Buffer.from(await upload.arrayBuffer());
   const uploadHash = createHash("sha256").update(data).digest("hex");
@@ -172,7 +172,7 @@ export const createImageUpload = async (args: {
     uploaderAlias: authUser.alias,
   });
 
-  await mutateConvexUpsertImageContent({
+  await mutateConvexRecordImageUploadProcessing({
     imageId,
     uploaderAuthUserId: authUser.id,
     uploadHash,
@@ -204,12 +204,10 @@ export const createImageUpload = async (args: {
   );
 
   return {
+    kind: "created",
     id: imageId,
     status: "processing",
     originalUrl: normalizePublicAssetUrl(originalUrl),
-    duplicate: false as const,
-    duplicateType: null,
-    httpStatus: 201,
   };
 };
 
@@ -293,7 +291,7 @@ export const reprocessImage = async (imageId: string) => {
   const ext = key.endsWith(".png") ? "png" : "jpg";
   const contentType = ext === "png" ? "image/png" : "image/jpeg";
 
-  await mutateConvexSetImageStatus({
+  await mutateConvexMarkImageProcessingRequested({
     imageId,
     status: "processing",
     updatedAt: Date.now(),

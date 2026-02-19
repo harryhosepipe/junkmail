@@ -5,6 +5,7 @@ import {
   mutateConvexValidateAndConsumeMatchupToken,
   queryConvexPublicImagesByIds,
 } from "../../convex/client.js";
+import type { VoteSubmitDomainResult } from "../../domain/voting/types.js";
 import { serviceUnavailable } from "../../http/errors.js";
 import { voteQueue } from "../../queue/index.js";
 import type { VotePayload } from "../../contracts/votes.js";
@@ -16,16 +17,18 @@ type SubmitVoteArgs = {
   sessionUserId?: string;
 };
 
-export const submitVote = async ({ payload, voterHash, ipHash, sessionUserId }: SubmitVoteArgs) => {
+export const submitVote = async ({
+  payload,
+  voterHash,
+  ipHash,
+  sessionUserId,
+}: SubmitVoteArgs): Promise<VoteSubmitDomainResult> => {
   const { imageAId, imageBId, winnerId, matchupTokenId } = payload;
 
   try {
     const imageRows = await queryConvexPublicImagesByIds([imageAId, imageBId]);
     if (imageRows.length !== 2) {
-      return {
-        status: 404 as const,
-        body: { error: { message: "Matchup unavailable" } },
-      };
+      return { kind: "matchup_unavailable" };
     }
   } catch {
     throw serviceUnavailable("Matchup lookup unavailable. Try again.");
@@ -79,13 +82,9 @@ export const submitVote = async ({ payload, voterHash, ipHash, sessionUserId }: 
   }
 
   return {
-    status: 200 as const,
-    body: {
-      ok: true,
-      eventId: voteEventId,
-      acceptedForScoring: validation.acceptedForScoring,
-      reason: validation.acceptedForScoring ? undefined : validation.validationStatus,
-      validationStatus: validation.validationStatus,
-    },
+    kind: "vote_recorded",
+    eventId: voteEventId,
+    acceptedForScoring: validation.acceptedForScoring,
+    validationStatus: validation.validationStatus,
   };
 };

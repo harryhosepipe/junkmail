@@ -9,7 +9,7 @@ const state = vi.hoisted(() => ({
   s3PutCount: 0,
 }));
 
-const mutateConvexUpsertImageContent = vi.hoisted(() => vi.fn());
+const mutateConvexRecordImageUploadProcessing = vi.hoisted(() => vi.fn());
 const mutateConvexUpsertTelegramUser = vi.hoisted(() => vi.fn());
 const queryConvexImageByUploadHash = vi.hoisted(() => vi.fn());
 const queryConvexImagesByPerceptualHashAnchor = vi.hoisted(() => vi.fn());
@@ -19,7 +19,7 @@ const similarityAnchor = vi.hoisted(() => vi.fn());
 const isNearDuplicate = vi.hoisted(() => vi.fn());
 
 vi.mock("../convex/client.js", () => ({
-  mutateConvexUpsertImageContent,
+  mutateConvexRecordImageUploadProcessing,
   mutateConvexUpsertTelegramUser,
   queryConvexImageByUploadHash,
   queryConvexImagesByPerceptualHashAnchor,
@@ -77,7 +77,7 @@ describe("telegram webhook", () => {
       state.telegramUpsertValues = values;
       return { authUserId: state.selectedUserId };
     });
-    mutateConvexUpsertImageContent.mockImplementation(async (values) => {
+    mutateConvexRecordImageUploadProcessing.mockImplementation(async (values) => {
       state.convexUpsertValues = values;
       return { ok: true };
     });

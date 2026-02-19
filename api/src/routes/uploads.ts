@@ -3,8 +3,8 @@ import { createHash, randomUUID } from "crypto";
 import { Hono } from "hono";
 import { requireUploader } from "../auth/session.js";
 import {
-  mutateConvexCreatePendingImage,
-  mutateConvexUpsertImageContent,
+  mutateConvexRecordImageUploadProcessing,
+  mutateConvexRecordImageUploadReceived,
   queryConvexDedupeStats,
   queryConvexImageByUploadId,
   queryConvexRecentDedupeEvents,
@@ -25,7 +25,7 @@ uploadsRouter.post("/init", requireUploader, async (c) => {
   const authUser = (c as any).get("authUser") as { id: string };
   const uploadId = randomUUID();
   const imageId = randomUUID();
-  const pending = await mutateConvexCreatePendingImage({
+  const pending = await mutateConvexRecordImageUploadReceived({
     imageId,
     uploadId,
     uploaderAuthUserId: authUser.id,
@@ -92,7 +92,7 @@ uploadsRouter.post("/complete", requireUploader, async (c) => {
 
   const uploadHash = createHash("sha256").update(data).digest("hex");
   const originalUrl = publicObjectUrl(key);
-  await mutateConvexUpsertImageContent({
+  await mutateConvexRecordImageUploadProcessing({
     imageId: pending.imageId,
     uploadId,
     uploaderAuthUserId: pending.uploaderAuthUserId,

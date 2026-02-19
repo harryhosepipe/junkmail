@@ -143,7 +143,7 @@ describe("queue processors", () => {
       .fn()
       .mockResolvedValueOnce({ Body: makeStream([[9, 9, 9]]) })
       .mockResolvedValue({});
-    const mutateConvexSetImageProcessingResult = vi.fn(async () => ({ ok: true }));
+    const mutateConvexMarkImageProcessingComplete = vi.fn(async () => ({ ok: true }));
 
     await processImageJob(
       {
@@ -157,18 +157,18 @@ describe("queue processors", () => {
         storageBucket: "junkmail",
         publicObjectUrl: (key) => `https://assets.local/${key}`,
         variantKey: (imageId, size, format) => `${imageId}/${size}.${format}`,
-        mutateConvexSetImageProcessingResult,
+        mutateConvexMarkImageProcessingComplete,
       },
     );
 
     // 1 get original + 1 canonical put + (3 sizes * 3 puts)
     expect(send).toHaveBeenCalledTimes(11);
-    expect(mutateConvexSetImageProcessingResult).toHaveBeenCalledTimes(1);
+    expect(mutateConvexMarkImageProcessingComplete).toHaveBeenCalledTimes(1);
     expect(detectEmbeddedImageRect).toHaveBeenCalledTimes(1);
     expect(analyzeBorderCrop).toHaveBeenCalledTimes(1);
     expect(applyBorderCrop).not.toHaveBeenCalled();
 
-    expect(mutateConvexSetImageProcessingResult).toHaveBeenCalledWith(
+    expect(mutateConvexMarkImageProcessingComplete).toHaveBeenCalledWith(
       expect.objectContaining({
         imageId: "img-1",
         status: "public",
@@ -186,7 +186,7 @@ describe("queue processors", () => {
       .fn()
       .mockResolvedValueOnce({ Body: makeStream([[7, 7, 7]]) })
       .mockResolvedValue({});
-    const mutateConvexSetImageProcessingResult = vi.fn(async () => ({ ok: true }));
+    const mutateConvexMarkImageProcessingComplete = vi.fn(async () => ({ ok: true }));
 
     analyzeBorderCrop
       .mockResolvedValueOnce({
@@ -221,13 +221,13 @@ describe("queue processors", () => {
         storageBucket: "junkmail",
         publicObjectUrl: (key) => `https://assets.local/${key}`,
         variantKey: (imageId, size, format) => `${imageId}/${size}.${format}`,
-        mutateConvexSetImageProcessingResult,
+        mutateConvexMarkImageProcessingComplete,
       },
     );
 
     expect(sharpFactory).toHaveBeenCalledWith(Buffer.from([5, 5, 5]));
     expect(applyBorderCrop).toHaveBeenCalledTimes(1);
-    expect(mutateConvexSetImageProcessingResult).toHaveBeenCalledWith(
+    expect(mutateConvexMarkImageProcessingComplete).toHaveBeenCalledWith(
       expect.objectContaining({
         variantUrls: expect.objectContaining({
           thumb: expect.objectContaining({
@@ -248,7 +248,7 @@ describe("queue processors", () => {
       .fn()
       .mockResolvedValueOnce({ Body: makeStream([[8, 8, 8]]) })
       .mockResolvedValue({});
-    const mutateConvexSetImageProcessingResult = vi.fn(async () => ({ ok: true }));
+    const mutateConvexMarkImageProcessingComplete = vi.fn(async () => ({ ok: true }));
 
     analyzeBorderCrop
       .mockResolvedValueOnce({
@@ -292,13 +292,13 @@ describe("queue processors", () => {
         storageBucket: "junkmail",
         publicObjectUrl: (key) => `https://assets.local/${key}`,
         variantKey: (imageId, size, format) => `${imageId}/${size}.${format}`,
-        mutateConvexSetImageProcessingResult,
+        mutateConvexMarkImageProcessingComplete,
       },
     );
 
     expect(analyzeBorderCrop).toHaveBeenCalledTimes(3);
     expect(applyBorderCrop).toHaveBeenCalledTimes(2);
-    expect(mutateConvexSetImageProcessingResult).toHaveBeenCalledWith(
+    expect(mutateConvexMarkImageProcessingComplete).toHaveBeenCalledWith(
       expect.objectContaining({
         variantUrls: expect.objectContaining({
           thumb: expect.objectContaining({
@@ -318,7 +318,7 @@ describe("queue processors", () => {
       .fn()
       .mockResolvedValueOnce({ Body: makeStream([[8, 8, 8]]) })
       .mockResolvedValue({});
-    const mutateConvexSetImageProcessingResult = vi.fn(async () => ({ ok: true }));
+    const mutateConvexMarkImageProcessingComplete = vi.fn(async () => ({ ok: true }));
 
     detectEmbeddedImageRect.mockResolvedValue({
       applied: true,
@@ -362,13 +362,13 @@ describe("queue processors", () => {
         storageBucket: "junkmail",
         publicObjectUrl: (key) => `https://assets.local/${key}`,
         variantKey: (imageId, size, format) => `${imageId}/${size}.${format}`,
-        mutateConvexSetImageProcessingResult,
+        mutateConvexMarkImageProcessingComplete,
       },
     );
 
     expect(applyCropBox).toHaveBeenCalledTimes(1);
     expect(applyBorderCrop).toHaveBeenCalledTimes(1);
-    expect(mutateConvexSetImageProcessingResult).toHaveBeenCalledWith(
+    expect(mutateConvexMarkImageProcessingComplete).toHaveBeenCalledWith(
       expect.objectContaining({
         variantUrls: expect.objectContaining({
           thumb: expect.objectContaining({
@@ -388,7 +388,7 @@ describe("queue processors", () => {
       .fn()
       .mockResolvedValueOnce({ Body: makeStream([[3, 3, 3]]) })
       .mockResolvedValue({});
-    const mutateConvexSetImageProcessingResult = vi.fn(async () => ({ ok: true }));
+    const mutateConvexMarkImageProcessingComplete = vi.fn(async () => ({ ok: true }));
 
     detectEmbeddedImageRect.mockResolvedValue({
       applied: true,
@@ -421,11 +421,11 @@ describe("queue processors", () => {
         storageBucket: "junkmail",
         publicObjectUrl: (key) => `https://assets.local/${key}`,
         variantKey: (imageId, size, format) => `${imageId}/${size}.${format}`,
-        mutateConvexSetImageProcessingResult,
+        mutateConvexMarkImageProcessingComplete,
       },
     );
 
-    expect(mutateConvexSetImageProcessingResult).toHaveBeenCalledWith(
+    expect(mutateConvexMarkImageProcessingComplete).toHaveBeenCalledWith(
       expect.objectContaining({
         variantUrls: expect.objectContaining({
           thumb: expect.objectContaining({
@@ -454,14 +454,14 @@ describe("queue processors", () => {
       .fn()
       .mockResolvedValueOnce({ Body: makeStream([[5, 5, 5]]) })
       .mockResolvedValue({});
-    const mutateConvexSetImageProcessingResult = vi.fn(async () => ({ ok: true }));
+    const mutateConvexMarkImageProcessingComplete = vi.fn(async () => ({ ok: true }));
     const mutateConvexMarkImageRejected = vi.fn(async () => ({ ok: true }));
     const mutateConvexCreateDedupeEvent = vi.fn(async () => ({ ok: true }));
     const queryConvexImageFingerprintBySha256 = vi.fn(async () => null);
     const queryConvexImageFingerprintsByPhashPrefix = vi.fn(async () => [
       { imageId: "img-existing", phash64: "cccccccccccccccc" },
     ]);
-    const mutateConvexUpsertImageFingerprint = vi.fn(async () => ({ ok: true }));
+    const mutateConvexRecordImageFingerprint = vi.fn(async () => ({ ok: true }));
     const queryConvexImageById = vi.fn(async () => ({
       imageId: "img-existing",
       originalUrl: "https://assets.local/existing.jpg",
@@ -481,12 +481,12 @@ describe("queue processors", () => {
         storageBucket: "junkmail",
         publicObjectUrl: (key) => `https://assets.local/${key}`,
         variantKey: (imageId, size, format) => `${imageId}/${size}.${format}`,
-        mutateConvexSetImageProcessingResult,
+        mutateConvexMarkImageProcessingComplete,
         mutateConvexMarkImageRejected,
         mutateConvexCreateDedupeEvent,
         queryConvexImageFingerprintBySha256,
         queryConvexImageFingerprintsByPhashPrefix,
-        mutateConvexUpsertImageFingerprint,
+        mutateConvexRecordImageFingerprint,
         queryConvexImageById,
       },
     );
@@ -499,7 +499,7 @@ describe("queue processors", () => {
         matchedImageId: "img-existing",
       }),
     );
-    expect(mutateConvexSetImageProcessingResult).not.toHaveBeenCalled();
+    expect(mutateConvexMarkImageProcessingComplete).not.toHaveBeenCalled();
   });
 
   it("uses recent fingerprint fallback when prefix shortlist is empty", async () => {
@@ -517,7 +517,7 @@ describe("queue processors", () => {
       .fn()
       .mockResolvedValueOnce({ Body: makeStream([[5, 5, 5]]) })
       .mockResolvedValue({});
-    const mutateConvexSetImageProcessingResult = vi.fn(async () => ({ ok: true }));
+    const mutateConvexMarkImageProcessingComplete = vi.fn(async () => ({ ok: true }));
     const mutateConvexMarkImageRejected = vi.fn(async () => ({ ok: true }));
     const mutateConvexCreateDedupeEvent = vi.fn(async () => ({ ok: true }));
     const queryConvexImageFingerprintBySha256 = vi.fn(async () => null);
@@ -525,7 +525,7 @@ describe("queue processors", () => {
     const queryConvexRecentImageFingerprints = vi.fn(async () => [
       { imageId: "img-existing", phash64: "cccccccccccccccc" },
     ]);
-    const mutateConvexUpsertImageFingerprint = vi.fn(async () => ({ ok: true }));
+    const mutateConvexRecordImageFingerprint = vi.fn(async () => ({ ok: true }));
     const queryConvexImageById = vi.fn(async () => ({
       imageId: "img-existing",
       originalUrl: "https://assets.local/existing.jpg",
@@ -545,13 +545,13 @@ describe("queue processors", () => {
         storageBucket: "junkmail",
         publicObjectUrl: (key) => `https://assets.local/${key}`,
         variantKey: (imageId, size, format) => `${imageId}/${size}.${format}`,
-        mutateConvexSetImageProcessingResult,
+        mutateConvexMarkImageProcessingComplete,
         mutateConvexMarkImageRejected,
         mutateConvexCreateDedupeEvent,
         queryConvexImageFingerprintBySha256,
         queryConvexImageFingerprintsByPhashPrefix,
         queryConvexRecentImageFingerprints,
-        mutateConvexUpsertImageFingerprint,
+        mutateConvexRecordImageFingerprint,
         queryConvexImageById,
       },
     );

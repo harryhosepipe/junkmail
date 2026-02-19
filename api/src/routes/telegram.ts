@@ -9,7 +9,7 @@ import {
   queryConvexImagesByPerceptualHashAnchor,
   queryConvexRecentImages,
   queryConvexImageByUploadHash,
-  mutateConvexUpsertImageContent,
+  mutateConvexRecordImageUploadProcessing,
   mutateConvexUpsertTelegramUser,
 } from "../convex/client.js";
 import { env } from "../env.js";
@@ -307,7 +307,7 @@ telegramRouter.post("/webhook", async (c) => {
 
     const originalUrl = publicObjectUrl(key);
 
-    await mutateConvexUpsertImageContent({
+    await mutateConvexRecordImageUploadProcessing({
       imageId,
       uploaderAuthUserId: uploaderId,
       uploadHash,

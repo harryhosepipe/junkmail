@@ -19,6 +19,11 @@ const WebEnvSchema = z.object({
   CONVEX_PROXY_TARGET: z.string().url().default("http://localhost:3210"),
 });
 
+// Env ownership:
+// - Required vars are validated by WebEnvSchema.
+// - Defaults belong in web/.env.defaults.
+// - app-scoped overrides belong in web/.env(.staging|.production).
+// - process env wins last for CI/runtime injection.
 function readEnvFile(path) {
   try {
     return dotenvParse(readFileSync(path));
@@ -34,10 +39,11 @@ function envFileForAppEnv(appEnv) {
 }
 
 function loadWebEnv() {
-  const appEnv = AppEnvSchema.catch("local").parse(process.env.APP_ENV);
+  const defaults = readEnvFile(resolve(__dirname, ".env.defaults"));
+  const appEnv = AppEnvSchema.catch("local").parse(process.env.APP_ENV ?? defaults.APP_ENV);
   const envFilePath = resolve(__dirname, envFileForAppEnv(appEnv));
   const fileValues = readEnvFile(envFilePath);
-  const merged = { ...fileValues, ...process.env };
+  const merged = { ...defaults, ...fileValues, ...process.env };
 
   const parsed = WebEnvSchema.safeParse(merged);
   if (!parsed.success) {

@@ -1,22 +1,21 @@
 import { Hono } from "hono";
-import { DeleteObjectCommand } from "@aws-sdk/client-s3";
 import { getSessionUser, requireUploader } from "../auth/session.js";
 import { ensureSameOrigin } from "../auth/csrf.js";
 import { parseCommentBody } from "../contracts/comments.js";
 import { env } from "../env.js";
 import { AppError } from "../http/errors.js";
 import { readPayload } from "../http/readPayload.js";
+import { executeDeleteImage } from "../application/images/DeleteImage.js";
 import {
   createComment,
-  deleteImage,
   createImageUpload,
   loadImageDetail,
   reprocessImage,
   validateUpload,
 } from "../services/images/actions.js";
 import { fetchRecentImages, fetchTopCards, pickThumbUrl } from "../services/images/cards.js";
-import { s3Client, storageBucket } from "../storage/client.js";
 import { normalizePublicAssetUrl } from "../storage/publicUrls.js";
+import { mapImageUploadDomainToHttp } from "../presentation/http/images/mappers.js";
 
 const TOPLIST_MIN_COMPARISONS = env.TOPLIST_MIN_COMPARISONS ?? 10;
 
@@ -40,7 +39,8 @@ imagesRouter.post("/", requireUploader, async (c) => {
     ext: uploadCheck.ext,
   });
 
-  return c.json(created, (created as any).httpStatus ?? (created.duplicate ? 200 : 201));
+  const response = mapImageUploadDomainToHttp(created);
+  return c.json(response.body, response.status as any);
 });
 
 imagesRouter.get("/recent", async (c) => {
@@ -126,33 +126,16 @@ imagesRouter.post("/:id/reprocess", async (c) => {
 
 imagesRouter.delete("/:id", requireUploader, async (c) => {
   const imageId = c.req.param("id");
-  const result = await deleteImage(imageId);
+  const result = await executeDeleteImage(imageId);
   if (!result.ok) {
     return c.json({ error: { message: result.message } }, result.status as any);
   }
-
-  const settled = await Promise.allSettled(
-    result.storageKeys.map((key) =>
-      s3Client.send(
-        new DeleteObjectCommand({
-          Bucket: storageBucket,
-          Key: key,
-        }),
-      ),
-    ),
-  );
-  const storageDeleted = settled.filter((item) => item.status === "fulfilled").length;
-  const storageFailed = settled.length - storageDeleted;
 
   return c.json({
     ok: true,
     imageId: result.imageId,
     deletedCounts: result.deletedCounts,
-    storage: {
-      attempted: settled.length,
-      deleted: storageDeleted,
-      failed: storageFailed,
-    },
+    storage: result.storage,
   });
 });
 

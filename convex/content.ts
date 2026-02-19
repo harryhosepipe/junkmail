@@ -200,6 +200,9 @@ export const upsertImage = mutation({
   },
 });
 
+// Explicit workflow verbs (Phase 2) while keeping compatibility names.
+export const recordImageUploadProcessing = upsertImage;
+
 export const setImagePerceptualHashes = mutation({
   args: {
     imageId: v.string(),
@@ -302,6 +305,9 @@ export const createPendingImage = mutation({
     return { ok: true, imageId: args.imageId, deduped: false };
   },
 });
+
+// Explicit workflow verb alias for upload lifecycle start.
+export const recordImageUploadReceived = createPendingImage;
 
 export const markImageRejected = mutation({
   args: {
@@ -584,6 +590,9 @@ export const setImageStatus = mutation({
   },
 });
 
+// Explicit workflow verb alias for status transition requests.
+export const markImageProcessingRequested = setImageStatus;
+
 export const setImageProcessingResult = mutation({
   args: {
     imageId: v.string(),
@@ -621,6 +630,9 @@ export const setImageProcessingResult = mutation({
     return { ok: true };
   },
 });
+
+// Explicit workflow verb alias for completed processing transitions.
+export const markImageProcessingComplete = setImageProcessingResult;
 
 export const deleteImageGraph = mutation({
   args: {
@@ -795,6 +807,10 @@ export const upsertImageFingerprint = mutation({
     return { ok: true };
   },
 });
+
+// Explicit workflow verb aliases for perceptual/fingerprint writes.
+export const recordImageFingerprint = upsertImageFingerprint;
+export const recordImagePerceptualHashes = setImagePerceptualHashes;
 
 export const createDedupeEvent = mutation({
   args: {
