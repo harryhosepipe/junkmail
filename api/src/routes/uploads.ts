@@ -98,7 +98,6 @@ uploadsRouter.post("/complete", requireUploader, async (c) => {
     uploaderAuthUserId: pending.uploaderAuthUserId,
     description: description || undefined,
     status: "processing",
-    classificationStatus: "pending",
     uploadHash,
     originalUrl,
     storageKeyOriginal: key,

@@ -180,7 +180,6 @@ export const createImageUpload = async (args: {
     perceptualHashes: fingerprint,
     description: description?.length ? description : undefined,
     status: "processing",
-    classificationStatus: "pending",
     originalUrl,
     variantUrls: {},
     createdAt: Date.now(),

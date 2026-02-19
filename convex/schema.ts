@@ -157,4 +157,19 @@ export default defineSchema({
     .index("by_comment_id", ["commentId"])
     .index("by_image_created_at", ["imageId", "createdAt"])
     .index("by_user_created_at", ["userAuthUserId", "createdAt"]),
+  imageClassifications: defineTable({
+    imageId: v.string(),
+    title: v.optional(v.string()),
+    category: v.optional(v.string()),
+    description: v.optional(v.string()),
+    status: v.string(),
+    error: v.optional(v.string()),
+    model: v.optional(v.string()),
+    classifiedAt: v.optional(v.number()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_image_id", ["imageId"])
+    .index("by_status", ["status"])
+    .index("by_updated_at", ["updatedAt"]),
 });
