@@ -53,6 +53,34 @@ const extractFirstJsonObject = (text: string) => {
   throw new Error("Unterminated JSON object in classification response");
 };
 
+const getResponseText = (response: any) => {
+  const parts: string[] = [];
+  if (typeof response?.output_text === "string" && response.output_text.trim()) {
+    parts.push(response.output_text.trim());
+  }
+  const output = Array.isArray(response?.output) ? response.output : [];
+  for (const item of output) {
+    const content = Array.isArray(item?.content) ? item.content : [];
+    for (const block of content) {
+      if (typeof block?.text === "string" && block.text.trim()) {
+        parts.push(block.text.trim());
+      }
+    }
+  }
+  return parts.join("\n").trim();
+};
+
+const normalizeJsonEnvelope = (text: string) => {
+  const trimmed = text.trim();
+  if (trimmed.startsWith("```")) {
+    return trimmed
+      .replace(/^```[a-zA-Z]*\n?/, "")
+      .replace(/\n?```$/, "")
+      .trim();
+  }
+  return trimmed;
+};
+
 export const classifyImageByUrl = async (imageUrl: string) => {
   const apiKey = env.OPENAI_API_KEY;
   if (!apiKey || apiKey === "replace-me") {
@@ -101,8 +129,12 @@ export const classifyImageByUrl = async (imageUrl: string) => {
     response = await runRequest(timeoutMs * 2);
   }
 
-  const content = response.output_text || "";
-  const jsonText = extractFirstJsonObject(content);
+  const content = getResponseText(response);
+  if (!content) {
+    throw new Error("Empty classification response");
+  }
+  const normalized = normalizeJsonEnvelope(content);
+  const jsonText = extractFirstJsonObject(normalized);
   const parsed = JSON.parse(jsonText) as {
     title?: unknown;
     classification?: unknown;
