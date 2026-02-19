@@ -58,14 +58,12 @@ export const classifyImageByUrl = async (imageUrl: string) => {
     throw new Error("OPENAI_API_KEY is missing");
   }
 
-  const model = env.OPENAI_MODEL_VISION || DEFAULT_MODEL;
   const promptId = env.OPENAI_PROMPT_ID || DEFAULT_PROMPT_ID;
   const promptVersion = env.OPENAI_PROMPT_VERSION || DEFAULT_PROMPT_VERSION;
   const timeoutMs = Number(env.IMAGE_CLASSIFICATION_TIMEOUT_MS ?? 10000);
   const client = new OpenAI({ apiKey });
   const response = await client.responses.create(
     {
-      model,
       prompt: {
         id: promptId,
         version: promptVersion,
@@ -115,6 +113,9 @@ export const classifyImageByUrl = async (imageUrl: string) => {
     title: normalizeTitle(parsed.title),
     category: normalizeCategory(parsed.classification),
     description: normalizeDescription(parsed.description),
-    model,
+    model:
+      response.model ||
+      env.OPENAI_MODEL_VISION ||
+      DEFAULT_MODEL,
   };
 };
