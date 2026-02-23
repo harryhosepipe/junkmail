@@ -18,6 +18,7 @@ import { mutateConvexConsumeAuthToken, mutateConvexCreateAuthToken } from "../co
 import { env } from "../env.js";
 import { AppError } from "../http/errors.js";
 import { readPayload } from "../http/readPayload.js";
+import { jsonError } from "../http/responses.js";
 import { toHttpStatus } from "../http/status.js";
 import { buildProfileSummary, updateAliasAndProfile } from "../services/auth/profile.js";
 
@@ -43,7 +44,7 @@ authRouter.post("/request-link", async (c) => {
   const email = typeof body.email === "string" ? normalizeEmail(body.email) : "";
 
   if (!email || !email.includes("@")) {
-    return c.json({ error: { message: "Valid email required" } }, 400);
+    return jsonError(c, 400, "Valid email required");
   }
 
   const invited = await resolveInvitedUploaderByEmail(email);
@@ -125,7 +126,7 @@ authRouter.post("/logout", async (c) => {
 authRouter.get("/me", async (c) => {
   const user = await getSessionUser(c);
   if (!user) {
-    return c.json({ error: { message: "Unauthorized" } }, 401);
+    return jsonError(c, 401, "Unauthorized");
   }
 
   return c.json({ user });
@@ -134,7 +135,7 @@ authRouter.get("/me", async (c) => {
 authRouter.get("/profile", async (c) => {
   const user = await getSessionUser(c);
   if (!user) {
-    return c.json({ error: { message: "Unauthorized" } }, 401);
+    return jsonError(c, 401, "Unauthorized");
   }
 
   const voterId = getCookie(c, VOTER_COOKIE_NAME);
@@ -154,7 +155,7 @@ authRouter.patch("/profile", async (c) => {
 
   const user = await getSessionUser(c);
   if (!user) {
-    return c.json({ error: { message: "Unauthorized" } }, 401);
+    return jsonError(c, 401, "Unauthorized");
   }
 
   const body = await readPayload(c);
@@ -163,7 +164,7 @@ authRouter.patch("/profile", async (c) => {
     alias = parseAliasPatch(body);
   } catch (err) {
     if (err instanceof AppError) {
-      return c.json({ error: { message: err.message } }, toHttpStatus(err.status));
+      return jsonError(c, toHttpStatus(err.status), err.message);
     }
     throw err;
   }

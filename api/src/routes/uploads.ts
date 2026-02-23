@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { requireUploader } from "../auth/session.js";
 import { getAuthUser } from "../http/context.js";
+import { jsonError } from "../http/responses.js";
 import {
   completeUpload,
   getDedupeStats,
@@ -15,7 +16,7 @@ uploadsRouter.post("/init", requireUploader, async (c) => {
   const body = await c.req.json().catch(() => ({}));
   const authUser = getAuthUser(c);
   if (!authUser) {
-    return c.json({ error: { message: "Unauthorized" } }, 401);
+    return jsonError(c, 401, "Unauthorized");
   }
   const response = await initUpload({
     authUserId: authUser.id,

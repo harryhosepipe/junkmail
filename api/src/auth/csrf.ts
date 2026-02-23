@@ -1,5 +1,6 @@
 import type { Context } from "hono";
 import { env } from "../env.js";
+import { jsonError } from "../http/responses.js";
 
 const allowedOrigins = new Set(
   [env.WEB_ORIGIN, env.WEB_BASE_URL, env.APP_ORIGIN, env.CORS_ORIGIN].filter(Boolean) as string[],
@@ -44,13 +45,13 @@ export const ensureSameOrigin = (c: Context) => {
 
   if (!origin) {
     if (isProd) {
-      return c.json({ error: { message: "Origin required" } }, 403);
+      return jsonError(c, 403, "Origin required");
     }
     return null;
   }
 
   if (!allowedOrigins.has(origin)) {
-    return c.json({ error: { message: "Origin not allowed" } }, 403);
+    return jsonError(c, 403, "Origin not allowed");
   }
 
   return null;

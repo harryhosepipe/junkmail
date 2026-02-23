@@ -6,6 +6,7 @@ import { env } from "../env.js";
 import { getAuthUser } from "../http/context.js";
 import { AppError } from "../http/errors.js";
 import { readPayload } from "../http/readPayload.js";
+import { jsonError } from "../http/responses.js";
 import { toHttpStatus } from "../http/status.js";
 import { executeDeleteImage } from "../application/images/DeleteImage.js";
 import {
@@ -31,12 +32,12 @@ imagesRouter.post("/", requireUploader, async (c) => {
 
   const uploadCheck = validateUpload(body.file);
   if (!uploadCheck.ok) {
-    return c.json({ error: { message: uploadCheck.message } }, toHttpStatus(uploadCheck.status));
+    return jsonError(c, toHttpStatus(uploadCheck.status), uploadCheck.message);
   }
 
   const authUser = getAuthUser(c);
   if (!authUser) {
-    return c.json({ error: { message: "Unauthorized" } }, 401);
+    return jsonError(c, 401, "Unauthorized");
   }
   const created = await createImageUpload({
     authUser,
@@ -68,7 +69,7 @@ imagesRouter.get("/:id", async (c) => {
   const imageId = c.req.param("id");
   const detail = await loadImageDetail(imageId);
   if (!detail) {
-    return c.json({ error: { message: "Image not found" } }, 404);
+    return jsonError(c, 404, "Image not found");
   }
 
   return c.json(detail);
@@ -82,7 +83,7 @@ imagesRouter.post("/:id/comments", async (c) => {
 
   const user = await getSessionUser(c);
   if (!user) {
-    return c.json({ error: { message: "Unauthorized" } }, 401);
+    return jsonError(c, 401, "Unauthorized");
   }
 
   const body = await readPayload(c);
@@ -91,7 +92,7 @@ imagesRouter.post("/:id/comments", async (c) => {
     text = parseCommentBody(body);
   } catch (err) {
     if (err instanceof AppError) {
-      return c.json({ error: { message: err.message } }, toHttpStatus(err.status));
+      return jsonError(c, toHttpStatus(err.status), err.message);
     }
     throw err;
   }
@@ -99,7 +100,7 @@ imagesRouter.post("/:id/comments", async (c) => {
   const imageId = c.req.param("id");
   const comment = await createComment({ imageId, user: { id: user.id, alias: user.alias }, text });
   if (!comment) {
-    return c.json({ error: { message: "Image not found" } }, 404);
+    return jsonError(c, 404, "Image not found");
   }
 
   return c.json({ comment }, 201);
@@ -107,13 +108,13 @@ imagesRouter.post("/:id/comments", async (c) => {
 
 imagesRouter.post("/:id/reprocess", async (c) => {
   if (env.NODE_ENV === "production") {
-    return c.json({ error: { message: "Not available" } }, 404);
+    return jsonError(c, 404, "Not available");
   }
 
   const imageId = c.req.param("id");
   const result = await reprocessImage(imageId);
   if (!result.ok) {
-    return c.json({ error: { message: result.message } }, toHttpStatus(result.status));
+    return jsonError(c, toHttpStatus(result.status), result.message);
   }
 
   return c.json({ ok: true });
@@ -123,7 +124,7 @@ imagesRouter.delete("/:id", requireUploader, async (c) => {
   const imageId = c.req.param("id");
   const result = await executeDeleteImage(imageId);
   if (!result.ok) {
-    return c.json({ error: { message: result.message } }, toHttpStatus(result.status));
+    return jsonError(c, toHttpStatus(result.status), result.message);
   }
 
   return c.json({

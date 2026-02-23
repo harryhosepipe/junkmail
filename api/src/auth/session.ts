@@ -9,6 +9,7 @@ import {
   queryConvexSessionUserAuthUserId,
 } from "../convex/client.js";
 import { env } from "../env.js";
+import { jsonError } from "../http/responses.js";
 
 const SESSION_COOKIE_NAME = "jm_session";
 const SESSION_TTL_DAYS = env.SESSION_TTL_DAYS ?? 30;
@@ -74,11 +75,11 @@ export const requireUploader = async (c: Context, next: Next) => {
 
   const user = await getSessionUser(c);
   if (!user) {
-    return c.json({ error: { message: "Unauthorized" } }, 401);
+    return jsonError(c, 401, "Unauthorized");
   }
 
   if (user.role !== "uploader" && user.role !== "admin") {
-    return c.json({ error: { message: "Forbidden" } }, 403);
+    return jsonError(c, 403, "Forbidden");
   }
 
   c.set("authUser", user);
@@ -93,11 +94,11 @@ export const requireAdmin = async (c: Context, next: Next) => {
 
   const user = await getSessionUser(c);
   if (!user) {
-    return c.json({ error: { message: "Unauthorized" } }, 401);
+    return jsonError(c, 401, "Unauthorized");
   }
 
   if (user.role !== "admin") {
-    return c.json({ error: { message: "Forbidden" } }, 403);
+    return jsonError(c, 403, "Forbidden");
   }
 
   c.set("authUser", user);

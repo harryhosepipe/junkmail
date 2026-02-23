@@ -3,6 +3,7 @@ import { Hono } from "hono";
 import { ensureSameOrigin } from "../auth/csrf.js";
 import { getSessionUser } from "../auth/session.js";
 import { mutateConvexCreateFeatureRequest, queryConvexFeatureRequests } from "../convex/client.js";
+import { jsonError } from "../http/responses.js";
 
 const featureRequestsRouter = new Hono();
 
@@ -37,10 +38,10 @@ featureRequestsRouter.post("/", async (c) => {
 
   const user = await getSessionUser(c);
   if (!user) {
-    return c.json({ error: { message: "Unauthorized" } }, 401);
+    return jsonError(c, 401, "Unauthorized");
   }
   if (user.role !== "uploader" && user.role !== "admin") {
-    return c.json({ error: { message: "Forbidden" } }, 403);
+    return jsonError(c, 403, "Forbidden");
   }
 
   const body = await c.req.json().catch(() => ({}));
@@ -48,13 +49,10 @@ featureRequestsRouter.post("/", async (c) => {
   const description = typeof body?.description === "string" ? body.description.trim() : "";
 
   if (title.length < 3 || title.length > 120) {
-    return c.json({ error: { message: "Title must be between 3 and 120 characters" } }, 400);
+    return jsonError(c, 400, "Title must be between 3 and 120 characters");
   }
   if (description.length < 10 || description.length > 2000) {
-    return c.json(
-      { error: { message: "Description must be between 10 and 2000 characters" } },
-      400,
-    );
+    return jsonError(c, 400, "Description must be between 10 and 2000 characters");
   }
 
   const now = Date.now();
