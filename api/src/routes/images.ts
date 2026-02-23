@@ -13,11 +13,13 @@ import {
   reprocessImage,
   validateUpload,
 } from "../services/images/actions.js";
-import { fetchRecentImages, fetchTopCards, pickThumbUrl } from "../services/images/cards.js";
-import { normalizePublicAssetUrl } from "../storage/publicUrls.js";
+import { fetchRecentImages, fetchTopCards } from "../services/images/cards.js";
+import {
+  mapToplistRowsToHttp,
+  parseRecentLimit,
+  parseToplistQuery,
+} from "../services/images/http.js";
 import { mapImageUploadDomainToHttp } from "../presentation/http/images/mappers.js";
-
-const TOPLIST_MIN_COMPARISONS = env.TOPLIST_MIN_COMPARISONS ?? 10;
 
 const imagesRouter = new Hono();
 
@@ -44,29 +46,17 @@ imagesRouter.post("/", requireUploader, async (c) => {
 });
 
 imagesRouter.get("/recent", async (c) => {
-  const rawLimit = Number(c.req.query("limit") ?? "4");
-  const limit = Number.isFinite(rawLimit) && rawLimit > 0 ? Math.min(rawLimit, 12) : 4;
+  const limit = parseRecentLimit(c.req.query("limit"));
   const rows = await fetchRecentImages(limit);
 
   return c.json({ items: rows });
 });
 
 imagesRouter.get("/top", async (c) => {
-  const rawLimit = Number(c.req.query("limit") ?? "50");
-  const limit = Number.isFinite(rawLimit) && rawLimit > 0 ? Math.min(rawLimit, 100) : 50;
-  const rawMin = Number(c.req.query("min") ?? `${TOPLIST_MIN_COMPARISONS}`);
-  const minComparisons = Number.isFinite(rawMin) && rawMin >= 0 ? rawMin : TOPLIST_MIN_COMPARISONS;
+  const { limit, minComparisons } = parseToplistQuery(c.req.query("limit"), c.req.query("min"));
 
   const rows = await fetchTopCards(limit, minComparisons);
-
-  return c.json(
-    rows.map((row) => ({
-      id: row.id,
-      score: row.score ?? 0,
-      votes: row.votes ?? 0,
-      thumb_url: pickThumbUrl(row.variantUrls) || normalizePublicAssetUrl(row.originalUrl) || "",
-    })),
-  );
+  return c.json(mapToplistRowsToHttp(rows));
 });
 
 imagesRouter.get("/:id", async (c) => {

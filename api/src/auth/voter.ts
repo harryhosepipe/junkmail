@@ -5,9 +5,12 @@ import { env } from "../env.js";
 import { generateToken } from "./tokens.js";
 
 export const VOTER_COOKIE_NAME = "jm_voter";
+const VOTE_HASH_SALT = env.VOTE_HASH_SALT ?? "junkmail-dev-vote";
 
 export const hashWithSalt = (value: string, salt: string) =>
   createHash("sha256").update(`${salt}:${value}`).digest("hex");
+
+export const deriveVoterHash = (voterId: string) => hashWithSalt(voterId, VOTE_HASH_SALT);
 
 // Keep a stable anonymous voter id in a cookie so rate limits and anti-replay checks
 // can work consistently even for signed-out users.
@@ -27,3 +30,5 @@ export const getOrCreateVoterId = (c: Context) => {
   });
   return token;
 };
+
+export const getOrCreateVoterHash = (c: Context) => deriveVoterHash(getOrCreateVoterId(c));

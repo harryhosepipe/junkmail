@@ -1,6 +1,4 @@
-import type { Context } from "hono";
 import { generateToken } from "../../auth/tokens.js";
-import { getOrCreateVoterId, hashWithSalt } from "../../auth/voter.js";
 import {
   mutateConvexIssueMatchupToken,
   queryConvexPublicImages,
@@ -9,8 +7,6 @@ import {
 import { env } from "../../env.js";
 import { redis } from "../../queue/connection.js";
 import { normalizePublicAssetData, normalizePublicAssetUrl } from "../../storage/publicUrls.js";
-
-const VOTE_HASH_SALT = env.VOTE_HASH_SALT ?? "junkmail-dev-vote";
 
 const NEW_EXPOSURE_THRESHOLD = env.MATCHUP_NEW_EXPOSURE ?? 5;
 const CLOSE_SAMPLE_SIZE = env.MATCHUP_CLOSE_SAMPLE ?? 24;
@@ -170,9 +166,8 @@ const loadMatchupPool = async (): Promise<MatchupItem[]> => {
   return items;
 };
 
-export const createMatchupPayload = async (c: Context) => {
-  const voterId = getOrCreateVoterId(c);
-  const voterHash = hashWithSalt(voterId, VOTE_HASH_SALT);
+export const createMatchupPayload = async (args: { voterHash: string }) => {
+  const { voterHash } = args;
   const repeatKey = `matchup:last:${voterHash}`;
   const items = await loadMatchupPool();
 

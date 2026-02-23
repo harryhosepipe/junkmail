@@ -11,7 +11,7 @@ import {
 } from "../auth/session.js";
 import { ensureSameOrigin } from "../auth/csrf.js";
 import { generateToken, hashToken } from "../auth/tokens.js";
-import { hashWithSalt, VOTER_COOKIE_NAME } from "../auth/voter.js";
+import { deriveVoterHash, VOTER_COOKIE_NAME } from "../auth/voter.js";
 import { parseAliasPatch } from "../contracts/profile.js";
 import { resolveInvitedUploaderByEmail } from "../auth/userProfile.js";
 import { mutateConvexConsumeAuthToken, mutateConvexCreateAuthToken } from "../convex/client.js";
@@ -22,7 +22,6 @@ import { buildProfileSummary, updateAliasAndProfile } from "../services/auth/pro
 
 const authRouter = new Hono();
 const MAGIC_LINK_TTL_MINUTES = env.MAGIC_LINK_TTL_MINUTES ?? 30;
-const VOTE_HASH_SALT = env.VOTE_HASH_SALT ?? "junkmail-dev-vote";
 
 const normalizeEmail = (value: string) => value.trim().toLowerCase();
 
@@ -138,7 +137,7 @@ authRouter.get("/profile", async (c) => {
   }
 
   const voterId = getCookie(c, VOTER_COOKIE_NAME);
-  const voterHash = voterId ? hashWithSalt(voterId, VOTE_HASH_SALT) : undefined;
+  const voterHash = voterId ? deriveVoterHash(voterId) : undefined;
   const profile = await buildProfileSummary({ user, voterHash });
 
   return c.json({

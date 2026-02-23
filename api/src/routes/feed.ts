@@ -1,5 +1,6 @@
 import { Hono } from "hono";
-import { createMatchupPayload } from "./matchups.js";
+import { getOrCreateVoterHash } from "../auth/voter.js";
+import { createMatchupPayload } from "../services/matchups/createMatchupPayload.js";
 import { fetchRecentImages, fetchTopCards } from "../services/images/cards.js";
 
 const feedRouter = new Hono();
@@ -45,7 +46,8 @@ feedRouter.get("/home", async (c) => {
     }
   }
 
-  const matchup = await createMatchupPayload(c);
+  const voterHash = getOrCreateVoterHash(c);
+  const matchup = await createMatchupPayload({ voterHash });
 
   return c.json({ matchup, feed: feed.slice(0, limit) });
 });
