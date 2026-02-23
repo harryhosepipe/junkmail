@@ -1,6 +1,7 @@
 # Repository Guidelines
 
 ## Project Structure & Module Organization
+
 This is a Bun workspace monorepo:
 
 - `web/`: Astro + Svelte frontend (`src/pages`, `src/components`, `src/lib`, `src/styles`).
@@ -11,6 +12,7 @@ This is a Bun workspace monorepo:
 - `tools/`: Utility scripts (for example `tools/check-env-guardrails.mjs`).
 
 ## Build, Test, and Development Commands
+
 - `bun run dev`: Start full local stack (Docker infra + API + web + worker).
 - `bun run dev:infra`: Start only infra containers.
 - `bun run dev:apps`: Start only app processes on host.
@@ -21,6 +23,7 @@ This is a Bun workspace monorepo:
 - `bun run convex:codegen` / `bun run convex:check`: Refresh and validate Convex integration.
 
 ## Coding Style & Naming Conventions
+
 - Language: TypeScript ESM across packages.
 - Formatting: Prettier (`singleQuote: false`, `semi: true`, `trailingComma: all`, `printWidth: 100`).
 - Linting: ESLint 9 flat config (`eslint.config.cjs`).
@@ -28,12 +31,14 @@ This is a Bun workspace monorepo:
 - Naming: use descriptive file names by domain (`submitVote.ts`, `borderCrop.ts`); tests use `*.test.ts`.
 
 ## Testing Guidelines
+
 - Framework: Vitest (`api` workspace).
 - Location/pattern: co-locate tests under `api/src/**` with `*.test.ts`.
 - Run locally: `bun run test` or `bun --cwd api test`.
 - For route/service changes, add or update focused tests near the changed module.
 
 ## Commit & Pull Request Guidelines
+
 - History favors short, imperative commit subjects, often Conventional Commit style (`refactor: ...`, `chore: ...`, `fix: ...`).
 - Keep commits scoped and reviewable; avoid mixing infra, API, and UI refactors in one commit.
 - PRs should include:
@@ -42,8 +47,8 @@ This is a Bun workspace monorepo:
   - test evidence (`bun run test`, `bun run check`),
   - screenshots/video for UI changes in `web/`.
 
-
 <!-- BEGIN BEADS INTEGRATION -->
+
 ## Issue Tracking with bd (beads)
 
 **IMPORTANT**: This project uses **bd (beads)** for ALL issue tracking. Do NOT use markdown TODOs, task lists, or other tracking methods.

@@ -4,17 +4,17 @@ import { Hono } from "hono";
 const requireUploader = vi.hoisted(() => vi.fn());
 const executeDeleteImage = vi.hoisted(() => vi.fn());
 
-vi.mock("../auth/session.js", () => ({
+vi.mock("../../auth/session.js", () => ({
   getSessionUser: vi.fn(),
   requireUploader,
   requireAdmin: vi.fn(),
 }));
 
-vi.mock("../auth/csrf.js", () => ({
+vi.mock("../../auth/csrf.js", () => ({
   ensureSameOrigin: vi.fn(() => null),
 }));
 
-vi.mock("../services/images/actions.js", () => ({
+vi.mock("../../services/images/actions.js", () => ({
   createComment: vi.fn(),
   createImageUpload: vi.fn(),
   loadImageDetail: vi.fn(),
@@ -22,21 +22,21 @@ vi.mock("../services/images/actions.js", () => ({
   validateUpload: vi.fn(),
 }));
 
-vi.mock("../application/images/DeleteImage.js", () => ({
+vi.mock("../../application/images/DeleteImage.js", () => ({
   executeDeleteImage,
 }));
 
-vi.mock("../services/images/cards.js", () => ({
+vi.mock("../../services/images/cards.js", () => ({
   fetchRecentImages: vi.fn(async () => []),
   fetchTopCards: vi.fn(async () => []),
   pickThumbUrl: vi.fn(() => ""),
 }));
 
-vi.mock("../storage/publicUrls.js", () => ({
+vi.mock("../../storage/publicUrls.js", () => ({
   normalizePublicAssetUrl: vi.fn((value) => value),
 }));
 
-import imagesRouter from "./images.js";
+import imagesRouter from "../../routes/images.js";
 
 const createTestApp = () => {
   const app = new Hono();

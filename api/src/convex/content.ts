@@ -58,36 +58,6 @@ const createImageCommentRef = makeFunctionReference<
   },
   { ok: boolean }
 >("content:createImageComment");
-const upsertImageRef = makeFunctionReference<
-  "mutation",
-  {
-    imageId: string;
-    uploadId?: string;
-    uploaderAuthUserId: string;
-    uploadHash?: string;
-    perceptualHashAnchor?: string;
-    perceptualHashes?: unknown;
-    title?: string;
-    description?: string;
-    status: string;
-    storageKeyOriginal?: string;
-    storageKeyCanonical?: string;
-    mime?: string;
-    width?: number;
-    height?: number;
-    rejectReason?: string;
-    matchedImageId?: string;
-    dedupeScores?: unknown;
-    category?: string;
-    originalUrl?: string;
-    originalStorageId?: string;
-    variantUrls?: unknown;
-    createdAt?: number;
-    updatedAt?: number;
-    publishedAt?: number;
-  },
-  { ok: boolean }
->("content:upsertImage");
 const recordImageUploadProcessingRef = makeFunctionReference<
   "mutation",
   {
@@ -118,30 +88,11 @@ const recordImageUploadProcessingRef = makeFunctionReference<
   },
   { ok: boolean }
 >("content:recordImageUploadProcessing");
-const setImageStatusRef = makeFunctionReference<
-  "mutation",
-  { imageId: string; status: string; updatedAt?: number; publishedAt?: number },
-  { ok: boolean }
->("content:setImageStatus");
 const markImageProcessingRequestedRef = makeFunctionReference<
   "mutation",
   { imageId: string; status: string; updatedAt?: number; publishedAt?: number },
   { ok: boolean }
 >("content:markImageProcessingRequested");
-const setImageProcessingResultRef = makeFunctionReference<
-  "mutation",
-  {
-    imageId: string;
-    status: string;
-    variantUrls?: unknown;
-    storageKeyCanonical?: string;
-    width?: number;
-    height?: number;
-    updatedAt?: number;
-    publishedAt?: number;
-  },
-  { ok: boolean }
->("content:setImageProcessingResult");
 const markImageProcessingCompleteRef = makeFunctionReference<
   "mutation",
   {
@@ -165,16 +116,6 @@ const deleteImageGraphRef = makeFunctionReference<
     deletedCounts?: Record<string, number>;
   }
 >("content:deleteImageGraph");
-const setImagePerceptualHashesRef = makeFunctionReference<
-  "mutation",
-  {
-    imageId: string;
-    perceptualHashAnchor?: string;
-    perceptualHashes?: unknown;
-    updatedAt?: number;
-  },
-  { ok: boolean }
->("content:setImagePerceptualHashes");
 const recordImagePerceptualHashesRef = makeFunctionReference<
   "mutation",
   {
@@ -185,19 +126,6 @@ const recordImagePerceptualHashesRef = makeFunctionReference<
   },
   { ok: boolean }
 >("content:recordImagePerceptualHashes");
-const createPendingImageRef = makeFunctionReference<
-  "mutation",
-  {
-    imageId: string;
-    uploadId: string;
-    uploaderAuthUserId: string;
-    description?: string;
-    mime?: string;
-    createdAt?: number;
-    updatedAt?: number;
-  },
-  { ok: boolean; imageId: string; deduped: boolean }
->("content:createPendingImage");
 const recordImageUploadReceivedRef = makeFunctionReference<
   "mutation",
   {
@@ -251,23 +179,6 @@ const recentFingerprintsRef = makeFunctionReference<
   { limit?: number },
   ConvexImageFingerprint[]
 >("content:listRecentImageFingerprints");
-const upsertImageFingerprintRef = makeFunctionReference<
-  "mutation",
-  {
-    imageId: string;
-    sha256Pixels: string;
-    phash64: string;
-    phashPrefix: string;
-    dhash64?: string;
-    canonicalWidth?: number;
-    canonicalHeight?: number;
-    cropBox?: unknown;
-    cropMeta?: unknown;
-    workerVersion?: string;
-    createdAt?: number;
-  },
-  { ok: boolean }
->("content:upsertImageFingerprint");
 const recordImageFingerprintRef = makeFunctionReference<
   "mutation",
   {
@@ -513,49 +424,6 @@ export const mutateConvexRecordImageFingerprint = async (args: {
 }) => {
   const { client } = createConvexClient();
   return client.mutation(recordImageFingerprintRef, args);
-};
-
-// Temporary compatibility wrappers for incremental migration.
-export const mutateConvexUpsertImageContent = async (
-  args: Parameters<typeof mutateConvexRecordImageUploadProcessing>[0],
-) => {
-  const { client } = createConvexClient();
-  return client.mutation(upsertImageRef, args);
-};
-
-export const mutateConvexSetImageStatus = async (
-  args: Parameters<typeof mutateConvexMarkImageProcessingRequested>[0],
-) => {
-  const { client } = createConvexClient();
-  return client.mutation(setImageStatusRef, args);
-};
-
-export const mutateConvexSetImageProcessingResult = async (
-  args: Parameters<typeof mutateConvexMarkImageProcessingComplete>[0],
-) => {
-  const { client } = createConvexClient();
-  return client.mutation(setImageProcessingResultRef, args);
-};
-
-export const mutateConvexSetImagePerceptualHashes = async (
-  args: Parameters<typeof mutateConvexRecordImagePerceptualHashes>[0],
-) => {
-  const { client } = createConvexClient();
-  return client.mutation(setImagePerceptualHashesRef, args);
-};
-
-export const mutateConvexCreatePendingImage = async (
-  args: Parameters<typeof mutateConvexRecordImageUploadReceived>[0],
-) => {
-  const { client } = createConvexClient();
-  return client.mutation(createPendingImageRef, args);
-};
-
-export const mutateConvexUpsertImageFingerprint = async (
-  args: Parameters<typeof mutateConvexRecordImageFingerprint>[0],
-) => {
-  const { client } = createConvexClient();
-  return client.mutation(upsertImageFingerprintRef, args);
 };
 
 export const mutateConvexCreateDedupeEvent = async (args: {

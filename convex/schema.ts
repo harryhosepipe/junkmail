@@ -152,4 +152,17 @@ export default defineSchema({
     .index("by_comment_id", ["commentId"])
     .index("by_image_created_at", ["imageId", "createdAt"])
     .index("by_user_created_at", ["userAuthUserId", "createdAt"]),
+  featureRequests: defineTable({
+    requestId: v.string(),
+    title: v.string(),
+    description: v.string(),
+    status: v.string(),
+    createdByAuthUserId: v.string(),
+    createdByAlias: v.string(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_request_id", ["requestId"])
+    .index("by_created_at", ["createdAt"])
+    .index("by_created_by", ["createdByAuthUserId", "createdAt"]),
 });

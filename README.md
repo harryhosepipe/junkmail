@@ -30,10 +30,11 @@ cp convex/.env.example convex/.env
 ```
 
 Each app also owns committed defaults in `.env.defaults`:
+
 - `api/.env.defaults`
 - `web/.env.defaults`
 - `convex/.env.defaults`
-Runtime layering is `defaults -> app env file -> process env`.
+  Runtime layering is `defaults -> app env file -> process env`.
 
 3. Start everything:
 

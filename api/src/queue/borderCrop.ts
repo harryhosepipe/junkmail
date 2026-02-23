@@ -64,30 +64,49 @@ const clamp = (value: number, min: number, max: number) => Math.min(max, Math.ma
 const toLuma = (r: number, g: number, b: number) => 0.2126 * r + 0.7152 * g + 0.0722 * b;
 
 const defaultBorderOptions: BorderCropOptions = {
+  // Master toggle for edge-border trimming.
   enabled: true,
+  // Resize limit used only for analysis speed/consistency.
   analysisMaxDim: 512,
+  // A line is treated as "white border" if most pixels are brighter than this.
   whiteThreshold: 248,
+  // A line is treated as "black border" if most pixels are darker than this.
   blackThreshold: 8,
+  // How much one tone must dominate the line before it can be trimmed.
   lineDominance: 0.985,
+  // Maximum brightness variation allowed in a border-like line.
   lineStdDevMax: 16,
+  // Safety cap: per side, never trim more than this fraction in one pass.
   maxTrimRatioPerSide: 0.35,
+  // Safety cap: never crop below this retained width/height ratio.
   minRemainingRatio: 0.5,
+  // Minimum confidence to apply cropping.
   minConfidence: 0.8,
+  // Ignore tiny trims to reduce accidental 1-2px crops.
   minTrimPixels: 10,
+  // Ignore crops that remove only negligible area.
   minAreaRemovedRatio: 0.01,
 };
 
 const defaultEmbeddedRectOptions: EmbeddedRectOptions = {
+  // Master toggle for finding an "inner content rectangle".
   enabled: true,
+  // Resize limit used only for analysis speed/consistency.
   analysisMaxDim: 640,
+  // Reject candidate rects that are too small relative to full image.
   minAreaRatio: 0.16,
+  // Minimum confidence needed to apply the rect crop.
   minConfidence: 0.56,
+  // Reject candidate rects that are implausibly skinny/wide.
   minAspectRatio: 0.45,
   maxAspectRatio: 2.4,
+  // Thresholds for deciding whether rows/columns are content instead of background.
   rowForegroundRatio: 0.12,
   colForegroundRatio: 0.12,
+  // Pixel distance thresholds used to separate content from corner background color.
   colorDistanceThreshold: 26,
   lumaDistanceThreshold: 20,
+  // Weight for preferring centered content boxes.
   centerWeight: 0.35,
 };
 
@@ -337,6 +356,7 @@ export const detectEmbeddedImageRect = async (
 
   const rowFlags = rowForegroundRatio.map((ratio) => ratio >= opts.rowForegroundRatio);
   const colFlags = colForegroundRatio.map((ratio) => ratio >= opts.colForegroundRatio);
+  // We pick the strongest contiguous "content band" near center, not isolated pixels.
   const rowSegment = pickSegment(findSegments(rowFlags), analysisHeight / 2, analysisHeight);
   const colSegment = pickSegment(findSegments(colFlags), analysisWidth / 2, analysisWidth);
 
@@ -482,6 +502,7 @@ export const analyzeBorderCrop = async (
   const toOriginalY = (lineCount: number) =>
     Math.round((lineCount / analysisHeight) * originalHeight);
 
+  // Convert analysis-space trim distances back to original pixel coordinates.
   const trimmed = {
     top: toOriginalY(top.trimmed),
     right: toOriginalX(right.trimmed),
@@ -529,6 +550,7 @@ export const analyzeBorderCrop = async (
   const confidenceSamples = [top, right, bottom, left]
     .filter((edge) => edge.trimmed > 0)
     .map((edge) => edge.confidence);
+  // Final confidence is the average confidence of the sides we actually trimmed.
   const confidence = confidenceSamples.length
     ? clamp(
         confidenceSamples.reduce((sum, value) => sum + value, 0) / confidenceSamples.length,

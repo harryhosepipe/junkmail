@@ -9,7 +9,7 @@ const mutateConvexConsumeAuthToken = vi.hoisted(() => vi.fn());
 const createSession = vi.hoisted(() => vi.fn());
 const setSessionCookie = vi.hoisted(() => vi.fn());
 
-vi.mock("../auth/session.js", () => ({
+vi.mock("../../auth/session.js", () => ({
   createSession,
   setSessionCookie,
   clearSessionCookie: vi.fn(),
@@ -18,19 +18,19 @@ vi.mock("../auth/session.js", () => ({
   getSessionUser: vi.fn(),
 }));
 
-vi.mock("../auth/csrf.js", () => ({
+vi.mock("../../auth/csrf.js", () => ({
   ensureSameOrigin: vi.fn(() => null),
 }));
 
-vi.mock("../auth/email.js", () => ({
+vi.mock("../../auth/email.js", () => ({
   sendMagicLinkEmail: vi.fn(),
 }));
 
-vi.mock("../auth/userProfile.js", () => ({
+vi.mock("../../auth/userProfile.js", () => ({
   resolveInvitedUploaderByEmail: vi.fn(),
 }));
 
-vi.mock("../convex/client.js", () => ({
+vi.mock("../../convex/client.js", () => ({
   mutateConvexConsumeAuthToken,
   mutateConvexCreateAuthToken: vi.fn(),
   mutateConvexUpdateUserAlias: vi.fn(),
@@ -39,7 +39,7 @@ vi.mock("../convex/client.js", () => ({
   queryConvexVoteCountForProfile: vi.fn(),
 }));
 
-import authRouter from "./auth.js";
+import authRouter from "../../routes/auth.js";
 
 const createTestApp = () => {
   const app = new Hono();

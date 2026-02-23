@@ -24,30 +24,30 @@ const getSessionUser = vi.hoisted(() => vi.fn());
 const queryConvexImageById = vi.hoisted(() => vi.fn());
 const mutateConvexCreateImageComment = vi.hoisted(() => vi.fn());
 
-vi.mock("../auth/session.js", () => ({
+vi.mock("../../auth/session.js", () => ({
   getSessionUser,
   requireUploader: vi.fn(),
   requireAdmin: vi.fn(),
 }));
 
-vi.mock("../auth/csrf.js", () => ({
+vi.mock("../../auth/csrf.js", () => ({
   ensureSameOrigin,
 }));
 
-vi.mock("../queue/connection.js", () => ({
+vi.mock("../../queue/connection.js", () => ({
   redis: {
     get: vi.fn(),
     set: vi.fn(),
   },
 }));
 
-vi.mock("../queue/index.js", () => ({
+vi.mock("../../queue/index.js", () => ({
   imageQueue: {
     add: vi.fn(),
   },
 }));
 
-vi.mock("../storage/client.js", () => ({
+vi.mock("../../storage/client.js", () => ({
   publicObjectUrl: vi.fn(() => "http://localhost/object"),
   s3Client: {
     send: vi.fn(),
@@ -55,13 +55,13 @@ vi.mock("../storage/client.js", () => ({
   storageBucket: "junkmail",
 }));
 
-vi.mock("../storage/publicUrls.js", () => ({
+vi.mock("../../storage/publicUrls.js", () => ({
   extractStorageObjectKey: vi.fn(),
   normalizePublicAssetData: vi.fn((value) => value),
   normalizePublicAssetUrl: vi.fn((value) => value),
 }));
 
-vi.mock("../convex/client.js", () => ({
+vi.mock("../../convex/client.js", () => ({
   mutateConvexCreateImageComment,
   mutateConvexSetImageStatus: vi.fn(async () => ({ ok: true })),
   mutateConvexUpsertImageContent: vi.fn(async () => ({ ok: true })),
@@ -74,11 +74,11 @@ vi.mock("../convex/client.js", () => ({
   queryConvexTopRatings: vi.fn(async () => []),
 }));
 
-vi.mock("../auth/userProfile.js", () => ({
+vi.mock("../../auth/userProfile.js", () => ({
   resolveAuthUserProfileById: vi.fn(async () => null),
 }));
 
-import imagesRouter from "./images.js";
+import imagesRouter from "../../routes/images.js";
 
 const createTestApp = () => {
   const app = new Hono();

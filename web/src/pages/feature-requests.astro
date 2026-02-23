@@ -1,0 +1,227 @@
+---
+import Base from "../layouts/Base.astro";
+import { serverApiBaseUrl } from "../lib/apiBase.server";
+
+export const prerender = false;
+
+const cookieHeader = Astro.request.headers.get("cookie") ?? "";
+let authUser = null;
+let initialItems = [] as Array<{
+  id: string;
+  title: string;
+  description: string;
+  status: string;
+  createdByAlias: string;
+  createdAt: string;
+}>;
+let loadError = "";
+
+if (cookieHeader) {
+  try {
+    const meResponse = await fetch(`${serverApiBaseUrl}/api/v1/auth/me`, {
+      headers: { cookie: cookieHeader },
+    });
+    if (meResponse.ok) {
+      const meData = await meResponse.json();
+      authUser = meData?.user ?? null;
+    }
+  } catch {
+    authUser = null;
+  }
+}
+
+try {
+  const requestsResponse = await fetch(`${serverApiBaseUrl}/api/v1/feature-requests?limit=50`, {
+    headers: cookieHeader ? { cookie: cookieHeader } : undefined,
+  });
+  if (requestsResponse.ok) {
+    const data = await requestsResponse.json();
+    initialItems = Array.isArray(data?.items) ? data.items : [];
+  } else {
+    loadError = "Could not load feature requests right now.";
+  }
+} catch {
+  loadError = "Could not load feature requests right now.";
+}
+---
+
+<Base
+  title="Junkmail - Feature Requests"
+  description="Submit and browse feature requests."
+  authUser={authUser}
+>
+  <section class="hero">
+    <div class="headline">Feature Requests</div>
+    <p class="subtle">Submit ideas and see what others have requested.</p>
+  </section>
+
+  <section class="panel" style="margin-top: 24px;">
+    {authUser ? (
+      <form id="feature-request-form" class="feature-form">
+        <label>
+          <span>Title</span>
+          <input id="fr-title" name="title" minlength="3" maxlength="120" required />
+        </label>
+        <label>
+          <span>Description</span>
+          <textarea
+            id="fr-description"
+            name="description"
+            minlength="10"
+            maxlength="2000"
+            rows="5"
+            required
+          />
+        </label>
+        <button class="cta" type="submit">Submit Request</button>
+        <p id="feature-request-status" class="feature-status" aria-live="polite"></p>
+      </form>
+    ) : (
+      <p class="subtle">Log in as an invited uploader/admin to submit a feature request.</p>
+    )}
+  </section>
+
+  <section class="panel" style="margin-top: 18px;">
+    <h2 style="margin-top:0;">Recent Requests</h2>
+    {loadError ? <p class="feature-status error">{loadError}</p> : null}
+    <div id="feature-request-list" class="feature-list">
+      {initialItems.length === 0 ? (
+        <p class="subtle" id="feature-request-empty">No feature requests yet.</p>
+      ) : (
+        initialItems.map((item) => (
+          <article class="feature-item" data-id={item.id}>
+            <header>
+              <strong>{item.title}</strong>
+              <span class="chip">{item.status}</span>
+            </header>
+            <p>{item.description}</p>
+            <footer class="subtle">
+              by {item.createdByAlias} • {new Date(item.createdAt).toLocaleString()}
+            </footer>
+          </article>
+        ))
+      )}
+    </div>
+  </section>
+
+  <script>
+    const form = document.getElementById("feature-request-form");
+    const list = document.getElementById("feature-request-list");
+    const status = document.getElementById("feature-request-status");
+    const empty = document.getElementById("feature-request-empty");
+
+    const escapeHtml = (value: string) =>
+      value
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#39;");
+
+    if (form instanceof HTMLFormElement && list instanceof HTMLElement && status instanceof HTMLElement) {
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        status.textContent = "Submitting...";
+        status.classList.remove("error");
+
+        const titleInput = document.getElementById("fr-title");
+        const descriptionInput = document.getElementById("fr-description");
+        const title =
+          titleInput instanceof HTMLInputElement ? titleInput.value.trim() : "";
+        const description =
+          descriptionInput instanceof HTMLTextAreaElement ? descriptionInput.value.trim() : "";
+
+        try {
+          const response = await fetch("/api/v1/feature-requests", {
+            method: "POST",
+            credentials: "include",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ title, description }),
+          });
+
+          const data = await response.json().catch(() => ({}));
+          if (!response.ok) {
+            throw new Error(data?.error?.message ?? "Failed to submit feature request");
+          }
+
+          const item = data?.item;
+          if (item?.id) {
+            const article = document.createElement("article");
+            article.className = "feature-item";
+            article.dataset.id = item.id;
+            article.innerHTML = `
+              <header>
+                <strong>${escapeHtml(item.title)}</strong>
+                <span class="chip">${escapeHtml(item.status)}</span>
+              </header>
+              <p>${escapeHtml(item.description)}</p>
+              <footer class="subtle">
+                by ${escapeHtml(item.createdByAlias)} • ${new Date(item.createdAt).toLocaleString()}
+              </footer>
+            `;
+            list.prepend(article);
+            if (empty instanceof HTMLElement) empty.remove();
+          }
+
+          form.reset();
+          status.textContent = "Feature request submitted.";
+        } catch (err) {
+          status.textContent = err instanceof Error ? err.message : "Failed to submit feature request";
+          status.classList.add("error");
+        }
+      });
+    }
+  </script>
+</Base>
+
+<style>
+  .feature-form {
+    display: grid;
+    gap: 14px;
+  }
+  .feature-form label {
+    display: grid;
+    gap: 8px;
+    color: var(--ink-muted);
+    font-weight: 600;
+  }
+  .feature-form input,
+  .feature-form textarea {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 12px;
+    background: #161d2d;
+    color: var(--bg-ink);
+    font: inherit;
+  }
+  .feature-list {
+    display: grid;
+    gap: 12px;
+  }
+  .feature-item {
+    border: 1px solid var(--border);
+    background: #1a2234;
+    border-radius: 12px;
+    padding: 14px;
+    display: grid;
+    gap: 10px;
+  }
+  .feature-item header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+  }
+  .feature-item p {
+    margin: 0;
+    white-space: pre-wrap;
+  }
+  .feature-status {
+    margin: 0;
+    color: var(--ink-muted);
+    font-weight: 600;
+  }
+  .feature-status.error {
+    color: #ff8f8f;
+  }
+</style>

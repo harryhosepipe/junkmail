@@ -10,13 +10,13 @@ const s3Send = vi.hoisted(() => vi.fn());
 const publicObjectUrl = vi.hoisted(() => vi.fn());
 const normalizePublicAssetUrl = vi.hoisted(() => vi.fn());
 
-vi.mock("../auth/session.js", () => ({
+vi.mock("../../auth/session.js", () => ({
   getSessionUser: vi.fn(),
   requireUploader,
   requireAdmin: vi.fn(),
 }));
 
-vi.mock("../convex/client.js", () => ({
+vi.mock("../../convex/client.js", () => ({
   mutateConvexRecordImageUploadReceived: vi.fn(),
   mutateConvexRecordImageUploadProcessing,
   queryConvexDedupeStats: vi.fn(),
@@ -24,27 +24,27 @@ vi.mock("../convex/client.js", () => ({
   queryConvexRecentDedupeEvents: vi.fn(),
 }));
 
-vi.mock("../queue/index.js", () => ({
+vi.mock("../../queue/index.js", () => ({
   imageQueue: {
     add: queueAdd,
   },
 }));
 
-vi.mock("../services/images/actions.js", () => ({
+vi.mock("../../services/images/actions.js", () => ({
   validateUpload,
 }));
 
-vi.mock("../storage/client.js", () => ({
+vi.mock("../../storage/client.js", () => ({
   s3Client: { send: s3Send },
   storageBucket: "junkmail",
   publicObjectUrl,
 }));
 
-vi.mock("../storage/publicUrls.js", () => ({
+vi.mock("../../storage/publicUrls.js", () => ({
   normalizePublicAssetUrl,
 }));
 
-import uploadsRouter from "./uploads.js";
+import uploadsRouter from "../../routes/uploads.js";
 
 const createTestApp = () => {
   const app = new Hono();

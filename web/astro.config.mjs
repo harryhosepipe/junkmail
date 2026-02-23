@@ -3,13 +3,9 @@ import node from "@astrojs/node";
 import svelte from "@astrojs/svelte";
 import { webEnv } from "./env.mjs";
 
-const apiProxyTarget =
-  webEnv.API_PROXY_TARGET ?? webEnv.API_BASE_URL ?? "http://localhost:8787";
+const apiProxyTarget = webEnv.API_PROXY_TARGET ?? webEnv.API_BASE_URL ?? "http://localhost:8787";
 const apiProxyOrigin =
-  webEnv.API_PROXY_ORIGIN ??
-  webEnv.WEB_ORIGIN ??
-  webEnv.APP_ORIGIN ??
-  "http://web.localhost";
+  webEnv.API_PROXY_ORIGIN ?? webEnv.WEB_ORIGIN ?? webEnv.APP_ORIGIN ?? "http://web.localhost";
 const assetsProxyTarget = webEnv.ASSETS_PROXY_TARGET ?? "http://localhost:9010";
 const convexProxyTarget = webEnv.CONVEX_PROXY_TARGET ?? "http://localhost:3210";
 

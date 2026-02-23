@@ -5,6 +5,7 @@ import { randomUUID } from "crypto";
 import authRouter from "./routes/auth.js";
 import convexRouter from "./routes/convex.js";
 import feedRouter from "./routes/feed.js";
+import featureRequestsRouter from "./routes/featureRequests.js";
 import imagesRouter from "./routes/images.js";
 import matchupsRouter from "./routes/matchups.js";
 import uploadsRouter from "./routes/uploads.js";
@@ -47,6 +48,7 @@ export const createApp = () => {
   api.route("/convex", convexRouter);
   api.route("/auth", authRouter);
   api.route("/feed", feedRouter);
+  api.route("/feature-requests", featureRequestsRouter);
   api.route("/images", imagesRouter);
   api.route("/uploads", uploadsRouter);
   api.route("/matchups", matchupsRouter);

@@ -67,3 +67,14 @@ export type ConvexImageComment = {
   body: string;
   createdAt: number;
 };
+
+export type ConvexFeatureRequest = {
+  requestId: string;
+  title: string;
+  description: string;
+  status: string;
+  createdByAuthUserId: string;
+  createdByAlias: string;
+  createdAt: number;
+  updatedAt: number;
+};

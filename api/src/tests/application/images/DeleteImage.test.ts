@@ -3,16 +3,16 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const deleteImage = vi.hoisted(() => vi.fn());
 const s3Send = vi.hoisted(() => vi.fn());
 
-vi.mock("../../services/images/actions.js", () => ({
+vi.mock("../../../services/images/actions.js", () => ({
   deleteImage,
 }));
 
-vi.mock("../../storage/client.js", () => ({
+vi.mock("../../../storage/client.js", () => ({
   s3Client: { send: s3Send },
   storageBucket: "junkmail",
 }));
 
-import { executeDeleteImage } from "./DeleteImage.js";
+import { executeDeleteImage } from "../../../application/images/DeleteImage.js";
 
 describe("executeDeleteImage", () => {
   beforeEach(() => {

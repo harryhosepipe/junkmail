@@ -1,6 +1,10 @@
 import sharp from "sharp";
 import { describe, expect, it } from "vitest";
-import { computeImageFingerprint, isNearDuplicate, similarityAnchor } from "./perceptualHash.js";
+import {
+  computeImageFingerprint,
+  isNearDuplicate,
+  similarityAnchor,
+} from "../../../services/images/perceptualHash.js";
 
 const makeSolidWithCenter = async (args: {
   width: number;

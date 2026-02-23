@@ -1,6 +1,10 @@
 import sharp from "sharp";
 import { describe, expect, it } from "vitest";
-import { analyzeBorderCrop, applyBorderCrop, detectEmbeddedImageRect } from "./borderCrop.js";
+import {
+  analyzeBorderCrop,
+  applyBorderCrop,
+  detectEmbeddedImageRect,
+} from "../../queue/borderCrop.js";
 
 const makeBorderedPng = async (args: {
   width: number;
