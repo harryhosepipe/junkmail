@@ -1,7 +1,8 @@
 import type { VoteSubmitDomainResult } from "../../../domain/voting/types.js";
+import type { HttpStatus } from "../../../http/status.js";
 
 type VoteHttpResponse = {
-  status: number;
+  status: HttpStatus;
   body: Record<string, unknown>;
 };
 

@@ -28,11 +28,30 @@ import {
   type ImageFingerprint,
 } from "./perceptualHash.js";
 import type { ImageUploadDomainResult } from "../../domain/images/types.js";
+import type { ConvexImageContent } from "../../convex/types.js";
 
 const MAX_UPLOAD_BYTES = 15 * 1024 * 1024;
 const ACCEPTED_TYPES = ["image/jpeg", "image/png"] as const;
 const PHASH_ANCHOR_LENGTH = 2;
 const RECENT_DUPLICATE_CANDIDATE_LIMIT = 400;
+
+type UploadLike = {
+  arrayBuffer: () => Promise<ArrayBuffer>;
+  size?: number;
+  type?: string;
+};
+
+type DuplicateCandidate = Pick<
+  ConvexImageContent,
+  | "imageId"
+  | "status"
+  | "originalUrl"
+  | "createdAt"
+  | "uploaderAuthUserId"
+  | "title"
+  | "description"
+  | "perceptualHashes"
+>;
 
 const buildDuplicatePayload = async (args: {
   existing: {
@@ -73,7 +92,7 @@ const buildDuplicatePayload = async (args: {
   };
 };
 
-const findNearDuplicate = (incoming: ImageFingerprint, candidates: Array<Record<string, any>>) => {
+const findNearDuplicate = (incoming: ImageFingerprint, candidates: DuplicateCandidate[]) => {
   for (const candidate of candidates) {
     if (
       isNearDuplicate({
@@ -88,12 +107,18 @@ const findNearDuplicate = (incoming: ImageFingerprint, candidates: Array<Record<
 };
 
 export const validateUpload = (upload: unknown) => {
-  if (!upload || typeof upload !== "object" || typeof (upload as any).arrayBuffer !== "function") {
+  if (
+    !upload ||
+    typeof upload !== "object" ||
+    !("arrayBuffer" in upload) ||
+    typeof upload.arrayBuffer !== "function"
+  ) {
     return { ok: false as const, status: 400, message: "File is required" };
   }
 
-  const size = (upload as { size?: number }).size ?? 0;
-  const type = (upload as { type?: string }).type ?? "";
+  const uploadLike = upload as UploadLike;
+  const size = uploadLike.size ?? 0;
+  const type = uploadLike.type ?? "";
 
   if (!ACCEPTED_TYPES.includes(type as (typeof ACCEPTED_TYPES)[number])) {
     return { ok: false as const, status: 415, message: "Only JPG and PNG are supported" };
@@ -108,7 +133,7 @@ export const validateUpload = (upload: unknown) => {
     size,
     type,
     ext: type === "image/png" ? ("png" as const) : ("jpg" as const),
-    upload: upload as { arrayBuffer: () => Promise<ArrayBuffer> },
+    upload: uploadLike,
   };
 };
 
@@ -131,7 +156,7 @@ export const createImageUpload = async (args: {
   const anchor = similarityAnchor(fingerprint, PHASH_ANCHOR_LENGTH);
   const candidates = await queryConvexImagesByPerceptualHashAnchor(anchor, 128);
   const seen = new Set<string>();
-  const candidatePool: Array<Record<string, any>> = [];
+  const candidatePool: DuplicateCandidate[] = [];
   for (const candidate of candidates) {
     if (!candidate?.imageId || seen.has(candidate.imageId)) continue;
     seen.add(candidate.imageId);
@@ -143,12 +168,12 @@ export const createImageUpload = async (args: {
   for (const candidate of recent) {
     if (!candidate?.imageId || seen.has(candidate.imageId)) continue;
     seen.add(candidate.imageId);
-    candidatePool.push(candidate as Record<string, any>);
+    candidatePool.push(candidate);
   }
 
   const nearDuplicate = findNearDuplicate(fingerprint, candidatePool);
   if (nearDuplicate) {
-    return buildDuplicatePayload({ existing: nearDuplicate as any, duplicateType: "near" });
+    return buildDuplicatePayload({ existing: nearDuplicate, duplicateType: "near" });
   }
 
   const imageId = randomUUID();

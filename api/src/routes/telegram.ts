@@ -14,6 +14,7 @@ import {
 } from "../convex/client.js";
 import { env } from "../env.js";
 import { serviceUnavailable } from "../http/errors.js";
+import { getRequestId } from "../http/context.js";
 import {
   computeImageFingerprint,
   isNearDuplicate,
@@ -336,7 +337,7 @@ telegramRouter.post("/webhook", async (c) => {
 
     return c.json({ ok: true, imageId }, 201);
   } catch (err) {
-    const requestId = (c as any).get("requestId") as string | undefined;
+    const requestId = getRequestId(c);
     console.error("[telegram] ingest failed", {
       requestId,
       updateId: update.update_id,

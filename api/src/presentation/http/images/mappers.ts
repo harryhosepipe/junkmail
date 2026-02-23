@@ -1,7 +1,8 @@
 import type { ImageUploadDomainResult } from "../../../domain/images/types.js";
+import type { HttpStatus } from "../../../http/status.js";
 
 type ImageUploadHttpResponse = {
-  status: number;
+  status: HttpStatus;
   body: Record<string, unknown>;
 };
 

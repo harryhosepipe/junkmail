@@ -39,6 +39,9 @@ export function resetEnv() {
 export const env: Env = new Proxy({} as Env, {
   get(_target, prop) {
     const e = getEnv();
-    return (e as any)[prop];
+    if (typeof prop !== "string") {
+      return undefined;
+    }
+    return e[prop as keyof Env];
   },
 });

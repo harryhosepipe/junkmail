@@ -12,9 +12,10 @@ import { validateUpload } from "../images/actions.js";
 import { originalKey } from "../../storage/paths.js";
 import { publicObjectUrl, s3Client, storageBucket } from "../../storage/client.js";
 import { normalizePublicAssetUrl } from "../../storage/publicUrls.js";
+import { toHttpStatus, type HttpStatus } from "../../http/status.js";
 
 type HttpResponse = {
-  status: number;
+  status: HttpStatus;
   body: Record<string, unknown>;
 };
 
@@ -79,7 +80,10 @@ export const completeUpload = async (body: Record<string, unknown>): Promise<Htt
 
   const uploadCheck = validateUpload(body.file);
   if (!uploadCheck.ok) {
-    return { status: uploadCheck.status, body: { error: { message: uploadCheck.message } } };
+    return {
+      status: toHttpStatus(uploadCheck.status),
+      body: { error: { message: uploadCheck.message } },
+    };
   }
 
   const description =

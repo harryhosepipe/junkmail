@@ -1,4 +1,6 @@
 import type { Context } from "hono";
+import { getRequestId } from "./context.js";
+import { toHttpStatus } from "./status.js";
 
 export class AppError extends Error {
   status: number;
@@ -27,9 +29,9 @@ export const serviceUnavailable = (message = "Service unavailable", code = "serv
   new AppError(503, code, message);
 
 export const toErrorResponse = (err: unknown, c: Context) => {
-  const requestId = (c as any).get("requestId") as string | undefined;
+  const requestId = getRequestId(c);
   if (err instanceof AppError) {
-    c.status(err.status as any);
+    c.status(toHttpStatus(err.status));
     return c.json({
       error: {
         code: err.code,

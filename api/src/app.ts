@@ -12,6 +12,7 @@ import uploadsRouter from "./routes/uploads.js";
 import telegramRouter from "./routes/telegram.js";
 import votesRouter from "./routes/votes.js";
 import { env } from "./env.js";
+import { setRequestId } from "./http/context.js";
 import { toErrorResponse } from "./http/errors.js";
 
 export const createApp = () => {
@@ -27,7 +28,7 @@ export const createApp = () => {
   app.use("*", logger());
   app.use("*", async (c, next) => {
     const requestId = randomUUID();
-    (c as any).set("requestId", requestId);
+    setRequestId(c, requestId);
     await next();
     c.header("x-request-id", requestId);
   });

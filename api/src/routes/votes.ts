@@ -8,6 +8,7 @@ import { submitVote } from "../services/votes/submitVote.js";
 import { mapVoteSubmitDomainToHttp } from "../presentation/http/votes/mappers.js";
 import { getClientIpHash } from "../services/votes/requestIdentity.js";
 import { allowedByVoteRateLimit } from "../services/votes/rateLimit.js";
+import { toHttpStatus } from "../http/status.js";
 
 const votesRouter = new Hono();
 
@@ -23,7 +24,7 @@ votesRouter.post("/", async (c) => {
     payload = parseVotePayload(body);
   } catch (err) {
     if (err instanceof AppError) {
-      return c.json({ error: { message: err.message } }, err.status as any);
+      return c.json({ error: { message: err.message } }, toHttpStatus(err.status));
     }
     throw err;
   }
@@ -61,7 +62,7 @@ votesRouter.post("/", async (c) => {
   });
 
   const response = mapVoteSubmitDomainToHttp(result);
-  return c.json(response.body, response.status as any);
+  return c.json(response.body, response.status);
 });
 
 export default votesRouter;

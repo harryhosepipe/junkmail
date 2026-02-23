@@ -18,6 +18,7 @@ import { mutateConvexConsumeAuthToken, mutateConvexCreateAuthToken } from "../co
 import { env } from "../env.js";
 import { AppError } from "../http/errors.js";
 import { readPayload } from "../http/readPayload.js";
+import { toHttpStatus } from "../http/status.js";
 import { buildProfileSummary, updateAliasAndProfile } from "../services/auth/profile.js";
 
 const authRouter = new Hono();
@@ -162,7 +163,7 @@ authRouter.patch("/profile", async (c) => {
     alias = parseAliasPatch(body);
   } catch (err) {
     if (err instanceof AppError) {
-      return c.json({ error: { message: err.message } }, err.status as any);
+      return c.json({ error: { message: err.message } }, toHttpStatus(err.status));
     }
     throw err;
   }

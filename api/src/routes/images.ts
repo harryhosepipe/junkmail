@@ -3,8 +3,10 @@ import { getSessionUser, requireUploader } from "../auth/session.js";
 import { ensureSameOrigin } from "../auth/csrf.js";
 import { parseCommentBody } from "../contracts/comments.js";
 import { env } from "../env.js";
+import { getAuthUser } from "../http/context.js";
 import { AppError } from "../http/errors.js";
 import { readPayload } from "../http/readPayload.js";
+import { toHttpStatus } from "../http/status.js";
 import { executeDeleteImage } from "../application/images/DeleteImage.js";
 import {
   createComment,
@@ -29,10 +31,13 @@ imagesRouter.post("/", requireUploader, async (c) => {
 
   const uploadCheck = validateUpload(body.file);
   if (!uploadCheck.ok) {
-    return c.json({ error: { message: uploadCheck.message } }, uploadCheck.status as any);
+    return c.json({ error: { message: uploadCheck.message } }, toHttpStatus(uploadCheck.status));
   }
 
-  const authUser = (c as any).get("authUser") as { id: string; email?: string; alias?: string };
+  const authUser = getAuthUser(c);
+  if (!authUser) {
+    return c.json({ error: { message: "Unauthorized" } }, 401);
+  }
   const created = await createImageUpload({
     authUser,
     description,
@@ -42,7 +47,7 @@ imagesRouter.post("/", requireUploader, async (c) => {
   });
 
   const response = mapImageUploadDomainToHttp(created);
-  return c.json(response.body, response.status as any);
+  return c.json(response.body, response.status);
 });
 
 imagesRouter.get("/recent", async (c) => {
@@ -86,7 +91,7 @@ imagesRouter.post("/:id/comments", async (c) => {
     text = parseCommentBody(body);
   } catch (err) {
     if (err instanceof AppError) {
-      return c.json({ error: { message: err.message } }, err.status as any);
+      return c.json({ error: { message: err.message } }, toHttpStatus(err.status));
     }
     throw err;
   }
@@ -108,7 +113,7 @@ imagesRouter.post("/:id/reprocess", async (c) => {
   const imageId = c.req.param("id");
   const result = await reprocessImage(imageId);
   if (!result.ok) {
-    return c.json({ error: { message: result.message } }, result.status as any);
+    return c.json({ error: { message: result.message } }, toHttpStatus(result.status));
   }
 
   return c.json({ ok: true });
@@ -118,7 +123,7 @@ imagesRouter.delete("/:id", requireUploader, async (c) => {
   const imageId = c.req.param("id");
   const result = await executeDeleteImage(imageId);
   if (!result.ok) {
-    return c.json({ error: { message: result.message } }, result.status as any);
+    return c.json({ error: { message: result.message } }, toHttpStatus(result.status));
   }
 
   return c.json({

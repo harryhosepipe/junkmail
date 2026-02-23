@@ -57,23 +57,7 @@ module.exports = [
   {
     // Legacy and interoperability files that still rely on `any`.
     // Keep exceptions explicit so we can remove them incrementally.
-    files: [
-      "api/src/app.ts",
-      "api/src/env.ts",
-      "api/src/http/errors.ts",
-      "api/src/queue/imageProcessor.ts",
-      "api/src/queue/processors.ts",
-      "api/src/routes/auth.ts",
-      "api/src/routes/images.ts",
-      "api/src/routes/telegram.ts",
-      "api/src/routes/uploads.ts",
-      "api/src/routes/votes.ts",
-      "api/src/services/images/actions.ts",
-      "convex/content.ts",
-      "convex/content/images.ts",
-      "packages/config/src/env.ts",
-      "**/*.test.ts",
-    ],
+    files: ["convex/content/images.ts", "packages/config/src/env.ts", "**/*.test.ts"],
     rules: {
       "@typescript-eslint/no-explicit-any": "off",
     },

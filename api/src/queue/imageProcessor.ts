@@ -1,6 +1,7 @@
 import { DeleteObjectCommand, GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
+import type { S3Client } from "@aws-sdk/client-s3";
 import { createHash } from "crypto";
-import sharp from "sharp";
+import sharp, { type Sharp } from "sharp";
 import {
   mutateConvexCreateDedupeEvent,
   mutateConvexMarkImageRejected,
@@ -18,6 +19,32 @@ import { canonicalKey, variantKey } from "../storage/paths.js";
 import type { ImageFormat, ImageSize } from "../storage/paths.js";
 import { extractStorageObjectKey } from "../storage/publicUrls.js";
 import { computeImageFingerprint, hammingDistanceHex } from "../services/images/perceptualHash.js";
+
+type FingerprintCandidate = {
+  imageId: string;
+  phash64?: string;
+};
+
+type ImageLookupRow = {
+  imageId: string;
+  originalUrl?: string;
+  storageKeyCanonical?: string;
+  variantUrls?: unknown;
+};
+
+type FullVariantUrls = {
+  full?: {
+    webp?: string;
+    jpg?: string;
+    png?: string;
+  };
+};
+
+const getFullVariantUrl = (variantUrls: unknown): string => {
+  if (!variantUrls || typeof variantUrls !== "object") return "";
+  const urls = variantUrls as FullVariantUrls;
+  return urls.full?.webp || urls.full?.jpg || urls.full?.png || "";
+};
 import {
   analyzeBorderCrop,
   applyBorderCrop,
@@ -108,7 +135,7 @@ export const toBuffer = async (body: unknown) => {
 };
 
 export type ImageProcessorDeps = {
-  s3Client: { send: (command: any) => Promise<any> };
+  s3Client: Pick<S3Client, "send">;
   storageBucket: string;
   publicObjectUrl: (key: string) => string;
   variantKey: (imageId: string, size: ImageSize, format: ImageFormat) => string;
@@ -137,12 +164,14 @@ export type ImageProcessorDeps = {
     workerVersion?: string;
     createdAt?: number;
   }) => Promise<unknown>;
-  queryConvexImageFingerprintBySha256?: (sha256Pixels: string) => Promise<any>;
+  queryConvexImageFingerprintBySha256?: (
+    sha256Pixels: string,
+  ) => Promise<FingerprintCandidate | null>;
   queryConvexImageFingerprintsByPhashPrefix?: (
     phashPrefix: string,
     limit?: number,
-  ) => Promise<any[]>;
-  queryConvexRecentImageFingerprints?: (limit?: number) => Promise<any[]>;
+  ) => Promise<FingerprintCandidate[]>;
+  queryConvexRecentImageFingerprints?: (limit?: number) => Promise<FingerprintCandidate[]>;
   mutateConvexRecordImageFingerprint?: (args: {
     imageId: string;
     sha256Pixels: string;
@@ -156,7 +185,7 @@ export type ImageProcessorDeps = {
     workerVersion?: string;
     createdAt?: number;
   }) => Promise<unknown>;
-  queryConvexImageById?: (imageId: string) => Promise<any | null>;
+  queryConvexImageById?: (imageId: string) => Promise<ImageLookupRow | null>;
 };
 
 const defaultImageDeps: ImageProcessorDeps = {
@@ -211,7 +240,7 @@ export const processImageJob = async (
     typeof deps.queryConvexImageFingerprintBySha256 === "function" &&
     typeof deps.queryConvexImageFingerprintsByPhashPrefix === "function" &&
     typeof deps.mutateConvexRecordImageFingerprint === "function";
-  const runtimeEnv = env as any;
+  const runtimeEnv = env as unknown as Record<string, unknown>;
   const dedupeV2FromEnv = Boolean(runtimeEnv.IMAGE_DEDUPE_V2_ENABLED ?? false);
   const orbEnabled = Boolean(runtimeEnv.IMAGE_DEDUPE_ORB_ENABLED ?? false);
   const orbRequired = Boolean(runtimeEnv.IMAGE_DEDUPE_ORB_REQUIRED ?? false);
@@ -232,7 +261,7 @@ export const processImageJob = async (
 
   let sha256Pixels = "";
   if (dedupeV2Enabled) {
-    let normalizedPipeline: any = sharp(originalBuffer);
+    let normalizedPipeline: Sharp = sharp(originalBuffer);
     if (typeof normalizedPipeline.rotate === "function") {
       normalizedPipeline = normalizedPipeline.rotate();
     }
@@ -426,7 +455,7 @@ export const processImageJob = async (
     const grouped = await Promise.all(
       prefixes.map((prefix) => deps.queryConvexImageFingerprintsByPhashPrefix!(prefix, 100)),
     );
-    const candidateMap = new Map<string, any>();
+    const candidateMap = new Map<string, FingerprintCandidate>();
     for (const group of grouped) {
       for (const candidate of group) {
         if (!candidate?.imageId || candidate.imageId === imageId) continue;
@@ -480,12 +509,7 @@ export const processImageJob = async (
             )
             .map(async (entry) => {
               const row = await deps.queryConvexImageById!(entry.imageId);
-              const fallbackUrl =
-                row?.variantUrls?.full?.webp ||
-                row?.variantUrls?.full?.jpg ||
-                row?.variantUrls?.full?.png ||
-                row?.originalUrl ||
-                "";
+              const fallbackUrl = getFullVariantUrl(row?.variantUrls) || row?.originalUrl || "";
               const storageKey =
                 row?.storageKeyCanonical ||
                 extractStorageObjectKey(fallbackUrl) ||
