@@ -1,5 +1,5 @@
-import { makeFunctionReference } from "convex/server";
-import { createConvexClient } from "./core.js";
+import { runConvexMutation, runConvexQuery } from "./calls.js";
+import { mutationRef, queryRef } from "./refs.js";
 import type { ConvexRating } from "./types.js";
 
 type ConvexRatingsResponse = {
@@ -70,41 +70,27 @@ type TopRatingItem = {
   comparisonsCount: number;
 };
 
-const ratingsByImageIdsRef = makeFunctionReference<
-  "query",
-  { imageIds: string[] },
-  ConvexRatingsResponse
->("voting:getRatingsByImageIds");
-const issueMatchupTokenRef = makeFunctionReference<
-  "mutation",
-  IssueMatchupTokenArgs,
-  { ok: boolean }
->("voting:issueMatchupToken");
-const validateAndConsumeMatchupTokenRef = makeFunctionReference<
-  "mutation",
+const ratingsByImageIdsRef = queryRef<{ imageIds: string[] }, ConvexRatingsResponse>(
+  "voting:getRatingsByImageIds",
+);
+const issueMatchupTokenRef = mutationRef<IssueMatchupTokenArgs, { ok: boolean }>(
+  "voting:issueMatchupToken",
+);
+const validateAndConsumeMatchupTokenRef = mutationRef<
   ValidateAndConsumeMatchupTokenArgs,
   ValidateAndConsumeMatchupTokenResult
 >("voting:validateAndConsumeMatchupToken");
-const createVoteEventRef = makeFunctionReference<
-  "mutation",
-  CreateVoteEventArgs,
-  CreateVoteEventResult
->("voting:createVoteEvent");
-const projectVoteEventRef = makeFunctionReference<
-  "mutation",
-  ProjectVoteEventArgs,
-  ProjectVoteEventResult
->("voting:projectVoteEvent");
-const topRatingsRef = makeFunctionReference<"query", TopRatingsArgs, TopRatingItem[]>(
-  "voting:getTopRatings",
+const createVoteEventRef = mutationRef<CreateVoteEventArgs, CreateVoteEventResult>(
+  "voting:createVoteEvent",
 );
-const voteCountByAuthUserIdRef = makeFunctionReference<
-  "query",
-  { authUserId: string },
-  { count: number }
->("voting:getVoteCountByAuthUserId");
-const voteCountForProfileRef = makeFunctionReference<
-  "query",
+const projectVoteEventRef = mutationRef<ProjectVoteEventArgs, ProjectVoteEventResult>(
+  "voting:projectVoteEvent",
+);
+const topRatingsRef = queryRef<TopRatingsArgs, TopRatingItem[]>("voting:getTopRatings");
+const voteCountByAuthUserIdRef = queryRef<{ authUserId: string }, { count: number }>(
+  "voting:getVoteCountByAuthUserId",
+);
+const voteCountForProfileRef = queryRef<
   { authUserId: string; voterHash?: string },
   { count: number }
 >("voting:getVoteCountForProfile");
@@ -113,31 +99,26 @@ export const queryConvexRatingsByImageIds = async (imageIds: string[]) => {
   if (!imageIds.length) {
     return [] as ConvexRating[];
   }
-  const { client } = createConvexClient();
-  const result = await client.query(ratingsByImageIdsRef, { imageIds });
+  const result = await runConvexQuery((client) => client.query(ratingsByImageIdsRef, { imageIds }));
   return result.ratings || [];
 };
 
 export const mutateConvexIssueMatchupToken = async (args: IssueMatchupTokenArgs) => {
-  const { client } = createConvexClient();
-  return client.mutation(issueMatchupTokenRef, args);
+  return runConvexMutation((client) => client.mutation(issueMatchupTokenRef, args));
 };
 
 export const mutateConvexValidateAndConsumeMatchupToken = async (
   args: ValidateAndConsumeMatchupTokenArgs,
 ) => {
-  const { client } = createConvexClient();
-  return client.mutation(validateAndConsumeMatchupTokenRef, args);
+  return runConvexMutation((client) => client.mutation(validateAndConsumeMatchupTokenRef, args));
 };
 
 export const mutateConvexCreateVoteEvent = async (args: CreateVoteEventArgs) => {
-  const { client } = createConvexClient();
-  return client.mutation(createVoteEventRef, args);
+  return runConvexMutation((client) => client.mutation(createVoteEventRef, args));
 };
 
 export const mutateConvexProjectVoteEvent = async (args: ProjectVoteEventArgs) => {
-  const { client } = createConvexClient();
-  return client.mutation(projectVoteEventRef, args);
+  return runConvexMutation((client) => client.mutation(projectVoteEventRef, args));
 };
 
 export const isConvexOptimisticConcurrencyError = (error: unknown) => {
@@ -146,19 +127,16 @@ export const isConvexOptimisticConcurrencyError = (error: unknown) => {
 };
 
 export const queryConvexTopRatings = async (args: TopRatingsArgs) => {
-  const { client } = createConvexClient();
-  return client.query(topRatingsRef, args);
+  return runConvexQuery((client) => client.query(topRatingsRef, args));
 };
 
 export const queryConvexVoteCountByAuthUserId = async (authUserId: string) => {
-  const { client } = createConvexClient();
-  return client.query(voteCountByAuthUserIdRef, { authUserId });
+  return runConvexQuery((client) => client.query(voteCountByAuthUserIdRef, { authUserId }));
 };
 
 export const queryConvexVoteCountForProfile = async (args: {
   authUserId: string;
   voterHash?: string;
 }) => {
-  const { client } = createConvexClient();
-  return client.query(voteCountForProfileRef, args);
+  return runConvexQuery((client) => client.query(voteCountForProfileRef, args));
 };

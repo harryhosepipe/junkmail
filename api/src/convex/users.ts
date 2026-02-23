@@ -1,5 +1,5 @@
-import { makeFunctionReference } from "convex/server";
-import { createConvexClient } from "./core.js";
+import { runConvexMutation, runConvexQuery } from "./calls.js";
+import { mutationRef, queryRef } from "./refs.js";
 import type { ConvexUserProfile } from "./types.js";
 
 type UpsertUserProfileArgs = {
@@ -14,33 +14,23 @@ type UpsertUserProfileArgs = {
   updatedAt?: number;
 };
 
-const userProfileByEmailRef = makeFunctionReference<
-  "query",
-  { emailLower: string },
-  ConvexUserProfile | null
->("users:getByEmail");
-const userProfileByAuthIdRef = makeFunctionReference<
-  "query",
-  { authUserId: string },
-  ConvexUserProfile | null
->("users:getByAuthUserId");
-const userProfileByTelegramIdRef = makeFunctionReference<
-  "query",
-  { telegramUserId: number },
-  ConvexUserProfile | null
->("users:getByTelegramUserId");
-const upsertUserProfileRef = makeFunctionReference<
-  "mutation",
-  UpsertUserProfileArgs,
-  { ok: boolean }
->("users:upsertByAuthUserId");
-const updateUserAliasRef = makeFunctionReference<
-  "mutation",
+const userProfileByEmailRef = queryRef<{ emailLower: string }, ConvexUserProfile | null>(
+  "users:getByEmail",
+);
+const userProfileByAuthIdRef = queryRef<{ authUserId: string }, ConvexUserProfile | null>(
+  "users:getByAuthUserId",
+);
+const userProfileByTelegramIdRef = queryRef<{ telegramUserId: number }, ConvexUserProfile | null>(
+  "users:getByTelegramUserId",
+);
+const upsertUserProfileRef = mutationRef<UpsertUserProfileArgs, { ok: boolean }>(
+  "users:upsertByAuthUserId",
+);
+const updateUserAliasRef = mutationRef<
   { authUserId: string; alias: string; updatedAt?: number },
   { ok: boolean }
 >("users:updateAlias");
-const upsertTelegramUserRef = makeFunctionReference<
-  "mutation",
+const upsertTelegramUserRef = mutationRef<
   {
     telegramUserId: number;
     email: string;
@@ -55,23 +45,21 @@ const upsertTelegramUserRef = makeFunctionReference<
 >("users:upsertTelegramUser");
 
 export const queryConvexUserProfileByEmail = async (email: string) => {
-  const { client } = createConvexClient();
-  return client.query(userProfileByEmailRef, { emailLower: email.toLowerCase() });
+  return runConvexQuery((client) =>
+    client.query(userProfileByEmailRef, { emailLower: email.toLowerCase() }),
+  );
 };
 
 export const queryConvexUserProfileByAuthUserId = async (authUserId: string) => {
-  const { client } = createConvexClient();
-  return client.query(userProfileByAuthIdRef, { authUserId });
+  return runConvexQuery((client) => client.query(userProfileByAuthIdRef, { authUserId }));
 };
 
 export const queryConvexUserProfileByTelegramUserId = async (telegramUserId: number) => {
-  const { client } = createConvexClient();
-  return client.query(userProfileByTelegramIdRef, { telegramUserId });
+  return runConvexQuery((client) => client.query(userProfileByTelegramIdRef, { telegramUserId }));
 };
 
 export const mutateConvexUpsertUserProfile = async (args: UpsertUserProfileArgs) => {
-  const { client } = createConvexClient();
-  return client.mutation(upsertUserProfileRef, args);
+  return runConvexMutation((client) => client.mutation(upsertUserProfileRef, args));
 };
 
 export const mutateConvexUpdateUserAlias = async (args: {
@@ -79,8 +67,7 @@ export const mutateConvexUpdateUserAlias = async (args: {
   alias: string;
   updatedAt?: number;
 }) => {
-  const { client } = createConvexClient();
-  return client.mutation(updateUserAliasRef, args);
+  return runConvexMutation((client) => client.mutation(updateUserAliasRef, args));
 };
 
 export const mutateConvexUpsertTelegramUser = async (args: {
@@ -93,6 +80,5 @@ export const mutateConvexUpsertTelegramUser = async (args: {
   createdAt?: number;
   updatedAt?: number;
 }) => {
-  const { client } = createConvexClient();
-  return client.mutation(upsertTelegramUserRef, args);
+  return runConvexMutation((client) => client.mutation(upsertTelegramUserRef, args));
 };

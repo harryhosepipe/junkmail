@@ -1,8 +1,7 @@
-import { makeFunctionReference } from "convex/server";
-import { createConvexClient } from "./core.js";
+import { runConvexMutation, runConvexQuery } from "./calls.js";
+import { mutationRef, queryRef } from "./refs.js";
 
-const createAuthTokenRef = makeFunctionReference<
-  "mutation",
+const createAuthTokenRef = mutationRef<
   {
     tokenHash: string;
     userAuthUserId: string;
@@ -11,23 +10,18 @@ const createAuthTokenRef = makeFunctionReference<
   },
   { ok: boolean }
 >("auth:createAuthToken");
-const consumeAuthTokenRef = makeFunctionReference<
-  "mutation",
+const consumeAuthTokenRef = mutationRef<
   { tokenHash: string; now?: number },
   { userAuthUserId: string } | null
 >("auth:consumeAuthToken");
-const createSessionRef = makeFunctionReference<
-  "mutation",
+const createSessionRef = mutationRef<
   { tokenHash: string; userAuthUserId: string; expiresAt: number; createdAt?: number },
   { ok: boolean }
 >("auth:createSession");
-const deleteSessionByTokenHashRef = makeFunctionReference<
-  "mutation",
-  { tokenHash: string },
-  { ok: boolean }
->("auth:deleteSessionByTokenHash");
-const getSessionUserAuthUserIdRef = makeFunctionReference<
-  "query",
+const deleteSessionByTokenHashRef = mutationRef<{ tokenHash: string }, { ok: boolean }>(
+  "auth:deleteSessionByTokenHash",
+);
+const getSessionUserAuthUserIdRef = queryRef<
   { tokenHash: string; now?: number },
   { userAuthUserId: string } | null
 >("auth:getSessionUserAuthUserId");
@@ -38,13 +32,11 @@ export const mutateConvexCreateAuthToken = async (args: {
   expiresAt: number;
   createdAt?: number;
 }) => {
-  const { client } = createConvexClient();
-  return client.mutation(createAuthTokenRef, args);
+  return runConvexMutation((client) => client.mutation(createAuthTokenRef, args));
 };
 
 export const mutateConvexConsumeAuthToken = async (args: { tokenHash: string; now?: number }) => {
-  const { client } = createConvexClient();
-  return client.mutation(consumeAuthTokenRef, args);
+  return runConvexMutation((client) => client.mutation(consumeAuthTokenRef, args));
 };
 
 export const mutateConvexCreateSession = async (args: {
@@ -53,19 +45,16 @@ export const mutateConvexCreateSession = async (args: {
   expiresAt: number;
   createdAt?: number;
 }) => {
-  const { client } = createConvexClient();
-  return client.mutation(createSessionRef, args);
+  return runConvexMutation((client) => client.mutation(createSessionRef, args));
 };
 
 export const mutateConvexDeleteSessionByTokenHash = async (args: { tokenHash: string }) => {
-  const { client } = createConvexClient();
-  return client.mutation(deleteSessionByTokenHashRef, args);
+  return runConvexMutation((client) => client.mutation(deleteSessionByTokenHashRef, args));
 };
 
 export const queryConvexSessionUserAuthUserId = async (args: {
   tokenHash: string;
   now?: number;
 }) => {
-  const { client } = createConvexClient();
-  return client.query(getSessionUserAuthUserIdRef, args);
+  return runConvexQuery((client) => client.query(getSessionUserAuthUserIdRef, args));
 };

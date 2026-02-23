@@ -1,5 +1,5 @@
-import { makeFunctionReference } from "convex/server";
 import { createConvexClient } from "./core.js";
+import { queryRef } from "./refs.js";
 
 type ConvexHealth = {
   ok: boolean;
@@ -7,9 +7,7 @@ type ConvexHealth = {
   environment: string;
 };
 
-const healthPingRef = makeFunctionReference<"query", Record<string, never>, ConvexHealth>(
-  "health:ping",
-);
+const healthPingRef = queryRef<Record<string, never>, ConvexHealth>("health:ping");
 
 export const queryConvexHealth = async () => {
   const { client, url } = createConvexClient();

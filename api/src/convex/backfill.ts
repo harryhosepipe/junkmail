@@ -1,5 +1,5 @@
-import { makeFunctionReference } from "convex/server";
-import { createConvexClient } from "./core.js";
+import { runConvexMutation, runConvexQuery } from "./calls.js";
+import { mutationRef, queryRef } from "./refs.js";
 
 type BackfillUpsertImageRatingArgs = {
   imageId: string;
@@ -60,135 +60,101 @@ type BackfillClearBatchResult = {
   hasMore: boolean;
 };
 
-const backfillClearVotesBatchRef = makeFunctionReference<
-  "mutation",
-  BackfillClearBatchArgs,
-  BackfillClearBatchResult
->("backfill:clearVotesBatch");
-const backfillClearImageRatingsBatchRef = makeFunctionReference<
-  "mutation",
+const backfillClearVotesBatchRef = mutationRef<BackfillClearBatchArgs, BackfillClearBatchResult>(
+  "backfill:clearVotesBatch",
+);
+const backfillClearImageRatingsBatchRef = mutationRef<
   BackfillClearBatchArgs,
   BackfillClearBatchResult
 >("backfill:clearImageRatingsBatch");
-const backfillClearUserProfilesBatchRef = makeFunctionReference<
-  "mutation",
+const backfillClearUserProfilesBatchRef = mutationRef<
   BackfillClearBatchArgs,
   BackfillClearBatchResult
 >("backfill:clearUserProfilesBatch");
-const backfillClearAuthTokensBatchRef = makeFunctionReference<
-  "mutation",
+const backfillClearAuthTokensBatchRef = mutationRef<
   BackfillClearBatchArgs,
   BackfillClearBatchResult
 >("backfill:clearAuthTokensBatch");
-const backfillClearSessionsBatchRef = makeFunctionReference<
-  "mutation",
-  BackfillClearBatchArgs,
-  BackfillClearBatchResult
->("backfill:clearSessionsBatch");
-const backfillClearMatchupTokensBatchRef = makeFunctionReference<
-  "mutation",
+const backfillClearSessionsBatchRef = mutationRef<BackfillClearBatchArgs, BackfillClearBatchResult>(
+  "backfill:clearSessionsBatch",
+);
+const backfillClearMatchupTokensBatchRef = mutationRef<
   BackfillClearBatchArgs,
   BackfillClearBatchResult
 >("backfill:clearMatchupTokensBatch");
-const backfillClearImagesBatchRef = makeFunctionReference<
-  "mutation",
-  BackfillClearBatchArgs,
-  BackfillClearBatchResult
->("backfill:clearImagesBatch");
-const backfillClearImageCommentsBatchRef = makeFunctionReference<
-  "mutation",
+const backfillClearImagesBatchRef = mutationRef<BackfillClearBatchArgs, BackfillClearBatchResult>(
+  "backfill:clearImagesBatch",
+);
+const backfillClearImageCommentsBatchRef = mutationRef<
   BackfillClearBatchArgs,
   BackfillClearBatchResult
 >("backfill:clearImageCommentsBatch");
-const backfillUpsertImageRatingRef = makeFunctionReference<
-  "mutation",
-  BackfillUpsertImageRatingArgs,
-  { ok: boolean }
->("backfill:upsertImageRating");
-const backfillUpsertImageRef = makeFunctionReference<
-  "mutation",
-  BackfillUpsertImageArgs,
-  { ok: boolean }
->("backfill:upsertImage");
-const backfillInsertVoteRef = makeFunctionReference<
-  "mutation",
-  BackfillInsertVoteArgs,
-  { ok: boolean }
->("backfill:insertVote");
-const backfillInsertImageCommentRef = makeFunctionReference<
-  "mutation",
-  BackfillInsertImageCommentArgs,
-  { ok: boolean }
->("backfill:insertImageComment");
-const backfillGetCountsRef = makeFunctionReference<"query", Record<string, never>, BackfillCounts>(
-  "backfill:getCounts",
+const backfillUpsertImageRatingRef = mutationRef<BackfillUpsertImageRatingArgs, { ok: boolean }>(
+  "backfill:upsertImageRating",
 );
+const backfillUpsertImageRef = mutationRef<BackfillUpsertImageArgs, { ok: boolean }>(
+  "backfill:upsertImage",
+);
+const backfillInsertVoteRef = mutationRef<BackfillInsertVoteArgs, { ok: boolean }>(
+  "backfill:insertVote",
+);
+const backfillInsertImageCommentRef = mutationRef<BackfillInsertImageCommentArgs, { ok: boolean }>(
+  "backfill:insertImageComment",
+);
+const backfillGetCountsRef = queryRef<Record<string, never>, BackfillCounts>("backfill:getCounts");
 
 export const mutateConvexBackfillClearVotesBatch = async (args: BackfillClearBatchArgs) => {
-  const { client } = createConvexClient();
-  return client.mutation(backfillClearVotesBatchRef, args);
+  return runConvexMutation((client) => client.mutation(backfillClearVotesBatchRef, args));
 };
 
 export const mutateConvexBackfillClearImageRatingsBatch = async (args: BackfillClearBatchArgs) => {
-  const { client } = createConvexClient();
-  return client.mutation(backfillClearImageRatingsBatchRef, args);
+  return runConvexMutation((client) => client.mutation(backfillClearImageRatingsBatchRef, args));
 };
 
 export const mutateConvexBackfillClearUserProfilesBatch = async (args: BackfillClearBatchArgs) => {
-  const { client } = createConvexClient();
-  return client.mutation(backfillClearUserProfilesBatchRef, args);
+  return runConvexMutation((client) => client.mutation(backfillClearUserProfilesBatchRef, args));
 };
 
 export const mutateConvexBackfillClearAuthTokensBatch = async (args: BackfillClearBatchArgs) => {
-  const { client } = createConvexClient();
-  return client.mutation(backfillClearAuthTokensBatchRef, args);
+  return runConvexMutation((client) => client.mutation(backfillClearAuthTokensBatchRef, args));
 };
 
 export const mutateConvexBackfillClearSessionsBatch = async (args: BackfillClearBatchArgs) => {
-  const { client } = createConvexClient();
-  return client.mutation(backfillClearSessionsBatchRef, args);
+  return runConvexMutation((client) => client.mutation(backfillClearSessionsBatchRef, args));
 };
 
 export const mutateConvexBackfillClearMatchupTokensBatch = async (args: BackfillClearBatchArgs) => {
-  const { client } = createConvexClient();
-  return client.mutation(backfillClearMatchupTokensBatchRef, args);
+  return runConvexMutation((client) => client.mutation(backfillClearMatchupTokensBatchRef, args));
 };
 
 export const mutateConvexBackfillClearImagesBatch = async (args: BackfillClearBatchArgs) => {
-  const { client } = createConvexClient();
-  return client.mutation(backfillClearImagesBatchRef, args);
+  return runConvexMutation((client) => client.mutation(backfillClearImagesBatchRef, args));
 };
 
 export const mutateConvexBackfillClearImageCommentsBatch = async (args: BackfillClearBatchArgs) => {
-  const { client } = createConvexClient();
-  return client.mutation(backfillClearImageCommentsBatchRef, args);
+  return runConvexMutation((client) => client.mutation(backfillClearImageCommentsBatchRef, args));
 };
 
 export const mutateConvexBackfillUpsertImageRating = async (
   args: BackfillUpsertImageRatingArgs,
 ) => {
-  const { client } = createConvexClient();
-  return client.mutation(backfillUpsertImageRatingRef, args);
+  return runConvexMutation((client) => client.mutation(backfillUpsertImageRatingRef, args));
 };
 
 export const mutateConvexBackfillUpsertImage = async (args: BackfillUpsertImageArgs) => {
-  const { client } = createConvexClient();
-  return client.mutation(backfillUpsertImageRef, args);
+  return runConvexMutation((client) => client.mutation(backfillUpsertImageRef, args));
 };
 
 export const mutateConvexBackfillInsertVote = async (args: BackfillInsertVoteArgs) => {
-  const { client } = createConvexClient();
-  return client.mutation(backfillInsertVoteRef, args);
+  return runConvexMutation((client) => client.mutation(backfillInsertVoteRef, args));
 };
 
 export const mutateConvexBackfillInsertImageComment = async (
   args: BackfillInsertImageCommentArgs,
 ) => {
-  const { client } = createConvexClient();
-  return client.mutation(backfillInsertImageCommentRef, args);
+  return runConvexMutation((client) => client.mutation(backfillInsertImageCommentRef, args));
 };
 
 export const queryConvexBackfillCounts = async () => {
-  const { client } = createConvexClient();
-  return client.query(backfillGetCountsRef, {});
+  return runConvexQuery((client) => client.query(backfillGetCountsRef, {}));
 };

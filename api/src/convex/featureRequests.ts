@@ -1,15 +1,12 @@
-import { makeFunctionReference } from "convex/server";
-import { createConvexClient } from "./core.js";
+import { runConvexMutation, runConvexQuery } from "./calls.js";
+import { mutationRef, queryRef } from "./refs.js";
 import type { ConvexFeatureRequest } from "./types.js";
 
-const listFeatureRequestsRef = makeFunctionReference<
-  "query",
-  { limit?: number },
-  ConvexFeatureRequest[]
->("featureRequests:listFeatureRequests");
+const listFeatureRequestsRef = queryRef<{ limit?: number }, ConvexFeatureRequest[]>(
+  "featureRequests:listFeatureRequests",
+);
 
-const createFeatureRequestRef = makeFunctionReference<
-  "mutation",
+const createFeatureRequestRef = mutationRef<
   {
     requestId: string;
     title: string;
@@ -24,8 +21,7 @@ const createFeatureRequestRef = makeFunctionReference<
 >("featureRequests:createFeatureRequest");
 
 export const queryConvexFeatureRequests = async (limit?: number) => {
-  const { client } = createConvexClient();
-  return client.query(listFeatureRequestsRef, { limit });
+  return runConvexQuery((client) => client.query(listFeatureRequestsRef, { limit }));
 };
 
 export const mutateConvexCreateFeatureRequest = async (args: {
@@ -38,6 +34,5 @@ export const mutateConvexCreateFeatureRequest = async (args: {
   createdAt?: number;
   updatedAt?: number;
 }) => {
-  const { client } = createConvexClient();
-  return client.mutation(createFeatureRequestRef, args);
+  return runConvexMutation((client) => client.mutation(createFeatureRequestRef, args));
 };

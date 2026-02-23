@@ -1,53 +1,39 @@
-import { makeFunctionReference } from "convex/server";
-import { createConvexClient } from "./core.js";
+import { runConvexMutation, runConvexQuery } from "./calls.js";
+import { mutationRef, queryRef } from "./refs.js";
 import type { ConvexImageComment, ConvexImageContent, ConvexImageFingerprint } from "./types.js";
 
-const recentPublicImagesRef = makeFunctionReference<
-  "query",
-  { limit?: number },
-  ConvexImageContent[]
->("content:listRecentPublicImages");
-const recentImagesRef = makeFunctionReference<"query", { limit?: number }, ConvexImageContent[]>(
+const recentPublicImagesRef = queryRef<{ limit?: number }, ConvexImageContent[]>(
+  "content:listRecentPublicImages",
+);
+const recentImagesRef = queryRef<{ limit?: number }, ConvexImageContent[]>(
   "content:listRecentImages",
 );
-const publicImagesRef = makeFunctionReference<"query", { limit?: number }, ConvexImageContent[]>(
+const publicImagesRef = queryRef<{ limit?: number }, ConvexImageContent[]>(
   "content:listPublicImages",
 );
-const publicImagesByIdsRef = makeFunctionReference<
-  "query",
-  { imageIds: string[] },
-  ConvexImageContent[]
->("content:listPublicImagesByIds");
-const imageByIdRef = makeFunctionReference<"query", { imageId: string }, ConvexImageContent | null>(
+const publicImagesByIdsRef = queryRef<{ imageIds: string[] }, ConvexImageContent[]>(
+  "content:listPublicImagesByIds",
+);
+const imageByIdRef = queryRef<{ imageId: string }, ConvexImageContent | null>(
   "content:getImageById",
 );
-const imageByUploadHashRef = makeFunctionReference<
-  "query",
-  { uploadHash: string },
-  ConvexImageContent | null
->("content:getImageByUploadHash");
-const imageByUploadIdRef = makeFunctionReference<
-  "query",
-  { uploadId: string },
-  ConvexImageContent | null
->("content:getImageByUploadId");
-const imagesByPerceptualHashAnchorRef = makeFunctionReference<
-  "query",
+const imageByUploadHashRef = queryRef<{ uploadHash: string }, ConvexImageContent | null>(
+  "content:getImageByUploadHash",
+);
+const imageByUploadIdRef = queryRef<{ uploadId: string }, ConvexImageContent | null>(
+  "content:getImageByUploadId",
+);
+const imagesByPerceptualHashAnchorRef = queryRef<
   { anchor: string; limit?: number },
   ConvexImageContent[]
 >("content:listImagesByPerceptualHashAnchor");
-const imageCommentsRef = makeFunctionReference<
-  "query",
-  { imageId: string; limit?: number },
-  ConvexImageComment[]
->("content:listImageComments");
-const uploaderImageCountRef = makeFunctionReference<
-  "query",
-  { uploaderAuthUserId: string },
-  { count: number }
->("content:countUploaderImages");
-const createImageCommentRef = makeFunctionReference<
-  "mutation",
+const imageCommentsRef = queryRef<{ imageId: string; limit?: number }, ConvexImageComment[]>(
+  "content:listImageComments",
+);
+const uploaderImageCountRef = queryRef<{ uploaderAuthUserId: string }, { count: number }>(
+  "content:countUploaderImages",
+);
+const createImageCommentRef = mutationRef<
   {
     commentId: string;
     imageId: string;
@@ -58,8 +44,7 @@ const createImageCommentRef = makeFunctionReference<
   },
   { ok: boolean }
 >("content:createImageComment");
-const recordImageUploadProcessingRef = makeFunctionReference<
-  "mutation",
+const recordImageUploadProcessingRef = mutationRef<
   {
     imageId: string;
     uploadId?: string;
@@ -88,13 +73,11 @@ const recordImageUploadProcessingRef = makeFunctionReference<
   },
   { ok: boolean }
 >("content:recordImageUploadProcessing");
-const markImageProcessingRequestedRef = makeFunctionReference<
-  "mutation",
+const markImageProcessingRequestedRef = mutationRef<
   { imageId: string; status: string; updatedAt?: number; publishedAt?: number },
   { ok: boolean }
 >("content:markImageProcessingRequested");
-const markImageProcessingCompleteRef = makeFunctionReference<
-  "mutation",
+const markImageProcessingCompleteRef = mutationRef<
   {
     imageId: string;
     status: string;
@@ -107,8 +90,7 @@ const markImageProcessingCompleteRef = makeFunctionReference<
   },
   { ok: boolean }
 >("content:markImageProcessingComplete");
-const deleteImageGraphRef = makeFunctionReference<
-  "mutation",
+const deleteImageGraphRef = mutationRef<
   { imageId: string },
   {
     ok: boolean;
@@ -116,8 +98,7 @@ const deleteImageGraphRef = makeFunctionReference<
     deletedCounts?: Record<string, number>;
   }
 >("content:deleteImageGraph");
-const recordImagePerceptualHashesRef = makeFunctionReference<
-  "mutation",
+const recordImagePerceptualHashesRef = mutationRef<
   {
     imageId: string;
     perceptualHashAnchor?: string;
@@ -126,8 +107,7 @@ const recordImagePerceptualHashesRef = makeFunctionReference<
   },
   { ok: boolean }
 >("content:recordImagePerceptualHashes");
-const recordImageUploadReceivedRef = makeFunctionReference<
-  "mutation",
+const recordImageUploadReceivedRef = mutationRef<
   {
     imageId: string;
     uploadId: string;
@@ -139,8 +119,7 @@ const recordImageUploadReceivedRef = makeFunctionReference<
   },
   { ok: boolean; imageId: string; deduped: boolean }
 >("content:recordImageUploadReceived");
-const markImageRejectedRef = makeFunctionReference<
-  "mutation",
+const markImageRejectedRef = mutationRef<
   {
     imageId: string;
     reason: string;
@@ -150,8 +129,7 @@ const markImageRejectedRef = makeFunctionReference<
   },
   { ok: boolean }
 >("content:markImageRejected");
-const markImageAcceptedRef = makeFunctionReference<
-  "mutation",
+const markImageAcceptedRef = mutationRef<
   {
     imageId: string;
     status?: string;
@@ -164,23 +142,17 @@ const markImageAcceptedRef = makeFunctionReference<
   },
   { ok: boolean }
 >("content:markImageAccepted");
-const fingerprintByShaRef = makeFunctionReference<
-  "query",
-  { sha256Pixels: string },
-  ConvexImageFingerprint | null
->("content:getImageFingerprintBySha256");
-const fingerprintsByPrefixRef = makeFunctionReference<
-  "query",
+const fingerprintByShaRef = queryRef<{ sha256Pixels: string }, ConvexImageFingerprint | null>(
+  "content:getImageFingerprintBySha256",
+);
+const fingerprintsByPrefixRef = queryRef<
   { phashPrefix: string; limit?: number },
   ConvexImageFingerprint[]
 >("content:listImageFingerprintsByPhashPrefix");
-const recentFingerprintsRef = makeFunctionReference<
-  "query",
-  { limit?: number },
-  ConvexImageFingerprint[]
->("content:listRecentImageFingerprints");
-const recordImageFingerprintRef = makeFunctionReference<
-  "mutation",
+const recentFingerprintsRef = queryRef<{ limit?: number }, ConvexImageFingerprint[]>(
+  "content:listRecentImageFingerprints",
+);
+const recordImageFingerprintRef = mutationRef<
   {
     imageId: string;
     sha256Pixels: string;
@@ -196,8 +168,7 @@ const recordImageFingerprintRef = makeFunctionReference<
   },
   { ok: boolean }
 >("content:recordImageFingerprint");
-const createDedupeEventRef = makeFunctionReference<
-  "mutation",
+const createDedupeEventRef = mutationRef<
   {
     uploadImageId: string;
     decision: string;
@@ -210,66 +181,55 @@ const createDedupeEventRef = makeFunctionReference<
   },
   { ok: boolean }
 >("content:createDedupeEvent");
-const recentDedupeEventsRef = makeFunctionReference<
-  "query",
-  { limit?: number },
-  Array<Record<string, unknown>>
->("content:listRecentDedupeEvents");
-const dedupeStatsRef = makeFunctionReference<
-  "query",
+const recentDedupeEventsRef = queryRef<{ limit?: number }, Array<Record<string, unknown>>>(
+  "content:listRecentDedupeEvents",
+);
+const dedupeStatsRef = queryRef<
   { windowHours?: number; sampleLimit?: number },
   Record<string, unknown>
 >("content:getDedupeStats");
 
 export const queryConvexRecentPublicImages = async (limit?: number) => {
-  const { client } = createConvexClient();
-  return client.query(recentPublicImagesRef, { limit });
+  return runConvexQuery((client) => client.query(recentPublicImagesRef, { limit }));
 };
 
 export const queryConvexRecentImages = async (limit?: number) => {
-  const { client } = createConvexClient();
-  return client.query(recentImagesRef, { limit });
+  return runConvexQuery((client) => client.query(recentImagesRef, { limit }));
 };
 
 export const queryConvexPublicImages = async (limit?: number) => {
-  const { client } = createConvexClient();
-  return client.query(publicImagesRef, { limit });
+  return runConvexQuery((client) => client.query(publicImagesRef, { limit }));
 };
 
 export const queryConvexPublicImagesByIds = async (imageIds: string[]) => {
   if (!imageIds.length) return [] as ConvexImageContent[];
-  const { client } = createConvexClient();
-  return client.query(publicImagesByIdsRef, { imageIds });
+  return runConvexQuery((client) => client.query(publicImagesByIdsRef, { imageIds }));
 };
 
 export const queryConvexImageById = async (imageId: string) => {
-  const { client } = createConvexClient();
-  return client.query(imageByIdRef, { imageId });
+  return runConvexQuery((client) => client.query(imageByIdRef, { imageId }));
 };
 
 export const queryConvexImageByUploadHash = async (uploadHash: string) => {
-  const { client } = createConvexClient();
-  return client.query(imageByUploadHashRef, { uploadHash });
+  return runConvexQuery((client) => client.query(imageByUploadHashRef, { uploadHash }));
 };
 
 export const queryConvexImageByUploadId = async (uploadId: string) => {
-  const { client } = createConvexClient();
-  return client.query(imageByUploadIdRef, { uploadId });
+  return runConvexQuery((client) => client.query(imageByUploadIdRef, { uploadId }));
 };
 
 export const queryConvexImagesByPerceptualHashAnchor = async (anchor: string, limit?: number) => {
-  const { client } = createConvexClient();
-  return client.query(imagesByPerceptualHashAnchorRef, { anchor, limit });
+  return runConvexQuery((client) =>
+    client.query(imagesByPerceptualHashAnchorRef, { anchor, limit }),
+  );
 };
 
 export const queryConvexImageComments = async (args: { imageId: string; limit?: number }) => {
-  const { client } = createConvexClient();
-  return client.query(imageCommentsRef, args);
+  return runConvexQuery((client) => client.query(imageCommentsRef, args));
 };
 
 export const queryConvexUploaderImageCount = async (uploaderAuthUserId: string) => {
-  const { client } = createConvexClient();
-  return client.query(uploaderImageCountRef, { uploaderAuthUserId });
+  return runConvexQuery((client) => client.query(uploaderImageCountRef, { uploaderAuthUserId }));
 };
 
 export const mutateConvexCreateImageComment = async (args: {
@@ -280,8 +240,7 @@ export const mutateConvexCreateImageComment = async (args: {
   body: string;
   createdAt?: number;
 }) => {
-  const { client } = createConvexClient();
-  return client.mutation(createImageCommentRef, args);
+  return runConvexMutation((client) => client.mutation(createImageCommentRef, args));
 };
 
 export const mutateConvexRecordImageUploadProcessing = async (args: {
@@ -310,8 +269,7 @@ export const mutateConvexRecordImageUploadProcessing = async (args: {
   updatedAt?: number;
   publishedAt?: number;
 }) => {
-  const { client } = createConvexClient();
-  return client.mutation(recordImageUploadProcessingRef, args);
+  return runConvexMutation((client) => client.mutation(recordImageUploadProcessingRef, args));
 };
 
 export const mutateConvexMarkImageProcessingRequested = async (args: {
@@ -320,8 +278,7 @@ export const mutateConvexMarkImageProcessingRequested = async (args: {
   updatedAt?: number;
   publishedAt?: number;
 }) => {
-  const { client } = createConvexClient();
-  return client.mutation(markImageProcessingRequestedRef, args);
+  return runConvexMutation((client) => client.mutation(markImageProcessingRequestedRef, args));
 };
 
 export const mutateConvexMarkImageProcessingComplete = async (args: {
@@ -334,13 +291,11 @@ export const mutateConvexMarkImageProcessingComplete = async (args: {
   updatedAt?: number;
   publishedAt?: number;
 }) => {
-  const { client } = createConvexClient();
-  return client.mutation(markImageProcessingCompleteRef, args);
+  return runConvexMutation((client) => client.mutation(markImageProcessingCompleteRef, args));
 };
 
 export const mutateConvexDeleteImageGraph = async (args: { imageId: string }) => {
-  const { client } = createConvexClient();
-  return client.mutation(deleteImageGraphRef, args);
+  return runConvexMutation((client) => client.mutation(deleteImageGraphRef, args));
 };
 
 export const mutateConvexRecordImagePerceptualHashes = async (args: {
@@ -349,8 +304,7 @@ export const mutateConvexRecordImagePerceptualHashes = async (args: {
   perceptualHashes?: unknown;
   updatedAt?: number;
 }) => {
-  const { client } = createConvexClient();
-  return client.mutation(recordImagePerceptualHashesRef, args);
+  return runConvexMutation((client) => client.mutation(recordImagePerceptualHashesRef, args));
 };
 
 export const mutateConvexRecordImageUploadReceived = async (args: {
@@ -362,8 +316,7 @@ export const mutateConvexRecordImageUploadReceived = async (args: {
   createdAt?: number;
   updatedAt?: number;
 }) => {
-  const { client } = createConvexClient();
-  return client.mutation(recordImageUploadReceivedRef, args);
+  return runConvexMutation((client) => client.mutation(recordImageUploadReceivedRef, args));
 };
 
 export const mutateConvexMarkImageRejected = async (args: {
@@ -373,8 +326,7 @@ export const mutateConvexMarkImageRejected = async (args: {
   scores?: unknown;
   updatedAt?: number;
 }) => {
-  const { client } = createConvexClient();
-  return client.mutation(markImageRejectedRef, args);
+  return runConvexMutation((client) => client.mutation(markImageRejectedRef, args));
 };
 
 export const mutateConvexMarkImageAccepted = async (args: {
@@ -387,26 +339,22 @@ export const mutateConvexMarkImageAccepted = async (args: {
   updatedAt?: number;
   publishedAt?: number;
 }) => {
-  const { client } = createConvexClient();
-  return client.mutation(markImageAcceptedRef, args);
+  return runConvexMutation((client) => client.mutation(markImageAcceptedRef, args));
 };
 
 export const queryConvexImageFingerprintBySha256 = async (sha256Pixels: string) => {
-  const { client } = createConvexClient();
-  return client.query(fingerprintByShaRef, { sha256Pixels });
+  return runConvexQuery((client) => client.query(fingerprintByShaRef, { sha256Pixels }));
 };
 
 export const queryConvexImageFingerprintsByPhashPrefix = async (
   phashPrefix: string,
   limit?: number,
 ) => {
-  const { client } = createConvexClient();
-  return client.query(fingerprintsByPrefixRef, { phashPrefix, limit });
+  return runConvexQuery((client) => client.query(fingerprintsByPrefixRef, { phashPrefix, limit }));
 };
 
 export const queryConvexRecentImageFingerprints = async (limit?: number) => {
-  const { client } = createConvexClient();
-  return client.query(recentFingerprintsRef, { limit });
+  return runConvexQuery((client) => client.query(recentFingerprintsRef, { limit }));
 };
 
 export const mutateConvexRecordImageFingerprint = async (args: {
@@ -422,8 +370,7 @@ export const mutateConvexRecordImageFingerprint = async (args: {
   workerVersion?: string;
   createdAt?: number;
 }) => {
-  const { client } = createConvexClient();
-  return client.mutation(recordImageFingerprintRef, args);
+  return runConvexMutation((client) => client.mutation(recordImageFingerprintRef, args));
 };
 
 export const mutateConvexCreateDedupeEvent = async (args: {
@@ -436,19 +383,16 @@ export const mutateConvexCreateDedupeEvent = async (args: {
   workerVersion?: string;
   createdAt?: number;
 }) => {
-  const { client } = createConvexClient();
-  return client.mutation(createDedupeEventRef, args);
+  return runConvexMutation((client) => client.mutation(createDedupeEventRef, args));
 };
 
 export const queryConvexRecentDedupeEvents = async (limit?: number) => {
-  const { client } = createConvexClient();
-  return client.query(recentDedupeEventsRef, { limit });
+  return runConvexQuery((client) => client.query(recentDedupeEventsRef, { limit }));
 };
 
 export const queryConvexDedupeStats = async (args?: {
   windowHours?: number;
   sampleLimit?: number;
 }) => {
-  const { client } = createConvexClient();
-  return client.query(dedupeStatsRef, args || {});
+  return runConvexQuery((client) => client.query(dedupeStatsRef, args || {}));
 };

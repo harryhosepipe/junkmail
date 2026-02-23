@@ -1,0 +1,673 @@
+import { mutation, query } from "./_generated/server";
+import { v } from "convex/values";
+
+const normalizeText = (value?: string) => {
+  const trimmed = value?.trim();
+  return trimmed && trimmed.length ? trimmed : undefined;
+};
+
+const INITIAL_RATING_SCORE = 0;
+const INITIAL_RATING_UNCERTAINTY = 1;
+
+const ensureRatingForPublicImage = async (ctx: any, imageId: string, updatedAt: number) => {
+  const existing = await ctx.db
+    .query("imageRatings")
+    .withIndex("by_image_id", (q: any) => q.eq("imageId", imageId))
+    .unique();
+  if (existing) return;
+
+  await ctx.db.insert("imageRatings", {
+    imageId,
+    score: INITIAL_RATING_SCORE,
+    uncertainty: INITIAL_RATING_UNCERTAINTY,
+    comparisonsCount: 0,
+    updatedAt,
+  });
+};
+
+const mapImageRow = (row: any) => ({
+  imageId: row.imageId,
+  uploadId: row.uploadId,
+  uploaderAuthUserId: row.uploaderAuthUserId,
+  uploadHash: row.uploadHash,
+  perceptualHashAnchor: row.perceptualHashAnchor,
+  perceptualHashes: row.perceptualHashes,
+  title: row.title,
+  description: row.description,
+  category: row.category,
+  status: row.status,
+  storageKeyOriginal: row.storageKeyOriginal,
+  storageKeyCanonical: row.storageKeyCanonical,
+  mime: row.mime,
+  width: row.width,
+  height: row.height,
+  rejectReason: row.rejectReason,
+  matchedImageId: row.matchedImageId,
+  dedupeScores: row.dedupeScores,
+  originalUrl: row.originalUrl,
+  originalStorageId: row.originalStorageId,
+  variantUrls: row.variantUrls,
+  createdAt: row.createdAt,
+  updatedAt: row.updatedAt,
+  publishedAt: row.publishedAt,
+});
+
+export const createImage = mutation({
+  args: {
+    imageId: v.string(),
+    uploadId: v.optional(v.string()),
+    uploaderAuthUserId: v.string(),
+    uploadHash: v.optional(v.string()),
+    perceptualHashAnchor: v.optional(v.string()),
+    perceptualHashes: v.optional(v.any()),
+    title: v.optional(v.string()),
+    description: v.optional(v.string()),
+    status: v.string(),
+    storageKeyOriginal: v.optional(v.string()),
+    storageKeyCanonical: v.optional(v.string()),
+    mime: v.optional(v.string()),
+    width: v.optional(v.number()),
+    height: v.optional(v.number()),
+    rejectReason: v.optional(v.string()),
+    matchedImageId: v.optional(v.string()),
+    dedupeScores: v.optional(v.any()),
+    category: v.optional(v.string()),
+    originalUrl: v.optional(v.string()),
+    originalStorageId: v.optional(v.string()),
+    variantUrls: v.optional(v.any()),
+    createdAt: v.optional(v.number()),
+    updatedAt: v.optional(v.number()),
+    publishedAt: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const existing = await ctx.db
+      .query("images")
+      .withIndex("by_image_id", (q) => q.eq("imageId", args.imageId))
+      .unique();
+    if (existing) {
+      throw new Error(`Image already exists for imageId=${args.imageId}`);
+    }
+
+    const now = args.updatedAt ?? Date.now();
+    await ctx.db.insert("images", {
+      imageId: args.imageId,
+      uploadId: normalizeText(args.uploadId),
+      uploaderAuthUserId: args.uploaderAuthUserId,
+      uploadHash: normalizeText(args.uploadHash),
+      perceptualHashAnchor: normalizeText(args.perceptualHashAnchor),
+      perceptualHashes: args.perceptualHashes,
+      title: normalizeText(args.title),
+      description: normalizeText(args.description),
+      status: args.status,
+      storageKeyOriginal: normalizeText(args.storageKeyOriginal),
+      storageKeyCanonical: normalizeText(args.storageKeyCanonical),
+      mime: normalizeText(args.mime),
+      width: args.width,
+      height: args.height,
+      rejectReason: normalizeText(args.rejectReason),
+      matchedImageId: normalizeText(args.matchedImageId),
+      dedupeScores: args.dedupeScores,
+      category: normalizeText(args.category),
+      originalUrl: normalizeText(args.originalUrl),
+      originalStorageId: normalizeText(args.originalStorageId),
+      variantUrls: args.variantUrls,
+      createdAt: args.createdAt ?? now,
+      updatedAt: now,
+      publishedAt: args.publishedAt,
+    });
+
+    return { ok: true };
+  },
+});
+
+export const upsertImage = mutation({
+  args: {
+    imageId: v.string(),
+    uploadId: v.optional(v.string()),
+    uploaderAuthUserId: v.string(),
+    uploadHash: v.optional(v.string()),
+    perceptualHashAnchor: v.optional(v.string()),
+    perceptualHashes: v.optional(v.any()),
+    title: v.optional(v.string()),
+    description: v.optional(v.string()),
+    status: v.string(),
+    storageKeyOriginal: v.optional(v.string()),
+    storageKeyCanonical: v.optional(v.string()),
+    mime: v.optional(v.string()),
+    width: v.optional(v.number()),
+    height: v.optional(v.number()),
+    rejectReason: v.optional(v.string()),
+    matchedImageId: v.optional(v.string()),
+    dedupeScores: v.optional(v.any()),
+    category: v.optional(v.string()),
+    originalUrl: v.optional(v.string()),
+    originalStorageId: v.optional(v.string()),
+    variantUrls: v.optional(v.any()),
+    createdAt: v.optional(v.number()),
+    updatedAt: v.optional(v.number()),
+    publishedAt: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const now = args.updatedAt ?? Date.now();
+    const existing = await ctx.db
+      .query("images")
+      .withIndex("by_image_id", (q) => q.eq("imageId", args.imageId))
+      .unique();
+
+    const next = {
+      uploadId: normalizeText(args.uploadId),
+      uploaderAuthUserId: args.uploaderAuthUserId,
+      uploadHash: normalizeText(args.uploadHash),
+      perceptualHashAnchor: normalizeText(args.perceptualHashAnchor),
+      perceptualHashes: args.perceptualHashes,
+      title: normalizeText(args.title),
+      description: normalizeText(args.description),
+      status: args.status,
+      storageKeyOriginal: normalizeText(args.storageKeyOriginal),
+      storageKeyCanonical: normalizeText(args.storageKeyCanonical),
+      mime: normalizeText(args.mime),
+      width: args.width,
+      height: args.height,
+      rejectReason: normalizeText(args.rejectReason),
+      matchedImageId: normalizeText(args.matchedImageId),
+      dedupeScores: args.dedupeScores,
+      category: normalizeText(args.category),
+      originalUrl: normalizeText(args.originalUrl),
+      originalStorageId: normalizeText(args.originalStorageId),
+      variantUrls: args.variantUrls,
+      updatedAt: now,
+      publishedAt: args.publishedAt,
+    };
+
+    if (existing) {
+      await ctx.db.patch(existing._id, next);
+      if (next.status === "public") {
+        await ensureRatingForPublicImage(ctx, args.imageId, now);
+      }
+      return { ok: true };
+    }
+
+    await ctx.db.insert("images", {
+      imageId: args.imageId,
+      createdAt: args.createdAt ?? now,
+      ...next,
+    });
+    if (next.status === "public") {
+      await ensureRatingForPublicImage(ctx, args.imageId, now);
+    }
+
+    return { ok: true };
+  },
+});
+
+// Explicit workflow verbs (Phase 2) while keeping compatibility names.
+export const recordImageUploadProcessing = upsertImage;
+
+export const setImagePerceptualHashes = mutation({
+  args: {
+    imageId: v.string(),
+    perceptualHashAnchor: v.optional(v.string()),
+    perceptualHashes: v.optional(v.any()),
+    updatedAt: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const existing = await ctx.db
+      .query("images")
+      .withIndex("by_image_id", (q) => q.eq("imageId", args.imageId))
+      .unique();
+    if (!existing) return { ok: false };
+
+    await ctx.db.patch(existing._id, {
+      perceptualHashAnchor: normalizeText(args.perceptualHashAnchor),
+      perceptualHashes: args.perceptualHashes,
+      updatedAt: args.updatedAt ?? Date.now(),
+    });
+    return { ok: true };
+  },
+});
+
+export const getImageById = query({
+  args: {
+    imageId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const row = await ctx.db
+      .query("images")
+      .withIndex("by_image_id", (q) => q.eq("imageId", args.imageId))
+      .unique();
+    if (!row) {
+      return null;
+    }
+    return mapImageRow(row);
+  },
+});
+
+export const getImageByUploadHash = query({
+  args: {
+    uploadHash: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const rows = await ctx.db
+      .query("images")
+      .withIndex("by_upload_hash", (q) => q.eq("uploadHash", args.uploadHash))
+      .take(1);
+    const row = rows[0];
+    if (!row) return null;
+    return mapImageRow(row);
+  },
+});
+
+export const getImageByUploadId = query({
+  args: {
+    uploadId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const rows = await ctx.db
+      .query("images")
+      .withIndex("by_upload_id", (q) => q.eq("uploadId", args.uploadId))
+      .take(1);
+    const row = rows[0];
+    if (!row) return null;
+    return mapImageRow(row);
+  },
+});
+
+export const createPendingImage = mutation({
+  args: {
+    imageId: v.string(),
+    uploadId: v.string(),
+    uploaderAuthUserId: v.string(),
+    description: v.optional(v.string()),
+    mime: v.optional(v.string()),
+    createdAt: v.optional(v.number()),
+    updatedAt: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const existing = await ctx.db
+      .query("images")
+      .withIndex("by_upload_id", (q) => q.eq("uploadId", args.uploadId))
+      .take(1);
+    if (existing.length > 0) {
+      return { ok: true, imageId: existing[0].imageId, deduped: true };
+    }
+
+    const now = args.updatedAt ?? Date.now();
+    await ctx.db.insert("images", {
+      imageId: args.imageId,
+      uploadId: normalizeText(args.uploadId),
+      uploaderAuthUserId: args.uploaderAuthUserId,
+      description: normalizeText(args.description),
+      status: "pending",
+      mime: normalizeText(args.mime),
+      createdAt: args.createdAt ?? now,
+      updatedAt: now,
+    });
+    return { ok: true, imageId: args.imageId, deduped: false };
+  },
+});
+
+// Explicit workflow verb alias for upload lifecycle start.
+export const recordImageUploadReceived = createPendingImage;
+
+export const markImageRejected = mutation({
+  args: {
+    imageId: v.string(),
+    reason: v.string(),
+    matchedImageId: v.optional(v.string()),
+    scores: v.optional(v.any()),
+    updatedAt: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const existing = await ctx.db
+      .query("images")
+      .withIndex("by_image_id", (q) => q.eq("imageId", args.imageId))
+      .unique();
+    if (!existing) return { ok: false };
+
+    await ctx.db.patch(existing._id, {
+      status: "rejected",
+      rejectReason: normalizeText(args.reason),
+      matchedImageId: normalizeText(args.matchedImageId),
+      dedupeScores: args.scores,
+      updatedAt: args.updatedAt ?? Date.now(),
+    });
+    return { ok: true };
+  },
+});
+
+export const markImageAccepted = mutation({
+  args: {
+    imageId: v.string(),
+    status: v.optional(v.string()),
+    storageKeyCanonical: v.optional(v.string()),
+    width: v.optional(v.number()),
+    height: v.optional(v.number()),
+    variantUrls: v.optional(v.any()),
+    updatedAt: v.optional(v.number()),
+    publishedAt: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const existing = await ctx.db
+      .query("images")
+      .withIndex("by_image_id", (q) => q.eq("imageId", args.imageId))
+      .unique();
+    if (!existing) return { ok: false };
+
+    const nextStatus = normalizeText(args.status) || "public";
+    const now = args.updatedAt ?? Date.now();
+    await ctx.db.patch(existing._id, {
+      status: nextStatus,
+      storageKeyCanonical: normalizeText(args.storageKeyCanonical),
+      width: args.width,
+      height: args.height,
+      variantUrls: args.variantUrls,
+      updatedAt: now,
+      publishedAt: args.publishedAt ?? Date.now(),
+    });
+    if (nextStatus === "public") {
+      await ensureRatingForPublicImage(ctx, args.imageId, now);
+    }
+    return { ok: true };
+  },
+});
+
+export const listImagesByPerceptualHashAnchor = query({
+  args: {
+    anchor: v.string(),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const limit = Math.max(1, Math.min(Math.floor(args.limit ?? 64), 256));
+    const rows = await ctx.db
+      .query("images")
+      .withIndex("by_perceptual_hash_anchor", (q) => q.eq("perceptualHashAnchor", args.anchor))
+      .take(limit);
+
+    return rows.map((row) => ({
+      imageId: row.imageId,
+      uploaderAuthUserId: row.uploaderAuthUserId,
+      uploadHash: row.uploadHash,
+      perceptualHashAnchor: row.perceptualHashAnchor,
+      perceptualHashes: row.perceptualHashes,
+      title: row.title,
+      description: row.description,
+      category: row.category,
+      status: row.status,
+      originalUrl: row.originalUrl,
+      originalStorageId: row.originalStorageId,
+      variantUrls: row.variantUrls,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+      publishedAt: row.publishedAt,
+    }));
+  },
+});
+
+export const listRecentPublicImages = query({
+  args: {
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const limit = Math.max(1, Math.min(Math.floor(args.limit ?? 24), 100));
+    const rows = await ctx.db
+      .query("images")
+      .withIndex("by_status_created_at", (q) => q.eq("status", "public"))
+      .order("desc")
+      .take(limit);
+    return rows.map((row) => mapImageRow(row));
+  },
+});
+
+export const listRecentImages = query({
+  args: {
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const limit = Math.max(1, Math.min(Math.floor(args.limit ?? 200), 1000));
+    const rows = await ctx.db.query("images").order("desc").take(limit);
+
+    return rows.map((row) => ({
+      imageId: row.imageId,
+      uploaderAuthUserId: row.uploaderAuthUserId,
+      uploadHash: row.uploadHash,
+      perceptualHashAnchor: row.perceptualHashAnchor,
+      perceptualHashes: row.perceptualHashes,
+      title: row.title,
+      description: row.description,
+      status: row.status,
+      originalUrl: row.originalUrl,
+      variantUrls: row.variantUrls,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+      publishedAt: row.publishedAt,
+    }));
+  },
+});
+
+export const listPublicImages = query({
+  args: {
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const limit = Math.max(1, Math.min(Math.floor(args.limit ?? 500), 2000));
+    const rows = await ctx.db
+      .query("images")
+      .withIndex("by_status_created_at", (q) => q.eq("status", "public"))
+      .order("desc")
+      .take(limit);
+
+    return rows.map((row) => ({
+      imageId: row.imageId,
+      uploaderAuthUserId: row.uploaderAuthUserId,
+      uploadHash: row.uploadHash,
+      perceptualHashAnchor: row.perceptualHashAnchor,
+      perceptualHashes: row.perceptualHashes,
+      title: row.title,
+      description: row.description,
+      status: row.status,
+      originalUrl: row.originalUrl,
+      variantUrls: row.variantUrls,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+      publishedAt: row.publishedAt,
+    }));
+  },
+});
+
+export const listPublicImagesByIds = query({
+  args: {
+    imageIds: v.array(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const ids = [...new Set(args.imageIds)].slice(0, 500);
+    const rows = await Promise.all(
+      ids.map((imageId) =>
+        ctx.db
+          .query("images")
+          .withIndex("by_image_id", (q) => q.eq("imageId", imageId))
+          .unique(),
+      ),
+    );
+
+    const filteredRows = rows
+      .filter((row): row is NonNullable<typeof row> => Boolean(row))
+      .filter((row) => row.status === "public");
+    return filteredRows.map((row) => mapImageRow(row));
+  },
+});
+
+export const listUploaderImages = query({
+  args: {
+    uploaderAuthUserId: v.string(),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const limit = Math.max(1, Math.min(Math.floor(args.limit ?? 50), 200));
+    const rows = await ctx.db
+      .query("images")
+      .withIndex("by_uploader_created_at", (q) =>
+        q.eq("uploaderAuthUserId", args.uploaderAuthUserId),
+      )
+      .order("desc")
+      .take(limit);
+    return rows.map((row) => mapImageRow(row));
+  },
+});
+
+export const countUploaderImages = query({
+  args: {
+    uploaderAuthUserId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const rows = await ctx.db
+      .query("images")
+      .withIndex("by_uploader_created_at", (q) =>
+        q.eq("uploaderAuthUserId", args.uploaderAuthUserId),
+      )
+      .collect();
+    return { count: rows.length };
+  },
+});
+
+export const setImageStatus = mutation({
+  args: {
+    imageId: v.string(),
+    status: v.string(),
+    updatedAt: v.optional(v.number()),
+    publishedAt: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const existing = await ctx.db
+      .query("images")
+      .withIndex("by_image_id", (q) => q.eq("imageId", args.imageId))
+      .unique();
+    if (!existing) {
+      throw new Error(`Image not found for imageId=${args.imageId}`);
+    }
+
+    const now = args.updatedAt ?? Date.now();
+    await ctx.db.patch(existing._id, {
+      status: args.status,
+      updatedAt: now,
+      publishedAt: args.publishedAt,
+    });
+    if (args.status === "public") {
+      await ensureRatingForPublicImage(ctx, args.imageId, now);
+    }
+
+    return { ok: true };
+  },
+});
+
+// Explicit workflow verb alias for status transition requests.
+export const markImageProcessingRequested = setImageStatus;
+
+export const setImageProcessingResult = mutation({
+  args: {
+    imageId: v.string(),
+    status: v.string(),
+    variantUrls: v.optional(v.any()),
+    storageKeyCanonical: v.optional(v.string()),
+    width: v.optional(v.number()),
+    height: v.optional(v.number()),
+    updatedAt: v.optional(v.number()),
+    publishedAt: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const existing = await ctx.db
+      .query("images")
+      .withIndex("by_image_id", (q) => q.eq("imageId", args.imageId))
+      .unique();
+    if (!existing) {
+      throw new Error(`Image not found for imageId=${args.imageId}`);
+    }
+
+    const now = args.updatedAt ?? Date.now();
+    await ctx.db.patch(existing._id, {
+      status: args.status,
+      variantUrls: args.variantUrls,
+      storageKeyCanonical: normalizeText(args.storageKeyCanonical),
+      width: args.width,
+      height: args.height,
+      updatedAt: now,
+      publishedAt: args.publishedAt,
+    });
+    if (args.status === "public") {
+      await ensureRatingForPublicImage(ctx, args.imageId, now);
+    }
+
+    return { ok: true };
+  },
+});
+
+// Explicit workflow verb alias for completed processing transitions.
+export const markImageProcessingComplete = setImageProcessingResult;
+
+export const deleteImageGraph = mutation({
+  args: {
+    imageId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const image = await ctx.db
+      .query("images")
+      .withIndex("by_image_id", (q) => q.eq("imageId", args.imageId))
+      .unique();
+    if (!image) {
+      return { ok: false, deleted: false };
+    }
+
+    const ratings = await ctx.db
+      .query("imageRatings")
+      .withIndex("by_image_id", (q) => q.eq("imageId", args.imageId))
+      .collect();
+    const comments = await ctx.db
+      .query("imageComments")
+      .withIndex("by_image_created_at", (q) => q.eq("imageId", args.imageId))
+      .collect();
+    const fingerprints = await ctx.db
+      .query("imageFingerprints")
+      .withIndex("by_image_id", (q) => q.eq("imageId", args.imageId))
+      .collect();
+    const uploadEvents = await ctx.db
+      .query("dedupeEvents")
+      .withIndex("by_upload_image_id", (q) => q.eq("uploadImageId", args.imageId))
+      .collect();
+    const winnerVotes = await ctx.db
+      .query("votes")
+      .withIndex("by_winner_id", (q) => q.eq("winnerId", args.imageId))
+      .collect();
+    const matchupTokens = await ctx.db.query("matchupTokens").collect();
+    const relatedTokens = matchupTokens.filter(
+      (token) => token.imageAId === args.imageId || token.imageBId === args.imageId,
+    );
+
+    const deletions = [
+      ...ratings.map((row) => row._id),
+      ...comments.map((row) => row._id),
+      ...fingerprints.map((row) => row._id),
+      ...uploadEvents.map((row) => row._id),
+      ...winnerVotes.map((row) => row._id),
+      ...relatedTokens.map((row) => row._id),
+      image._id,
+    ];
+
+    for (const id of deletions) {
+      await ctx.db.delete(id);
+    }
+
+    return {
+      ok: true,
+      deleted: true,
+      deletedCounts: {
+        ratings: ratings.length,
+        comments: comments.length,
+        fingerprints: fingerprints.length,
+        dedupeEvents: uploadEvents.length,
+        winnerVotes: winnerVotes.length,
+        matchupTokens: relatedTokens.length,
+        images: 1,
+      },
+    };
+  },
+});
+export const recordImagePerceptualHashes = setImagePerceptualHashes;
