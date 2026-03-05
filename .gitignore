@@ -18,3 +18,7 @@ api/testing/duplicate-fixtures/images/variants/*
 !api/testing/duplicate-fixtures/images/variants/.gitkeep
 
 a-bk.md
+
+# Dolt database files (added by bd init)
+.dolt/
+*.db
