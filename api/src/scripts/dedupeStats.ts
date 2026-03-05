@@ -1,4 +1,7 @@
-import { queryConvexDedupeStats, queryConvexRecentDedupeEvents } from "../convex/client.js";
+import {
+  queryConvexDedupeStats,
+  queryConvexRecentDedupeEvents,
+} from "../platform/convex/client.js";
 import { getEnv } from "../env.js";
 
 const parseArg = (name: string, fallback?: number) => {

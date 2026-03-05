@@ -49,23 +49,23 @@ vi.mock("sharp", () => {
   };
 });
 
-vi.mock("../../queue/borderCrop.js", () => ({
+vi.mock("../../platform/queue/borderCrop.js", () => ({
   analyzeBorderCrop,
   applyBorderCrop,
   detectEmbeddedImageRect,
   applyCropBox,
 }));
 
-vi.mock("../../services/images/perceptualHash.js", () => ({
+vi.mock("../../shared/domain/images/perceptualHash.js", () => ({
   computeImageFingerprint,
   hammingDistanceHex,
 }));
 
-vi.mock("../../services/images/orbVerifier.js", () => ({
+vi.mock("../../shared/application/images/orbVerifier.js", () => ({
   verifyOrbCandidates,
 }));
 
-import { processImageJob, processVoteJob, toBuffer } from "../../queue/processors.js";
+import { processImageJob, processVoteJob, toBuffer } from "../../platform/queue/processors.js";
 
 const makeStream = async function* (chunks: number[][]) {
   for (const chunk of chunks) {

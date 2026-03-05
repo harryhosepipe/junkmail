@@ -1,4 +1,4 @@
-import { mutateConvexUpsertUserProfile } from "../convex/client.js";
+import { mutateConvexUpsertUserProfile } from "../platform/convex/client.js";
 import { getEnv } from "../env.js";
 
 const run = async () => {

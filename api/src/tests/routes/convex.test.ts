@@ -4,12 +4,12 @@ import { Hono } from "hono";
 const resolveConvexUrl = vi.hoisted(() => vi.fn());
 const queryConvexHealth = vi.hoisted(() => vi.fn());
 
-vi.mock("../../convex/client.js", () => ({
+vi.mock("../../platform/convex/client.js", () => ({
   resolveConvexUrl,
   queryConvexHealth,
 }));
 
-import convexRouter from "../../routes/convex.js";
+import convexRouter from "../../features/convex/http/routes.js";
 
 const createTestApp = () => {
   const app = new Hono();

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { verifyOrbCandidates } from "../../../services/images/orbVerifier.js";
+import { verifyOrbCandidates } from "../../../shared/application/images/orbVerifier.js";
 
 describe("orbVerifier", () => {
   afterEach(() => {

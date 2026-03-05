@@ -1,8 +1,11 @@
 import {
   mutateConvexRecordImagePerceptualHashes,
   queryConvexPublicImages,
-} from "../convex/client.js";
-import { computeImageFingerprint, similarityAnchor } from "../services/images/perceptualHash.js";
+} from "../platform/convex/client.js";
+import {
+  computeImageFingerprint,
+  similarityAnchor,
+} from "../shared/domain/images/perceptualHash.js";
 
 const ANCHOR_LENGTH = 2;
 

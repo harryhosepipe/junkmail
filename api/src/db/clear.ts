@@ -1,5 +1,5 @@
 import { DeleteObjectsCommand, ListObjectsV2Command } from "@aws-sdk/client-s3";
-import { s3Client, storageBucket } from "../storage/client.js";
+import { s3Client, storageBucket } from "../platform/storage/client.js";
 import {
   mutateConvexBackfillClearAuthTokensBatch,
   mutateConvexBackfillClearImageCommentsBatch,
@@ -9,7 +9,7 @@ import {
   mutateConvexBackfillClearSessionsBatch,
   mutateConvexBackfillClearUserProfilesBatch,
   mutateConvexBackfillClearVotesBatch,
-} from "../convex/client.js";
+} from "../platform/convex/client.js";
 import { getEnv } from "../env.js";
 
 const deleteAllObjects = async () => {

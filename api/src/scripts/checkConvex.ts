@@ -1,4 +1,4 @@
-import { queryConvexHealth } from "../convex/client.js";
+import { queryConvexHealth } from "../platform/convex/client.js";
 import { getEnv } from "../env.js";
 
 const run = async () => {

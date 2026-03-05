@@ -1,5 +1,5 @@
 import { getEnv } from "../env.js";
-import { queryConvexBackfillCounts } from "../convex/client.js";
+import { queryConvexBackfillCounts } from "../platform/convex/client.js";
 
 const run = async () => {
   getEnv();

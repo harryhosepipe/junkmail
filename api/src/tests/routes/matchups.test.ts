@@ -21,24 +21,24 @@ const redisGet = vi.hoisted(() => vi.fn());
 const redisSet = vi.hoisted(() => vi.fn());
 const generateToken = vi.hoisted(() => vi.fn());
 
-vi.mock("../../convex/client.js", () => ({
+vi.mock("../../platform/convex/client.js", () => ({
   queryConvexPublicImages,
   queryConvexRatingsByImageIds,
   mutateConvexIssueMatchupToken,
 }));
 
-vi.mock("../../queue/connection.js", () => ({
+vi.mock("../../platform/queue/connection.js", () => ({
   redis: {
     get: redisGet,
     set: redisSet,
   },
 }));
 
-vi.mock("../../auth/tokens.js", () => ({
+vi.mock("../../platform/auth/tokens.js", () => ({
   generateToken,
 }));
 
-import matchupsRouter from "../../routes/matchups.js";
+import matchupsRouter from "../../features/matchups/http/routes.js";
 
 const createTestApp = () => {
   const app = new Hono();

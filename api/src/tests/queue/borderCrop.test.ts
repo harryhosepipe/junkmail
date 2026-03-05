@@ -4,7 +4,7 @@ import {
   analyzeBorderCrop,
   applyBorderCrop,
   detectEmbeddedImageRect,
-} from "../../queue/borderCrop.js";
+} from "../../platform/queue/borderCrop.js";
 
 const makeBorderedPng = async (args: {
   width: number;

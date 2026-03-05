@@ -4,7 +4,7 @@ import {
   computeImageFingerprint,
   isNearDuplicate,
   similarityAnchor,
-} from "../../../services/images/perceptualHash.js";
+} from "../../../shared/domain/images/perceptualHash.js";
 
 const makeSolidWithCenter = async (args: {
   width: number;

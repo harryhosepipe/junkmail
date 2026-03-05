@@ -24,15 +24,15 @@ const redisIncr = vi.hoisted(() => vi.fn());
 const redisExpire = vi.hoisted(() => vi.fn());
 const redisTtl = vi.hoisted(() => vi.fn());
 
-vi.mock("../../auth/csrf.js", () => ({
+vi.mock("../../platform/auth/csrf.js", () => ({
   ensureSameOrigin,
 }));
 
-vi.mock("../../auth/session.js", () => ({
+vi.mock("../../platform/auth/session.js", () => ({
   getSessionUser,
 }));
 
-vi.mock("../../queue/connection.js", () => ({
+vi.mock("../../platform/queue/connection.js", () => ({
   redis: {
     incr: redisIncr,
     expire: redisExpire,
@@ -40,20 +40,20 @@ vi.mock("../../queue/connection.js", () => ({
   },
 }));
 
-vi.mock("../../queue/index.js", () => ({
+vi.mock("../../platform/queue/index.js", () => ({
   voteQueue: {
     add: queueAdd,
   },
 }));
 
-vi.mock("../../convex/client.js", () => ({
+vi.mock("../../platform/convex/client.js", () => ({
   queryConvexPublicImagesByIds,
   mutateConvexValidateAndConsumeMatchupToken,
   mutateConvexCreateVoteEvent,
   mutateConvexProjectVoteEvent,
 }));
 
-import votesRouter from "../../routes/votes.js";
+import votesRouter from "../../features/voting/http/routes.js";
 
 const createTestApp = () => {
   const app = new Hono();

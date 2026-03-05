@@ -1,6 +1,6 @@
 import { Queue } from "bullmq";
-import { queryConvexRatingsByImageIds, queryConvexTopRatings } from "../convex/client.js";
-import { redis } from "../queue/connection.js";
+import { queryConvexRatingsByImageIds, queryConvexTopRatings } from "../platform/convex/client.js";
+import { redis } from "../platform/queue/connection.js";
 import { env, getEnv } from "../env.js";
 
 type MatchupPayload = {

@@ -5,7 +5,7 @@ import {
   computeImageFingerprint,
   hammingDistanceHex,
   isNearDuplicate,
-} from "../services/images/perceptualHash.js";
+} from "../shared/domain/images/perceptualHash.js";
 
 type FixtureVariant = {
   path: string;

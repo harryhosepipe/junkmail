@@ -18,7 +18,7 @@ const computeImageFingerprint = vi.hoisted(() => vi.fn());
 const similarityAnchor = vi.hoisted(() => vi.fn());
 const isNearDuplicate = vi.hoisted(() => vi.fn());
 
-vi.mock("../../convex/client.js", () => ({
+vi.mock("../../platform/convex/client.js", () => ({
   mutateConvexRecordImageUploadProcessing,
   mutateConvexUpsertTelegramUser,
   queryConvexImageByUploadHash,
@@ -26,13 +26,13 @@ vi.mock("../../convex/client.js", () => ({
   queryConvexRecentImages,
 }));
 
-vi.mock("../../services/images/perceptualHash.js", () => ({
+vi.mock("../../shared/domain/images/perceptualHash.js", () => ({
   computeImageFingerprint,
   similarityAnchor,
   isNearDuplicate,
 }));
 
-vi.mock("../../queue/index.js", () => ({
+vi.mock("../../platform/queue/index.js", () => ({
   imageQueue: {
     add: vi.fn((name: string, payload: Record<string, unknown>) => {
       state.queuedJob = { name, payload };
@@ -41,13 +41,13 @@ vi.mock("../../queue/index.js", () => ({
   },
 }));
 
-vi.mock("../../queue/connection.js", () => ({
+vi.mock("../../platform/queue/connection.js", () => ({
   redis: {
     set: vi.fn(async () => "OK"),
   },
 }));
 
-vi.mock("../../storage/client.js", () => ({
+vi.mock("../../platform/storage/client.js", () => ({
   publicObjectUrl: vi.fn(() => "http://localhost/object"),
   s3Client: {
     send: vi.fn(async () => {
@@ -58,7 +58,7 @@ vi.mock("../../storage/client.js", () => ({
   storageBucket: "junkmail",
 }));
 
-import telegramRouter from "../../routes/telegram.js";
+import telegramRouter from "../../features/telegram/http/routes.js";
 
 const createTestApp = () => {
   const app = new Hono();

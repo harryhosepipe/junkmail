@@ -6,22 +6,22 @@ const getSessionUser = vi.hoisted(() => vi.fn());
 const queryConvexFeatureRequests = vi.hoisted(() => vi.fn());
 const mutateConvexCreateFeatureRequest = vi.hoisted(() => vi.fn());
 
-vi.mock("../../auth/csrf.js", () => ({
+vi.mock("../../platform/auth/csrf.js", () => ({
   ensureSameOrigin,
 }));
 
-vi.mock("../../auth/session.js", () => ({
+vi.mock("../../platform/auth/session.js", () => ({
   getSessionUser,
   requireUploader: vi.fn(),
   requireAdmin: vi.fn(),
 }));
 
-vi.mock("../../convex/client.js", () => ({
+vi.mock("../../platform/convex/client.js", () => ({
   queryConvexFeatureRequests,
   mutateConvexCreateFeatureRequest,
 }));
 
-import featureRequestsRouter from "../../routes/featureRequests.js";
+import featureRequestsRouter from "../../features/featureRequests/http/routes.js";
 
 const createTestApp = () => {
   const app = new Hono();

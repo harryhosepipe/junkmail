@@ -6,20 +6,20 @@ const fetchRecentImages = vi.hoisted(() => vi.fn());
 const fetchTopCards = vi.hoisted(() => vi.fn());
 const createMatchupPayload = vi.hoisted(() => vi.fn());
 
-vi.mock("../../auth/voter.js", () => ({
+vi.mock("../../platform/auth/voter.js", () => ({
   getOrCreateVoterHash,
 }));
 
-vi.mock("../../features/feed/services/cards.js", () => ({
+vi.mock("../../shared/application/images/cards.js", () => ({
   fetchRecentImages,
   fetchTopCards,
 }));
 
-vi.mock("../../features/matchups/services/createMatchupPayload.js", () => ({
+vi.mock("../../features/matchups/application/createMatchupPayload.js", () => ({
   createMatchupPayload,
 }));
 
-import feedRouter from "../../routes/feed.js";
+import feedRouter from "../../features/feed/http/routes.js";
 
 const createTestApp = () => {
   const app = new Hono();
