@@ -1,8 +1,51 @@
 {
   "metadata": {
-    "updatedAt": "2026-02-24",
+    "updatedAt": "2026-03-05",
     "owner": "pablo@renderbros.com",
-    "notes": "No temporary allowlist entries required."
+    "notes": "Temporary allowlist entries for unresolved transitive advisories. Tracked in junkmail-71u."
   },
-  "allowlistedAdvisories": []
+  "allowlistedAdvisories": [
+    {
+      "id": 1113974,
+      "package": "@hono/node-server",
+      "reason": "API service does not use static file serving middleware affected by this advisory.",
+      "reviewBy": "2026-04-30",
+      "trackingIssue": "junkmail-71u"
+    },
+    {
+      "id": 1114006,
+      "package": "hono",
+      "reason": "API service does not register serveStatic routes; advisory tracked until patched dependency rollout.",
+      "reviewBy": "2026-04-30",
+      "trackingIssue": "junkmail-71u"
+    },
+    {
+      "id": 1113545,
+      "package": "minimatch",
+      "reason": "Transitive tooling dependency; no direct runtime glob parsing from untrusted input in API server.",
+      "reviewBy": "2026-04-30",
+      "trackingIssue": "junkmail-71u"
+    },
+    {
+      "id": 1113553,
+      "package": "minimatch",
+      "reason": "Transitive tooling dependency; mitigation tracked pending upstream package updates.",
+      "reviewBy": "2026-04-30",
+      "trackingIssue": "junkmail-71u"
+    },
+    {
+      "id": 1113515,
+      "package": "rollup",
+      "reason": "Build-time dependency not exercised by API runtime process; upgrade path tracked in follow-up.",
+      "reviewBy": "2026-04-30",
+      "trackingIssue": "junkmail-71u"
+    },
+    {
+      "id": 1113985,
+      "package": "svgo",
+      "reason": "Transitive frontend build dependency; no SVG optimization path in API runtime.",
+      "reviewBy": "2026-04-30",
+      "trackingIssue": "junkmail-71u"
+    }
+  ]
 }
