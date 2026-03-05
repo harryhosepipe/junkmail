@@ -1,0 +1,46 @@
+name: dependency-guardrails
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  schedule:
+    - cron: "0 10 * * 1"
+  workflow_dispatch:
+
+jobs:
+  dependency-guardrails:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.2.16
+
+      - name: Install deps
+        run: bun install --frozen-lockfile
+
+      - name: Dependency guardrails
+        run: bun run check:deps
+
+  upstream-language-server-advisories:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.2.16
+
+      - name: Install deps
+        run: bun install --frozen-lockfile
+
+      - name: Check upstream advisory status
+        run: bun run check:deps:upstream

@@ -78,6 +78,9 @@ bun run convex:check
 
 # Quality
 bun run check
+bun run check:api-boundaries
+bun run check:deps
+bun run check:deps:upstream
 bun run test
 bun run fmt
 ```
@@ -87,6 +90,16 @@ bun run fmt
 - Direct `process.env` usage is blocked outside approved env loader/config files.
 - Escape hatches are allowed for test and migration files.
 - `api/.env.example` keys must stay aligned with `packages/config/src/env.schema.ts`.
+
+`bun run check` also includes API boundary guardrails:
+
+- `api/src/routes/*` must remain thin compatibility re-exports.
+- Feature routes must use standardized error envelopes and keep route test coverage.
+
+Dependency governance policy and security cadence:
+
+- `docs/dependency-governance.md`
+- `docs/security/upstream-language-server-advisories.md`
 
 ## Caddy + Staging Tunnel
 

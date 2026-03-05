@@ -1,5 +1,5 @@
-import type { VoteSubmitDomainResult } from "../../../domain/voting/types.js";
-import type { HttpStatus } from "../../../http/status.js";
+import type { HttpStatus } from "../../http/status.js";
+import type { VoteSubmitDomainResult } from "./domain.js";
 
 type VoteHttpResponse = {
   status: HttpStatus;

@@ -1,12 +1,12 @@
-import { generateToken } from "../../auth/tokens.js";
+import { generateToken } from "../../../auth/tokens.js";
 import {
   mutateConvexIssueMatchupToken,
   queryConvexPublicImages,
   queryConvexRatingsByImageIds,
-} from "../../convex/client.js";
-import { env } from "../../env.js";
-import { redis } from "../../queue/connection.js";
-import { normalizePublicAssetData, normalizePublicAssetUrl } from "../../storage/publicUrls.js";
+} from "../../../convex/client.js";
+import { env } from "../../../env.js";
+import { redis } from "../../../queue/connection.js";
+import { normalizePublicAssetData, normalizePublicAssetUrl } from "../../../storage/publicUrls.js";
 
 const NEW_EXPOSURE_THRESHOLD = env.MATCHUP_NEW_EXPOSURE ?? 5;
 const CLOSE_SAMPLE_SIZE = env.MATCHUP_CLOSE_SAMPLE ?? 24;

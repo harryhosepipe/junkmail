@@ -1,6 +1,6 @@
 import type { Context } from "hono";
-import { env } from "../../env.js";
-import { hashWithSalt } from "../../auth/voter.js";
+import { env } from "../../../env.js";
+import { hashWithSalt } from "../../../auth/voter.js";
 
 const IP_HASH_SALT = env.IP_HASH_SALT ?? env.VOTE_HASH_SALT ?? "junkmail-dev-vote";
 

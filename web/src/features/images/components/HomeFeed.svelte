@@ -1,0 +1,381 @@
+<script>
+  import { onDestroy, onMount } from "svelte";
+  import { convex, realtimeEnabled } from "../../../lib/convex";
+  import { createImagesApi } from "../api";
+
+  export let apiBaseUrl = "";
+
+  let items = [];
+  let state = "loading";
+  let baseItems = [];
+  let unsubscribeRatings = null;
+  let refreshTimer = null;
+  let refreshInFlight = false;
+  let visibilityHandler = null;
+  let realtimeUnavailable = false;
+  let latestRatings = [];
+  let imagesApiBaseUrl = "";
+  let imagesApi = createImagesApi(apiBaseUrl);
+
+  const placeholders = Array.from({ length: 6 });
+
+  const normalizeVariants = (value) => {
+    if (!value) return {};
+    if (typeof value === "string") {
+      try {
+        return JSON.parse(value);
+      } catch {
+        return {};
+      }
+    }
+    return value;
+  };
+
+  const buildSrcset = (variants, format) => {
+    if (!variants || !format) return "";
+    const sizes = ["thumb", "feed", "full"];
+    const entries = sizes
+      .map((size) => {
+        const variant = variants?.[size];
+        const url = variant?.[format];
+        const width = variant?.width;
+        if (!url || !width) return "";
+        return `${url} ${width}w`;
+      })
+      .filter(Boolean);
+    return entries.join(", ");
+  };
+
+  const pickFallbackFormat = (variants) => {
+    const sizes = ["feed", "full", "thumb"];
+    for (const size of sizes) {
+      const variant = variants?.[size];
+      if (variant?.jpg) return "jpg";
+      if (variant?.png) return "png";
+    }
+    return "";
+  };
+
+  const pickFallbackUrl = (variants, originalUrl) => {
+    const sizes = ["feed", "full", "thumb"];
+    for (const size of sizes) {
+      const variant = variants?.[size];
+      if (variant?.webp) return variant.webp;
+      if (variant?.avif) return variant.avif;
+      if (variant?.jpg) return variant.jpg;
+      if (variant?.png) return variant.png;
+    }
+    return originalUrl || "";
+  };
+
+  const getImageSources = (item) => {
+    const variants = normalizeVariants(item?.variantUrls);
+    const fallbackFormat = pickFallbackFormat(variants);
+    const fallbackSrc = pickFallbackUrl(variants, item?.originalUrl);
+    return {
+      fallbackSrc,
+      fallbackSrcset: buildSrcset(variants, fallbackFormat),
+      avifSrcset: buildSrcset(variants, "avif"),
+      webpSrcset: buildSrcset(variants, "webp"),
+    };
+  };
+
+  const mergeWithRatings = (ratings = latestRatings) => {
+    latestRatings = ratings;
+    const ratingById = new Map(
+      ratings.map((rating) => [
+        rating.imageId,
+        {
+          score: Number(rating?.score) || 0,
+          votes: Number(rating?.comparisonsCount) || 0,
+        },
+      ]),
+    );
+
+    items = baseItems.map((item) => {
+      const rating = ratingById.get(item.id);
+      return {
+        ...item,
+        score: rating?.score ?? Number(item?.score) ?? 0,
+        votes: rating?.votes ?? Number(item?.votes) ?? 0,
+      };
+    });
+  };
+
+  const subscribeRatings = () => {
+    if (unsubscribeRatings) {
+      unsubscribeRatings();
+      unsubscribeRatings = null;
+    }
+
+    const imageIds = baseItems.map((item) => item.id).filter(Boolean);
+    if (!imageIds.length) {
+      items = [];
+      state = "ready";
+      return;
+    }
+    if (!convex || !realtimeEnabled) {
+      mergeWithRatings([]);
+      realtimeUnavailable = true;
+      state = "ready";
+      return;
+    }
+
+    unsubscribeRatings = convex.onUpdate(
+      "voting:getRatingsByImageIds",
+      { imageIds },
+      (payload) => {
+        const ratings = Array.isArray(payload?.ratings) ? payload.ratings : [];
+        mergeWithRatings(ratings);
+        realtimeUnavailable = false;
+        state = "ready";
+      },
+      () => {
+        // Keep feed visible if realtime fails (common for mobile tunnel sessions).
+        mergeWithRatings([]);
+        realtimeUnavailable = true;
+        state = "ready";
+      },
+    );
+  };
+
+  const summarizeItems = (rows) =>
+    rows.map((row) => `${row?.id || ""}|${row?.title || ""}|${row?.status || ""}`).join("::");
+
+  const refreshRecent = async () => {
+    if (refreshInFlight) return;
+    refreshInFlight = true;
+    try {
+      const data = await imagesApi.getRecentImages(8);
+      const rows = Array.isArray(data?.items) ? data.items : [];
+      const prevIds = baseItems.map((item) => item.id).join(",");
+      const nextIds = rows.map((item) => item.id).join(",");
+      const changed = summarizeItems(rows) !== summarizeItems(baseItems);
+      baseItems = rows;
+      if (prevIds !== nextIds) {
+        subscribeRatings();
+        return;
+      }
+      if (changed) {
+        mergeWithRatings();
+      }
+    } finally {
+      refreshInFlight = false;
+    }
+  };
+
+  const hasPendingCards = () => baseItems.some((item) => item?.status !== "public");
+
+  const clearRefreshTimer = () => {
+    if (!refreshTimer) return;
+    clearInterval(refreshTimer);
+    refreshTimer = null;
+  };
+
+  const updateRefreshTimer = () => {
+    clearRefreshTimer();
+    if (typeof document !== "undefined" && document.visibilityState !== "visible") {
+      return;
+    }
+    if (!hasPendingCards()) {
+      return;
+    }
+    refreshTimer = setInterval(() => {
+      refreshRecent()
+        .then(() => {
+          updateRefreshTimer();
+        })
+        .catch(() => null);
+    }, 3000);
+  };
+
+  onMount(async () => {
+    state = "loading";
+    try {
+      await refreshRecent();
+      items = baseItems;
+      subscribeRatings();
+      if (!baseItems.length) {
+        state = "ready";
+      }
+      updateRefreshTimer();
+    } catch {
+      state = "error";
+    }
+  });
+
+  if (typeof document !== "undefined") {
+    visibilityHandler = () => {
+      updateRefreshTimer();
+    };
+    document.addEventListener("visibilitychange", visibilityHandler);
+  }
+
+  onDestroy(() => {
+    if (unsubscribeRatings) {
+      unsubscribeRatings();
+      unsubscribeRatings = null;
+    }
+    clearRefreshTimer();
+    if (typeof document !== "undefined" && visibilityHandler) {
+      document.removeEventListener("visibilitychange", visibilityHandler);
+      visibilityHandler = null;
+    }
+  });
+
+  $: if (apiBaseUrl !== imagesApiBaseUrl) {
+    imagesApi = createImagesApi(apiBaseUrl);
+    imagesApiBaseUrl = apiBaseUrl;
+  }
+</script>
+
+{#if state === "loading"}
+  <div class="grid" style="margin-top: 16px;">
+    {#each placeholders as _}
+      <div class="feed-card">
+        <div class="feed-image skeleton"></div>
+        <div class="feed-meta">
+          <div class="skeleton-line"></div>
+          <div class="skeleton-line short"></div>
+        </div>
+      </div>
+    {/each}
+  </div>
+{:else if state === "error"}
+  <p class="subtle" style="margin-top: 12px;">Could not load the feed.</p>
+{:else if items.length === 0}
+  <p class="subtle" style="margin-top: 12px;">No uploads yet.</p>
+{:else}
+  {#if realtimeUnavailable}
+    <p class="subtle" style="margin-top: 12px;">Live ratings offline. Showing latest uploads.</p>
+  {/if}
+  <div class="grid" style="margin-top: 16px;">
+    {#each items as item}
+      {@const sources = getImageSources(item)}
+      <a class="feed-card" href={`/image/${item.id}`}>
+        <div class="feed-image">
+          {#if sources.fallbackSrc}
+            <picture>
+              {#if sources.avifSrcset}
+                <source
+                  type="image/avif"
+                  srcset={sources.avifSrcset}
+                  sizes="(max-width: 900px) 100vw, 33vw"
+                />
+              {/if}
+              {#if sources.webpSrcset}
+                <source
+                  type="image/webp"
+                  srcset={sources.webpSrcset}
+                  sizes="(max-width: 900px) 100vw, 33vw"
+                />
+              {/if}
+              <img
+                src={sources.fallbackSrc}
+                srcset={sources.fallbackSrcset}
+                sizes="(max-width: 900px) 100vw, 33vw"
+                alt={item?.title || "Junkmail scan"}
+                loading="lazy"
+                decoding="async"
+              />
+            </picture>
+          {:else}
+            <div class="feed-placeholder">Processing</div>
+          {/if}
+        </div>
+        <div class="feed-meta">
+          <div class="feed-title">{item?.title || "Processing"}</div>
+          <div class="feed-subtle">Appearances: {item?.votes ?? 0}</div>
+        </div>
+      </a>
+    {/each}
+  </div>
+{/if}
+
+<style>
+  .feed-card {
+    display: grid;
+    gap: 12px;
+    padding: 16px;
+    border-radius: 16px;
+    border: 1px solid var(--border);
+    background: #23293d;
+    color: inherit;
+    text-decoration: none;
+    box-shadow: var(--shadow);
+    transition:
+      transform 0.2s ease,
+      box-shadow 0.2s ease;
+  }
+
+  .feed-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 16px 30px -24px rgba(0, 0, 0, 0.4);
+  }
+
+  .feed-image {
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    border-radius: 12px;
+    overflow: hidden;
+    background: #1f2436;
+    border: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .feed-image picture,
+  .feed-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+  }
+
+  .feed-placeholder {
+    color: var(--ink-muted);
+    font-size: 14px;
+  }
+
+  .feed-meta {
+    display: grid;
+    gap: 6px;
+  }
+
+  .feed-title {
+    font-weight: 700;
+  }
+
+  .feed-subtle {
+    font-size: 12px;
+    color: var(--ink-muted);
+  }
+
+  .skeleton {
+    background: linear-gradient(120deg, #2a3148 0%, #2d3550 50%, #2a3148 100%);
+    background-size: 200% 100%;
+    animation: shimmer 1.4s ease infinite;
+  }
+
+  .skeleton-line {
+    height: 14px;
+    border-radius: 999px;
+    background: linear-gradient(120deg, #2a3148 0%, #2d3550 50%, #2a3148 100%);
+    background-size: 200% 100%;
+    animation: shimmer 1.4s ease infinite;
+  }
+
+  .skeleton-line.short {
+    width: 70%;
+  }
+
+  @keyframes shimmer {
+    0% {
+      background-position: 0% 0%;
+    }
+    100% {
+      background-position: 200% 0%;
+    }
+  }
+</style>

@@ -1,4 +1,4 @@
-import { badRequest } from "../http/errors.js";
+import { badRequest } from "../../http/errors.js";
 
 export type VotePayload = {
   imageAId: string;

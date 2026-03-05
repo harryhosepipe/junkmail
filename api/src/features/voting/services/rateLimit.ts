@@ -1,5 +1,5 @@
-import { redis } from "../../queue/connection.js";
-import { env } from "../../env.js";
+import { redis } from "../../../queue/connection.js";
+import { env } from "../../../env.js";
 
 const RATE_LIMIT_BURST = env.VOTE_RATE_LIMIT_BURST ?? 20;
 const RATE_LIMIT_BURST_WINDOW = env.VOTE_RATE_LIMIT_BURST_WINDOW ?? 60;

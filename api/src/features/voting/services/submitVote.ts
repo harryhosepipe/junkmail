@@ -1,14 +1,14 @@
-import { generateToken } from "../../auth/tokens.js";
+import { generateToken } from "../../../auth/tokens.js";
 import {
   mutateConvexCreateVoteEvent,
   mutateConvexProjectVoteEvent,
   mutateConvexValidateAndConsumeMatchupToken,
   queryConvexPublicImagesByIds,
-} from "../../convex/client.js";
-import type { VoteSubmitDomainResult } from "../../domain/voting/types.js";
-import { serviceUnavailable } from "../../http/errors.js";
-import { voteQueue } from "../../queue/index.js";
-import type { VotePayload } from "../../contracts/votes.js";
+} from "../../../convex/client.js";
+import { serviceUnavailable } from "../../../http/errors.js";
+import { voteQueue } from "../../../queue/index.js";
+import type { VotePayload } from "../contracts.js";
+import type { VoteSubmitDomainResult } from "../domain.js";
 
 type SubmitVoteArgs = {
   payload: VotePayload;
