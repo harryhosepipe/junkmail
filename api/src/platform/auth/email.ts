@@ -7,6 +7,7 @@ import { env } from "../../env.js";
 
 const provider = (env.EMAIL_PROVIDER ?? "console").toLowerCase();
 const from = env.EMAIL_FROM ?? "junkmail <noreply@example.com>";
+const isLocalDev = (env.APP_ENV ?? "local") === "local" && env.NODE_ENV !== "production";
 
 export const sendMagicLinkEmail = async ({ to, link }: SendMagicLinkArgs) => {
   if (provider === "resend") {
@@ -37,7 +38,13 @@ export const sendMagicLinkEmail = async ({ to, link }: SendMagicLinkArgs) => {
     return;
   }
 
-  // Never log raw auth tokens. Keep a safe debug link by stripping sensitive params.
+  // In local dev, console mode is intentionally explicit so developers can copy the link.
+  if (isLocalDev) {
+    console.info("Magic link (dev)", { to, link });
+    return;
+  }
+
+  // Outside local dev, never log raw auth tokens.
   let safeLink = link;
   try {
     const parsed = new URL(link);

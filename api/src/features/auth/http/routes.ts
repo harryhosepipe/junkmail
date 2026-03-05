@@ -27,6 +27,16 @@ import { buildProfileSummary, updateAliasAndProfile } from "../application/profi
 
 const authRouter = new Hono();
 const MAGIC_LINK_TTL_MINUTES = env.MAGIC_LINK_TTL_MINUTES ?? 30;
+const EMAIL_PROVIDER = (env.EMAIL_PROVIDER ?? "console").toLowerCase();
+
+const requestLinkAcceptedResponse = {
+  ok: true,
+  delivery: EMAIL_PROVIDER,
+  hint:
+    EMAIL_PROVIDER === "console"
+      ? "Local dev email provider is console. If invited, check API logs for 'Magic link (dev)'."
+      : undefined,
+};
 
 const normalizeEmail = (value: string) => value.trim().toLowerCase();
 
@@ -53,7 +63,7 @@ authRouter.post("/request-link", async (c) => {
   const invited = await resolveInvitedUploaderByEmail(email);
 
   if (!invited) {
-    return c.json({ ok: true });
+    return c.json(requestLinkAcceptedResponse);
   }
 
   const token = generateToken();
@@ -76,7 +86,7 @@ authRouter.post("/request-link", async (c) => {
 
   await sendMagicLinkEmail({ to: email, link: link.toString() });
 
-  return c.json({ ok: true });
+  return c.json(requestLinkAcceptedResponse);
 });
 
 authRouter.get("/verify", async (c) => {

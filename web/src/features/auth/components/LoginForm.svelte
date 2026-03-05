@@ -45,7 +45,21 @@
         return;
       }
 
-      setStatus("If you're invited, check your email for the link.", "success");
+      let data = null;
+      try {
+        data = await response.json();
+      } catch {
+        // no-op
+      }
+
+      if (data?.delivery === "console") {
+        setStatus(
+          "Dev mode: if invited, the magic link is logged by the API server as 'Magic link (dev)'.",
+          "success",
+        );
+      } else {
+        setStatus("If you're invited, check your email for the link.", "success");
+      }
     } catch (err) {
       setStatus("Could not send link. Try again.", "error");
     } finally {
