@@ -134,3 +134,4 @@ bd automatically syncs with git:
 For more details, see README.md and docs/QUICKSTART.md.
 
 <!-- END BEADS INTEGRATION -->
+Use 'bd' for task tracking
