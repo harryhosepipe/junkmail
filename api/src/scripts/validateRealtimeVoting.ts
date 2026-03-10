@@ -1,4 +1,5 @@
 import { Queue } from "bullmq";
+import { z } from "zod";
 import { queryConvexRatingsByImageIds, queryConvexTopRatings } from "../platform/convex/client.js";
 import { redis } from "../platform/queue/connection.js";
 import { env, getEnv } from "../env.js";
@@ -17,21 +18,58 @@ type VoteStats = {
   failureSamples: string[];
 };
 
-getEnv();
+const NumFromString = z.coerce.number();
+const realtimeValidationEnvSchema = z.object({
+  REALTIME_TEST_USERS: NumFromString.optional(),
+  REALTIME_TEST_VOTES_PER_USER: NumFromString.optional(),
+  REALTIME_TEST_PROBE_VOTES: NumFromString.optional(),
+  REALTIME_TEST_PROBE_TIMEOUT_MS: NumFromString.optional(),
+  REALTIME_TEST_PROBE_POLL_MS: NumFromString.optional(),
+  REALTIME_TEST_DISCOVERY_ROUNDS: NumFromString.optional(),
+  REALTIME_TEST_P95_TARGET_MS: NumFromString.optional(),
+  REALTIME_TEST_UPDATE_P95_TARGET_MS: NumFromString.optional(),
+  REALTIME_TEST_DRAIN_TIMEOUT_MS: NumFromString.optional(),
+  REALTIME_TEST_DRAIN_POLL_MS: NumFromString.optional(),
+});
 
-const API_BASE_URL = env.API_ORIGIN ?? env.API_BASE_URL ?? "http://web.localhost";
-const ORIGIN =
-  env.WEB_ORIGIN ?? env.WEB_BASE_URL ?? env.APP_ORIGIN ?? env.CORS_ORIGIN ?? "http://web.localhost";
-const CONCURRENT_USERS = env.REALTIME_TEST_USERS ?? 100;
-const VOTES_PER_USER = env.REALTIME_TEST_VOTES_PER_USER ?? 8;
-const PROBE_VOTES = env.REALTIME_TEST_PROBE_VOTES ?? 12;
-const PROBE_TIMEOUT_MS = env.REALTIME_TEST_PROBE_TIMEOUT_MS ?? 5000;
-const PROBE_POLL_MS = env.REALTIME_TEST_PROBE_POLL_MS ?? 120;
-const DISCOVERY_ROUNDS = env.REALTIME_TEST_DISCOVERY_ROUNDS ?? 250;
-const LATENCY_P95_TARGET_MS = env.REALTIME_TEST_P95_TARGET_MS ?? 300;
-const UPDATE_P95_TARGET_MS = env.REALTIME_TEST_UPDATE_P95_TARGET_MS ?? 1500;
-const DRAIN_TIMEOUT_MS = env.REALTIME_TEST_DRAIN_TIMEOUT_MS ?? 30000;
-const DRAIN_POLL_MS = env.REALTIME_TEST_DRAIN_POLL_MS ?? 200;
+const loadRealtimeValidationConfig = () => {
+  const parsed = realtimeValidationEnvSchema.safeParse(process.env);
+  if (!parsed.success) {
+    const issues = parsed.error.issues
+      .map((issue) => `${issue.path.join(".") || "(root)"}: ${issue.message}`)
+      .join("\n");
+    throw new Error(`Invalid realtime validation environment override:\n${issues}`);
+  }
+
+  return {
+    concurrentUsers: parsed.data.REALTIME_TEST_USERS ?? 100,
+    votesPerUser: parsed.data.REALTIME_TEST_VOTES_PER_USER ?? 8,
+    probeVotes: parsed.data.REALTIME_TEST_PROBE_VOTES ?? 12,
+    probeTimeoutMs: parsed.data.REALTIME_TEST_PROBE_TIMEOUT_MS ?? 5000,
+    probePollMs: parsed.data.REALTIME_TEST_PROBE_POLL_MS ?? 120,
+    discoveryRounds: parsed.data.REALTIME_TEST_DISCOVERY_ROUNDS ?? 250,
+    latencyP95TargetMs: parsed.data.REALTIME_TEST_P95_TARGET_MS ?? 300,
+    updateP95TargetMs: parsed.data.REALTIME_TEST_UPDATE_P95_TARGET_MS ?? 1500,
+    drainTimeoutMs: parsed.data.REALTIME_TEST_DRAIN_TIMEOUT_MS ?? 30000,
+    drainPollMs: parsed.data.REALTIME_TEST_DRAIN_POLL_MS ?? 200,
+  };
+};
+
+getEnv();
+const realtimeValidationConfig = loadRealtimeValidationConfig();
+
+const API_BASE_URL = env.API_ORIGIN ?? "http://127.0.0.1:4321";
+const ORIGIN = env.WEB_ORIGIN ?? "http://127.0.0.1:4321";
+const CONCURRENT_USERS = realtimeValidationConfig.concurrentUsers;
+const VOTES_PER_USER = realtimeValidationConfig.votesPerUser;
+const PROBE_VOTES = realtimeValidationConfig.probeVotes;
+const PROBE_TIMEOUT_MS = realtimeValidationConfig.probeTimeoutMs;
+const PROBE_POLL_MS = realtimeValidationConfig.probePollMs;
+const DISCOVERY_ROUNDS = realtimeValidationConfig.discoveryRounds;
+const LATENCY_P95_TARGET_MS = realtimeValidationConfig.latencyP95TargetMs;
+const UPDATE_P95_TARGET_MS = realtimeValidationConfig.updateP95TargetMs;
+const DRAIN_TIMEOUT_MS = realtimeValidationConfig.drainTimeoutMs;
+const DRAIN_POLL_MS = realtimeValidationConfig.drainPollMs;
 const voteQueue = new Queue("vote-writes", { connection: redis });
 
 const percentile = (values: number[], p: number) => {

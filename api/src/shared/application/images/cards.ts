@@ -4,15 +4,15 @@ import {
   queryConvexRecentPublicImages,
   queryConvexTopRatings,
 } from "../../../platform/convex/client.js";
-import { env } from "../../../env.js";
 import { redis } from "../../../platform/queue/connection.js";
 import {
   normalizePublicAssetData,
   normalizePublicAssetUrl,
 } from "../../../platform/storage/publicUrls.js";
+import { toplistConfig } from "./toplistConfig.js";
 
-const TOPLIST_MIN_COMPARISONS = env.TOPLIST_MIN_COMPARISONS ?? 10;
-const TOPLIST_CACHE_SECONDS = env.TOPLIST_CACHE_SECONDS ?? 90;
+const TOPLIST_MIN_COMPARISONS = toplistConfig.minComparisons;
+const TOPLIST_CACHE_SECONDS = toplistConfig.cacheSeconds;
 
 export type ImageCard = {
   id: string;

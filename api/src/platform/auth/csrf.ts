@@ -2,9 +2,7 @@ import type { Context } from "hono";
 import { env } from "../../env.js";
 import { jsonError } from "../http/responses.js";
 
-const allowedOrigins = new Set(
-  [env.WEB_ORIGIN, env.WEB_BASE_URL, env.APP_ORIGIN, env.CORS_ORIGIN].filter(Boolean) as string[],
-);
+const allowedOrigins = new Set([env.WEB_ORIGIN].filter(Boolean) as string[]);
 const isProd = env.NODE_ENV === "production";
 
 const getOrigin = (c: Context) => {

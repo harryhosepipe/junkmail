@@ -1,8 +1,8 @@
-import { env } from "../../../env.js";
 import { pickThumbUrl } from "../../../shared/application/images/cards.js";
+import { toplistConfig } from "../../../shared/application/images/toplistConfig.js";
 import { normalizePublicAssetUrl } from "../../../platform/storage/publicUrls.js";
 
-const TOPLIST_MIN_COMPARISONS = env.TOPLIST_MIN_COMPARISONS ?? 10;
+const TOPLIST_MIN_COMPARISONS = toplistConfig.minComparisons;
 
 export const parseRecentLimit = (rawLimit?: string) => {
   const parsed = Number(rawLimit ?? "4");

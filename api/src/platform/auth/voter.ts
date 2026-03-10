@@ -2,10 +2,11 @@ import { createHash } from "crypto";
 import type { Context } from "hono";
 import { getCookie, setCookie } from "hono/cookie";
 import { env } from "../../env.js";
+import { votingConfig } from "../../features/voting/application/votingConfig.js";
 import { generateToken } from "./tokens.js";
 
 export const VOTER_COOKIE_NAME = "jm_voter";
-const VOTE_HASH_SALT = env.VOTE_HASH_SALT ?? "junkmail-dev-vote";
+const VOTE_HASH_SALT = votingConfig.voteHashSalt;
 
 export const hashWithSalt = (value: string, salt: string) =>
   createHash("sha256").update(`${salt}:${value}`).digest("hex");

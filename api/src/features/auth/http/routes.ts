@@ -76,7 +76,7 @@ authRouter.post("/request-link", async (c) => {
     expiresAt: expiresAt.getTime(),
   });
 
-  const apiOrigin = env.API_ORIGIN ?? env.API_BASE_URL ?? new URL(c.req.url).origin;
+  const apiOrigin = env.API_ORIGIN ?? new URL(c.req.url).origin;
   const link = new URL("/api/v1/auth/verify", apiOrigin);
   link.searchParams.set("token", token);
 
@@ -92,12 +92,7 @@ authRouter.post("/request-link", async (c) => {
 authRouter.get("/verify", async (c) => {
   const token = c.req.query("token");
   const next = c.req.query("next");
-  const webBaseUrl =
-    env.WEB_ORIGIN ??
-    env.WEB_BASE_URL ??
-    env.APP_ORIGIN ??
-    env.CORS_ORIGIN ??
-    new URL(c.req.url).origin;
+  const webBaseUrl = env.WEB_ORIGIN ?? new URL(c.req.url).origin;
 
   if (!token) {
     const errorUrl = new URL("/login", webBaseUrl);

@@ -3,7 +3,7 @@ import { spawn } from "node:child_process";
 import os from "node:os";
 import process from "node:process";
 
-const TUNNEL_TARGET = process.env.TUNNEL_TARGET ?? "http://web.localhost";
+const TUNNEL_TARGET = process.env.TUNNEL_TARGET ?? "http://127.0.0.1:4321";
 
 const urlRegex = /https:\/\/[a-z0-9-]+\.trycloudflare\.com/gi;
 
@@ -115,13 +115,8 @@ try {
   const env = {
     ...process.env,
     ...(devUpstreamHost ? { DEV_UPSTREAM_HOST: devUpstreamHost } : {}),
-    APP_ORIGIN: publicUrl,
     WEB_ORIGIN: publicUrl,
     API_ORIGIN: publicUrl,
-    // Keep legacy names aligned for any remaining code paths/docs.
-    WEB_BASE_URL: publicUrl,
-    API_BASE_URL: publicUrl,
-    CORS_ORIGIN: publicUrl,
   };
 
   console.log("");

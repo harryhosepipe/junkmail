@@ -18,12 +18,7 @@ import { toErrorResponse } from "../platform/http/errors.js";
 export const createApp = () => {
   const app = new Hono();
   const api = new Hono();
-  const corsOrigin =
-    env.CORS_ORIGIN ??
-    env.WEB_ORIGIN ??
-    env.WEB_BASE_URL ??
-    env.APP_ORIGIN ??
-    "http://web.localhost";
+  const corsOrigin = env.WEB_ORIGIN ?? "http://127.0.0.1:4321";
 
   app.use("*", logger());
   app.use("*", async (c, next) => {

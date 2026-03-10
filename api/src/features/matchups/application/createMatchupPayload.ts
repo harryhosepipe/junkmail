@@ -4,24 +4,24 @@ import {
   queryConvexPublicImages,
   queryConvexRatingsByImageIds,
 } from "../../../platform/convex/client.js";
-import { env } from "../../../env.js";
 import { redis } from "../../../platform/queue/connection.js";
 import {
   normalizePublicAssetData,
   normalizePublicAssetUrl,
 } from "../../../platform/storage/publicUrls.js";
+import { matchupConfig } from "./matchupConfig.js";
 
-const NEW_EXPOSURE_THRESHOLD = env.MATCHUP_NEW_EXPOSURE ?? 5;
-const CLOSE_SAMPLE_SIZE = env.MATCHUP_CLOSE_SAMPLE ?? 24;
-const CLOSE_CANDIDATE_PAIRS = env.MATCHUP_CLOSE_CANDIDATE_PAIRS ?? 6;
-const REPEAT_TTL_SECONDS = env.MATCHUP_REPEAT_TTL_SECONDS ?? 120;
-const MATCHUP_POOL_TTL_SECONDS = env.MATCHUP_POOL_TTL_SECONDS ?? 10;
-const MATCHUP_PAIR_COOLDOWN_MS = env.MATCHUP_PAIR_COOLDOWN_MS ?? 900;
+const NEW_EXPOSURE_THRESHOLD = matchupConfig.newExposureThreshold;
+const CLOSE_SAMPLE_SIZE = matchupConfig.closeSampleSize;
+const CLOSE_CANDIDATE_PAIRS = matchupConfig.closeCandidatePairs;
+const REPEAT_TTL_SECONDS = matchupConfig.repeatTtlSeconds;
+const MATCHUP_POOL_TTL_SECONDS = matchupConfig.poolTtlSeconds;
+const MATCHUP_PAIR_COOLDOWN_MS = matchupConfig.pairCooldownMs;
 const MATCHUP_TOKEN_TTL_SECONDS = 5 * 60;
 
-const WEIGHT_NEW = env.MATCHUP_WEIGHT_NEW ?? 0.45;
-const WEIGHT_CLOSE = env.MATCHUP_WEIGHT_CLOSE ?? 0.4;
-const WEIGHT_RANDOM = env.MATCHUP_WEIGHT_RANDOM ?? 0.15;
+const WEIGHT_NEW = matchupConfig.weightNew;
+const WEIGHT_CLOSE = matchupConfig.weightClose;
+const WEIGHT_RANDOM = matchupConfig.weightRandom;
 
 const pickRandomPair = <T>(items: T[]) => {
   if (items.length < 2) return null;

@@ -1,8 +1,8 @@
 import type { Context } from "hono";
-import { env } from "../../../env.js";
 import { hashWithSalt } from "../../../platform/auth/voter.js";
+import { votingConfig } from "./votingConfig.js";
 
-const IP_HASH_SALT = env.IP_HASH_SALT ?? env.VOTE_HASH_SALT ?? "junkmail-dev-vote";
+const IP_HASH_SALT = votingConfig.ipHashSalt;
 
 const getClientIp = (c: Context) => {
   const forwarded = c.req.header("x-forwarded-for") || c.req.header("x-real-ip");

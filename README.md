@@ -101,14 +101,13 @@ Dependency governance policy and security cadence:
 - `docs/dependency-governance.md`
 - `docs/security/upstream-language-server-advisories.md`
 
-## Caddy + Staging Tunnel
+## Local Host + Staging Tunnel
 
-Caddy routes one origin for local and tunnel usage:
+Local host entrypoint:
 
-- `http://web.localhost/` -> web (`localhost:4321`)
-- `http://web.localhost/api/*` -> API (`localhost:8787`)
-- `http://web.localhost/assets/*` -> MinIO (`minio:9000`)
-- `http://convex.localhost/` -> Convex backend (`convex-backend:3210`)
+- `http://127.0.0.1:4321/` -> web dev server
+- `http://127.0.0.1:4321/api/*` -> proxied to API (`localhost:8787`)
+- `http://127.0.0.1:4321/assets/*` -> proxied to MinIO (`localhost:9010`)
 
 Start tunnel workflow:
 
@@ -120,14 +119,13 @@ This creates a `trycloudflare.com` URL and starts infra + apps with origin env v
 
 ## WSL2 + Docker Desktop Note
 
-If Caddy in Docker cannot reach host-run API/web, `web.localhost` routes may return `502`.
+If Caddy in Docker cannot reach host-run API/web while tunneling, tunnel routes may return `502`.
 
 Use direct localhost origins in `api/.env` for auth links:
 
 ```dotenv
-WEB_ORIGIN=http://localhost:4321
-API_ORIGIN=http://localhost:8787
-CORS_ORIGIN=http://localhost:4321
+WEB_ORIGIN=http://127.0.0.1:4321
+API_ORIGIN=http://127.0.0.1:4321
 ```
 
 Then restart API/worker and request a new magic link.

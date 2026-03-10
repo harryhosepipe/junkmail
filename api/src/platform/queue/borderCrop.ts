@@ -24,6 +24,12 @@ export type BorderCropOptions = {
   minConfidence: number;
   minTrimPixels: number;
   minAreaRemovedRatio: number;
+  textGuardEnabled: boolean;
+  textGuardMinorityPixelMinRatio: number;
+  textGuardMinorityPixelMaxRatio: number;
+  textGuardMinTransitionRatio: number;
+  textGuardMinSignalPixels: number;
+  textGuardLumaOffset: number;
 };
 
 export type EmbeddedRectOptions = {
@@ -38,6 +44,13 @@ export type EmbeddedRectOptions = {
   colorDistanceThreshold: number;
   lumaDistanceThreshold: number;
   centerWeight: number;
+  textGuardEnabled: boolean;
+  textGuardMinMarginPixels: number;
+  textGuardMinSignalPixels: number;
+  textGuardMinorityPixelMinRatio: number;
+  textGuardMinorityPixelMaxRatio: number;
+  textGuardMinBoundaryRatio: number;
+  textGuardContrastDelta: number;
 };
 
 export type BorderCropDecision = {
@@ -86,6 +99,18 @@ const defaultBorderOptions: BorderCropOptions = {
   minTrimPixels: 10,
   // Ignore crops that remove only negligible area.
   minAreaRemovedRatio: 0.01,
+  // Skip trimming if stripped edge area looks like subtitle/caption text.
+  textGuardEnabled: true,
+  // Lower bound to ignore tiny one-off pixels.
+  textGuardMinorityPixelMinRatio: 0.001,
+  // Upper bound to avoid treating fully-detailed edges as text-like borders.
+  textGuardMinorityPixelMaxRatio: 0.2,
+  // Edge density needed to look glyph-like instead of flat bars.
+  textGuardMinTransitionRatio: 0.38,
+  // Absolute signal floor to avoid tiny artifacts.
+  textGuardMinSignalPixels: 10,
+  // Contrast margin around black/white thresholds used for minority classification.
+  textGuardLumaOffset: 24,
 };
 
 const defaultEmbeddedRectOptions: EmbeddedRectOptions = {
@@ -108,6 +133,14 @@ const defaultEmbeddedRectOptions: EmbeddedRectOptions = {
   lumaDistanceThreshold: 20,
   // Weight for preferring centered content boxes.
   centerWeight: 0.35,
+  // Skip rect-crop if discarded top/bottom bands look text-like.
+  textGuardEnabled: true,
+  textGuardMinMarginPixels: 10,
+  textGuardMinSignalPixels: 14,
+  textGuardMinorityPixelMinRatio: 0.001,
+  textGuardMinorityPixelMaxRatio: 0.25,
+  textGuardMinBoundaryRatio: 0.1,
+  textGuardContrastDelta: 44,
 };
 
 const getInitialBorderDecision = (width: number, height: number): BorderCropDecision => ({
@@ -175,6 +208,12 @@ const lineStats = (
   return { dominant, tone, stdDev, qualifies };
 };
 
+type EdgeScanResult = {
+  trimmed: number;
+  confidence: number;
+  tone: BorderTone | null;
+};
+
 const scanEdge = (args: {
   edge: Edge;
   data: Buffer;
@@ -183,7 +222,7 @@ const scanEdge = (args: {
   height: number;
   maxTrimLines: number;
   opts: BorderCropOptions;
-}) => {
+}): EdgeScanResult => {
   const { edge, data, channels, width, height, maxTrimLines, opts } = args;
   const lines = edge === "top" || edge === "bottom" ? height : width;
   const pixelsPerLine = edge === "top" || edge === "bottom" ? width : height;
@@ -217,12 +256,206 @@ const scanEdge = (args: {
     stdDevSum += stat.stdDev;
   }
 
-  if (!trimmed) return { trimmed: 0, confidence: 0 };
+  if (!trimmed) return { trimmed: 0, confidence: 0, tone: null };
   const avgDominant = dominantSum / trimmed;
   const avgStd = stdDevSum / trimmed;
   const stdScore = clamp(1 - avgStd / opts.lineStdDevMax, 0, 1);
   const confidence = clamp(avgDominant * 0.7 + stdScore * 0.3, 0, 1);
-  return { trimmed, confidence };
+  return { trimmed, confidence, tone: expectedTone };
+};
+
+const edgeRegionBounds = (
+  edge: Edge,
+  width: number,
+  height: number,
+  trimmedLines: number,
+): { x0: number; x1: number; y0: number; y1: number } => {
+  if (edge === "top") return { x0: 0, x1: width, y0: 0, y1: trimmedLines };
+  if (edge === "bottom") return { x0: 0, x1: width, y0: height - trimmedLines, y1: height };
+  if (edge === "left") return { x0: 0, x1: trimmedLines, y0: 0, y1: height };
+  return { x0: width - trimmedLines, x1: width, y0: 0, y1: height };
+};
+
+const edgeHasTextLikeSignal = (args: {
+  data: Buffer;
+  channels: number;
+  width: number;
+  height: number;
+  edge: Edge;
+  trimmedLines: number;
+  tone: BorderTone;
+  opts: BorderCropOptions;
+}) => {
+  const { data, channels, width, height, edge, trimmedLines, tone, opts } = args;
+  if (trimmedLines < 2) return false;
+
+  const { x0, x1, y0, y1 } = edgeRegionBounds(edge, width, height, trimmedLines);
+  const regionWidth = x1 - x0;
+  const regionHeight = y1 - y0;
+  if (regionWidth < 2 || regionHeight < 2) return false;
+
+  const area = regionWidth * regionHeight;
+  const mask = new Uint8Array(area);
+
+  const minorityCutoff =
+    tone === "black"
+      ? Math.min(255, opts.blackThreshold + opts.textGuardLumaOffset)
+      : Math.max(0, opts.whiteThreshold - opts.textGuardLumaOffset);
+  const isMinority = (luma: number) =>
+    tone === "black" ? luma >= minorityCutoff : luma <= minorityCutoff;
+
+  let minorityCount = 0;
+  for (let ry = 0; ry < regionHeight; ry += 1) {
+    for (let rx = 0; rx < regionWidth; rx += 1) {
+      const x = x0 + rx;
+      const y = y0 + ry;
+      const idx = (y * width + x) * channels;
+      const a = channels >= 4 ? data[idx + 3] / 255 : 1;
+      const r = data[idx] * a + 255 * (1 - a);
+      const g = data[idx + 1] * a + 255 * (1 - a);
+      const b = data[idx + 2] * a + 255 * (1 - a);
+      const luma = toLuma(r, g, b);
+      if (!isMinority(luma)) continue;
+      const maskIdx = ry * regionWidth + rx;
+      mask[maskIdx] = 1;
+      minorityCount += 1;
+    }
+  }
+
+  if (minorityCount < opts.textGuardMinSignalPixels) return false;
+  const minorityRatio = minorityCount / area;
+  if (
+    minorityRatio < opts.textGuardMinorityPixelMinRatio ||
+    minorityRatio > opts.textGuardMinorityPixelMaxRatio
+  ) {
+    return false;
+  }
+
+  let boundaryEdges = 0;
+  for (let ry = 0; ry < regionHeight; ry += 1) {
+    for (let rx = 0; rx < regionWidth; rx += 1) {
+      const idx = ry * regionWidth + rx;
+      if (!mask[idx]) continue;
+      if (rx === 0 || !mask[idx - 1]) boundaryEdges += 1;
+      if (rx + 1 >= regionWidth || !mask[idx + 1]) boundaryEdges += 1;
+      if (ry === 0 || !mask[idx - regionWidth]) boundaryEdges += 1;
+      if (ry + 1 >= regionHeight || !mask[idx + regionWidth]) boundaryEdges += 1;
+    }
+  }
+
+  const transitionRatio = boundaryEdges / Math.max(1, minorityCount * 4);
+  return transitionRatio >= opts.textGuardMinTransitionRatio;
+};
+
+const hasTextLikeEdgeSignal = (args: {
+  data: Buffer;
+  channels: number;
+  width: number;
+  height: number;
+  scans: Record<Edge, EdgeScanResult>;
+  opts: BorderCropOptions;
+}) => {
+  const { data, channels, width, height, scans, opts } = args;
+  if (!opts.textGuardEnabled) return false;
+  const edges: Edge[] = ["top", "right", "bottom", "left"];
+  return edges.some((edge) => {
+    const scan = scans[edge];
+    if (scan.trimmed <= 0 || !scan.tone) return false;
+    return edgeHasTextLikeSignal({
+      data,
+      channels,
+      width,
+      height,
+      edge,
+      trimmedLines: scan.trimmed,
+      tone: scan.tone,
+      opts,
+    });
+  });
+};
+
+const rectBandHasTextLikeSignal = (args: {
+  data: Buffer;
+  channels: number;
+  width: number;
+  height: number;
+  x0: number;
+  x1: number;
+  y0: number;
+  y1: number;
+  opts: EmbeddedRectOptions;
+}) => {
+  const { data, channels, width, height, x0, x1, y0, y1, opts } = args;
+  const regionWidth = x1 - x0;
+  const regionHeight = y1 - y0;
+  if (regionWidth < 2 || regionHeight < 2) return false;
+
+  const area = regionWidth * regionHeight;
+  const mask = new Uint8Array(area);
+  let sumLuma = 0;
+
+  for (let ry = 0; ry < regionHeight; ry += 1) {
+    for (let rx = 0; rx < regionWidth; rx += 1) {
+      const x = x0 + rx;
+      const y = y0 + ry;
+      const idx = (y * width + x) * channels;
+      const a = channels >= 4 ? data[idx + 3] / 255 : 1;
+      const r = data[idx] * a + 255 * (1 - a);
+      const g = data[idx + 1] * a + 255 * (1 - a);
+      const b = data[idx + 2] * a + 255 * (1 - a);
+      sumLuma += toLuma(r, g, b);
+    }
+  }
+
+  const meanLuma = sumLuma / area;
+  const darkBackground = meanLuma < 128;
+  const minorityCutoff = darkBackground
+    ? Math.min(255, meanLuma + opts.textGuardContrastDelta)
+    : Math.max(0, meanLuma - opts.textGuardContrastDelta);
+  const isMinority = (luma: number) =>
+    darkBackground ? luma >= minorityCutoff : luma <= minorityCutoff;
+
+  let minorityCount = 0;
+  for (let ry = 0; ry < regionHeight; ry += 1) {
+    for (let rx = 0; rx < regionWidth; rx += 1) {
+      const x = x0 + rx;
+      const y = y0 + ry;
+      const idx = (y * width + x) * channels;
+      const a = channels >= 4 ? data[idx + 3] / 255 : 1;
+      const r = data[idx] * a + 255 * (1 - a);
+      const g = data[idx + 1] * a + 255 * (1 - a);
+      const b = data[idx + 2] * a + 255 * (1 - a);
+      const luma = toLuma(r, g, b);
+      if (!isMinority(luma)) continue;
+      const maskIdx = ry * regionWidth + rx;
+      mask[maskIdx] = 1;
+      minorityCount += 1;
+    }
+  }
+
+  if (minorityCount < opts.textGuardMinSignalPixels) return false;
+  const minorityRatio = minorityCount / area;
+  if (
+    minorityRatio < opts.textGuardMinorityPixelMinRatio ||
+    minorityRatio > opts.textGuardMinorityPixelMaxRatio
+  ) {
+    return false;
+  }
+
+  let boundaryEdges = 0;
+  for (let ry = 0; ry < regionHeight; ry += 1) {
+    for (let rx = 0; rx < regionWidth; rx += 1) {
+      const idx = ry * regionWidth + rx;
+      if (!mask[idx]) continue;
+      if (rx === 0 || !mask[idx - 1]) boundaryEdges += 1;
+      if (rx + 1 >= regionWidth || !mask[idx + 1]) boundaryEdges += 1;
+      if (ry === 0 || !mask[idx - regionWidth]) boundaryEdges += 1;
+      if (ry + 1 >= regionHeight || !mask[idx + regionWidth]) boundaryEdges += 1;
+    }
+  }
+
+  const boundaryRatio = boundaryEdges / Math.max(1, minorityCount * 4);
+  return boundaryRatio >= opts.textGuardMinBoundaryRatio;
 };
 
 const findSegments = (flags: boolean[]): Segment[] => {
@@ -382,6 +615,44 @@ export const detectEmbeddedImageRect = async (
     height: Math.max(1, bottom - top),
   };
 
+  if (opts.textGuardEnabled) {
+    const topBandHeight = cropBox.top;
+    const bottomBandHeight = originalHeight - (cropBox.top + cropBox.height);
+    const { data: originalData, info: originalInfo } = await sharp(input)
+      .raw()
+      .toBuffer({ resolveWithObject: true });
+    const originalChannels = originalInfo.channels;
+    const topHasText =
+      topBandHeight >= opts.textGuardMinMarginPixels &&
+      rectBandHasTextLikeSignal({
+        data: originalData,
+        channels: originalChannels,
+        width: originalWidth,
+        height: originalHeight,
+        x0: 0,
+        x1: originalWidth,
+        y0: 0,
+        y1: topBandHeight,
+        opts,
+      });
+    const bottomHasText =
+      bottomBandHeight >= opts.textGuardMinMarginPixels &&
+      rectBandHasTextLikeSignal({
+        data: originalData,
+        channels: originalChannels,
+        width: originalWidth,
+        height: originalHeight,
+        x0: 0,
+        x1: originalWidth,
+        y0: originalHeight - bottomBandHeight,
+        y1: originalHeight,
+        opts,
+      });
+    if (topHasText || bottomHasText) {
+      return { ...initial, reason: "rect-text-near-edge", cropBox };
+    }
+  }
+
   const areaRatio = (cropBox.width * cropBox.height) / (originalWidth * originalHeight);
   if (areaRatio < opts.minAreaRatio) {
     return { ...initial, reason: "rect-area-too-small", cropBox };
@@ -496,6 +767,7 @@ export const analyzeBorderCrop = async (
     maxTrimLines: Math.floor(analysisWidth * opts.maxTrimRatioPerSide),
     opts,
   });
+  const edgeScans = { top, right, bottom, left };
 
   const toOriginalX = (lineCount: number) =>
     Math.round((lineCount / analysisWidth) * originalWidth);
@@ -520,6 +792,19 @@ export const analyzeBorderCrop = async (
     trimmed.left < opts.minTrimPixels
   ) {
     return { ...initial, reason: "trim-too-small", trimmed };
+  }
+
+  if (
+    hasTextLikeEdgeSignal({
+      data,
+      channels,
+      width: analysisWidth,
+      height: analysisHeight,
+      scans: edgeScans,
+      opts,
+    })
+  ) {
+    return { ...initial, reason: "text-near-edge", trimmed };
   }
 
   const cropBox: CropBox = {

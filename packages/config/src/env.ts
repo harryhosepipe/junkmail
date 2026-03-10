@@ -12,6 +12,7 @@ export type LoadEnvOptions = {
   localFile?: string;
   stagingFile?: string;
   productionFile?: string;
+  requiredDefaultKeys?: readonly (keyof Env)[];
 };
 
 let cached: Env | null = null;
@@ -51,6 +52,42 @@ function normalizeRootDir(rootDir?: string) {
   return rootDir ? resolve(rootDir) : findRepoRoot(process.cwd());
 }
 
+function normalizeLegacyEnvAliases(values: Record<string, string>) {
+  const normalized = { ...values };
+
+  if (!normalized.WEB_ORIGIN) {
+    normalized.WEB_ORIGIN =
+      values.WEB_BASE_URL ?? values.APP_ORIGIN ?? values.CORS_ORIGIN ?? normalized.WEB_ORIGIN;
+  }
+
+  if (!normalized.API_ORIGIN) {
+    normalized.API_ORIGIN =
+      values.API_BASE_URL ??
+      values.PUBLIC_API_BASE_URL ??
+      values.APP_ORIGIN ??
+      normalized.API_ORIGIN;
+  }
+
+  return normalized;
+}
+
+function assertRequiredDefaultKeys(
+  defaults: Record<string, string>,
+  requiredDefaultKeys: readonly string[],
+  defaultsFile: string,
+) {
+  const missing = requiredDefaultKeys.filter((key) => {
+    const value = defaults[key];
+    return typeof value !== "string" || value.trim() === "";
+  });
+
+  if (!missing.length) return;
+
+  throw new Error(
+    `Missing required keys in ${defaultsFile}:\n${missing.map((key) => `- ${key}`).join("\n")}`,
+  );
+}
+
 export function loadEnv(options: LoadEnvOptions = {}): Env {
   const rootDir = normalizeRootDir(options.rootDir);
 
@@ -62,6 +99,7 @@ export function loadEnv(options: LoadEnvOptions = {}): Env {
     localFile: options.localFile ?? resolve(rootDir, ".env.local"),
     stagingFile: options.stagingFile ?? resolve(rootDir, ".env.staging"),
     productionFile: options.productionFile ?? resolve(rootDir, ".env.production"),
+    requiredDefaultKeys: options.requiredDefaultKeys ?? [],
   };
 
   const appEnv = AppEnvSchema.catch("local").parse(process.env.APP_ENV ?? opts.appEnv);
@@ -70,6 +108,7 @@ export function loadEnv(options: LoadEnvOptions = {}): Env {
   // Layer: defaults -> environment-specific -> actual process env (wins)
   const defaults = readEnvFile(opts.defaultsFile);
   const specific = readEnvFile(specificFile);
+  assertRequiredDefaultKeys(defaults, opts.requiredDefaultKeys, opts.defaultsFile);
 
   const merged: Record<string, string | undefined> = {
     ...defaults,
@@ -83,7 +122,9 @@ export function loadEnv(options: LoadEnvOptions = {}): Env {
     if (typeof v === "string") input[k] = v;
   }
 
-  const parsed = EnvSchema.safeParse(input);
+  const normalizedInput = normalizeLegacyEnvAliases(input);
+
+  const parsed = EnvSchema.safeParse(normalizedInput);
   if (!parsed.success) {
     const msg = parsed.error.issues
       .map((i) => `${i.path.join(".") || "(root)"}: ${i.message}`)

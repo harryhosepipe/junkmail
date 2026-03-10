@@ -5,10 +5,30 @@ import { readFileSync } from "node:fs";
 
 const SOURCE_EXTENSIONS = ["*.ts", "*.tsx", "*.mts", "*.cts", "*.js", "*.mjs", "*.cjs"];
 
+const OMITTED_FROM_API_ENV_EXAMPLE = new Set([
+  "MAGIC_LINK_TTL_MINUTES",
+  "SESSION_TTL_DAYS",
+  "REALTIME_TEST_USERS",
+  "REALTIME_TEST_VOTES_PER_USER",
+  "REALTIME_TEST_PROBE_VOTES",
+  "REALTIME_TEST_PROBE_TIMEOUT_MS",
+  "REALTIME_TEST_PROBE_POLL_MS",
+  "REALTIME_TEST_DISCOVERY_ROUNDS",
+  "REALTIME_TEST_P95_TARGET_MS",
+  "REALTIME_TEST_UPDATE_P95_TARGET_MS",
+  "REALTIME_TEST_DRAIN_TIMEOUT_MS",
+  "REALTIME_TEST_DRAIN_POLL_MS",
+]);
+
 const ALLOWED_PROCESS_ENV_FILES = new Set([
   "packages/config/src/env.ts",
   "packages/config/src/spawn.ts",
   "api/src/env.ts",
+  "api/src/features/matchups/application/matchupConfig.ts",
+  "api/src/features/voting/application/votingConfig.ts",
+  "api/src/platform/queue/imagePipelineConfig.ts",
+  "api/src/scripts/validateRealtimeVoting.ts",
+  "api/src/shared/application/images/toplistConfig.ts",
   "web/astro.config.mjs",
   "web/env.mjs",
   "infra/cloudflared/dev-staging.mjs",
@@ -76,7 +96,10 @@ const compareKeySets = () => {
   const schemaKeys = parseEnvSchemaKeys();
   const exampleKeys = parseEnvExampleKeys();
 
-  const missingInExample = [...schemaKeys].filter((k) => !exampleKeys.has(k)).sort();
+  const missingInExample = [...schemaKeys]
+    .filter((k) => !exampleKeys.has(k))
+    .filter((k) => !OMITTED_FROM_API_ENV_EXAMPLE.has(k))
+    .sort();
   const missingInSchema = [...exampleKeys].filter((k) => !schemaKeys.has(k)).sort();
 
   return { missingInExample, missingInSchema };
@@ -98,7 +121,9 @@ if (processEnvViolations.length) {
 
 if (missingInExample.length || missingInSchema.length) {
   failed = true;
-  console.error("Env contract failed: api/.env.example and EnvSchema must stay aligned.");
+  console.error(
+    "Env contract failed: api/.env.example must document required/default app env keys.",
+  );
   if (missingInExample.length) {
     console.error("Missing in api/.env.example:");
     for (const key of missingInExample) console.error(`- ${key}`);

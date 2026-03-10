@@ -52,10 +52,9 @@ import {
   analyzeBorderCrop,
   applyBorderCrop,
   applyCropBox,
-  type BorderCropOptions,
   detectEmbeddedImageRect,
-  type EmbeddedRectOptions,
 } from "./borderCrop.js";
+import { loadCropPipelineConfig, loadImageDedupeConfig } from "./imagePipelineConfig.js";
 import type { ImageProcessJobData } from "./processorTypes.js";
 
 const sizes: Record<ImageSize, number> = {
@@ -65,64 +64,6 @@ const sizes: Record<ImageSize, number> = {
 };
 const MAX_CROP_PASSES = 3;
 const CANONICAL_MAX_DIM = 1536;
-
-type CropPipelineConfig = {
-  rectOptions: EmbeddedRectOptions;
-  borderOptions: BorderCropOptions;
-};
-
-const toNumber = (value: unknown, fallback: number) => Number(value ?? fallback);
-const toBoolean = (value: unknown, fallback: boolean) => Boolean(value ?? fallback);
-
-// Central place for all upload-cropping tuning values.
-// These comments are written for non-engineers: each knob trades off
-// "remove obvious bars/frames" vs "keep every edge pixel (including text overlays)".
-const loadCropPipelineConfig = (runtimeEnv: Record<string, unknown>): CropPipelineConfig => ({
-  rectOptions: {
-    // On/off switch for detecting an inner "real picture area" inside a larger canvas.
-    enabled: toBoolean(runtimeEnv.IMAGE_CROP_RECT_DETECT_ENABLED, true),
-    // Smaller analysis is faster, larger analysis is more precise.
-    analysisMaxDim: toNumber(runtimeEnv.IMAGE_CROP_RECT_ANALYSIS_MAX_DIM, 640),
-    // Minimum share of image area that the detected inner rectangle must occupy.
-    minAreaRatio: toNumber(runtimeEnv.IMAGE_CROP_RECT_MIN_AREA_RATIO, 0.16),
-    // Confidence required before rect crop is allowed.
-    minConfidence: toNumber(runtimeEnv.IMAGE_CROP_RECT_MIN_CONFIDENCE, 0.56),
-    // Allowed shape range for detected inner rectangle (wide vs tall).
-    minAspectRatio: toNumber(runtimeEnv.IMAGE_CROP_RECT_ASPECT_MIN, 0.45),
-    maxAspectRatio: toNumber(runtimeEnv.IMAGE_CROP_RECT_ASPECT_MAX, 2.4),
-    // How much visible foreground each row/column needs to be considered "real content".
-    rowForegroundRatio: toNumber(runtimeEnv.IMAGE_CROP_RECT_ROW_FOREGROUND_RATIO, 0.12),
-    colForegroundRatio: toNumber(runtimeEnv.IMAGE_CROP_RECT_COL_FOREGROUND_RATIO, 0.12),
-    // Color/luma difference required to treat a pixel as foreground instead of background.
-    colorDistanceThreshold: toNumber(runtimeEnv.IMAGE_CROP_RECT_COLOR_DISTANCE, 26),
-    lumaDistanceThreshold: toNumber(runtimeEnv.IMAGE_CROP_RECT_LUMA_DISTANCE, 20),
-    // How strongly we prefer a centered rectangle over an off-center rectangle.
-    centerWeight: toNumber(runtimeEnv.IMAGE_CROP_RECT_CENTER_WEIGHT, 0.35),
-  },
-  borderOptions: {
-    // On/off switch for trimming solid-color borders around the edges.
-    enabled: toBoolean(runtimeEnv.IMAGE_CROP_ENABLED, true),
-    // Smaller analysis is faster, larger analysis is more precise.
-    analysisMaxDim: toNumber(runtimeEnv.IMAGE_CROP_ANALYSIS_MAX_DIM, 512),
-    // Brightness cutoffs used to classify lines as mostly white or mostly black border.
-    whiteThreshold: toNumber(runtimeEnv.IMAGE_CROP_WHITE_THRESHOLD, 248),
-    blackThreshold: toNumber(runtimeEnv.IMAGE_CROP_BLACK_THRESHOLD, 8),
-    // How uniform an edge line must be before we treat it as border.
-    lineDominance: toNumber(runtimeEnv.IMAGE_CROP_LINE_DOMINANCE, 0.985),
-    // Max allowed brightness variation along an edge line.
-    lineStdDevMax: toNumber(runtimeEnv.IMAGE_CROP_LINE_STDDEV_MAX, 16),
-    // Safety cap: do not remove more than this fraction per side in one pass.
-    maxTrimRatioPerSide: toNumber(runtimeEnv.IMAGE_CROP_MAX_TRIM_RATIO_PER_SIDE, 0.18),
-    // Safety cap: keep at least this fraction of width/height.
-    minRemainingRatio: toNumber(runtimeEnv.IMAGE_CROP_MIN_REMAINING_RATIO, 0.5),
-    // Confidence required before border crop is allowed.
-    minConfidence: toNumber(runtimeEnv.IMAGE_CROP_MIN_CONFIDENCE, 0.8),
-    // Ignore very tiny trims to avoid noisy one-pixel cuts.
-    minTrimPixels: toNumber(runtimeEnv.IMAGE_CROP_MIN_TRIM_PIXELS, 10),
-    // Ignore crops that remove too little total area.
-    minAreaRemovedRatio: toNumber(runtimeEnv.IMAGE_CROP_MIN_AREA_REMOVED_RATIO, 0.01),
-  },
-});
 
 export const toBuffer = async (body: unknown) => {
   if (!body || typeof body !== "object") {
@@ -243,23 +184,25 @@ export const processImageJob = async (
     typeof deps.queryConvexImageFingerprintBySha256 === "function" &&
     typeof deps.queryConvexImageFingerprintsByPhashPrefix === "function" &&
     typeof deps.mutateConvexRecordImageFingerprint === "function";
-  const runtimeEnv = env as unknown as Record<string, unknown>;
-  const dedupeV2FromEnv = Boolean(runtimeEnv.IMAGE_DEDUPE_V2_ENABLED ?? false);
-  const orbEnabled = Boolean(runtimeEnv.IMAGE_DEDUPE_ORB_ENABLED ?? false);
-  const orbRequired = Boolean(runtimeEnv.IMAGE_DEDUPE_ORB_REQUIRED ?? false);
-  const orbVerifierUrl = String(runtimeEnv.IMAGE_DEDUPE_ORB_VERIFIER_URL || "");
-  const orbSharedSecret = String(runtimeEnv.IMAGE_DEDUPE_ORB_SHARED_SECRET || "");
-  const orbTimeoutMs = Number(runtimeEnv.IMAGE_DEDUPE_ORB_TIMEOUT_MS ?? 3500);
-  const orbRetries = Number(runtimeEnv.IMAGE_DEDUPE_ORB_RETRIES ?? 2);
-  const orbMinInliers = Number(runtimeEnv.IMAGE_DEDUPE_ORB_MIN_INLIERS ?? 20);
-  const orbMinInlierRatio = Number(runtimeEnv.IMAGE_DEDUPE_ORB_MIN_INLIER_RATIO ?? 0.25);
-  const orbMinMatches = Number(runtimeEnv.IMAGE_DEDUPE_ORB_MIN_MATCHES ?? 60);
-  const orbForceAllCandidates = Boolean(runtimeEnv.IMAGE_DEDUPE_ORB_FORCE_ALL_CANDIDATES ?? false);
-  const orbForceMaxCandidates = Number(runtimeEnv.IMAGE_DEDUPE_ORB_FORCE_MAX_CANDIDATES ?? 10000);
-  const dedupeV2Enabled = ((data.dedupeV2 || dedupeV2FromEnv) ?? false) && dedupeDepsReady;
-  const dedupeStrongThreshold = Number(runtimeEnv.IMAGE_DEDUPE_PHASH_MAX_DISTANCE_STRONG ?? 8);
-  const dedupeWeakThreshold = Number(runtimeEnv.IMAGE_DEDUPE_PHASH_MAX_DISTANCE_WEAK ?? 14);
-  const prefixRadius = Number(runtimeEnv.IMAGE_DEDUPE_PHASH_PREFIX_RADIUS ?? 2);
+  const imageDedupeConfig = loadImageDedupeConfig();
+  const dedupeV2Enabled =
+    ((data.dedupeV2 || imageDedupeConfig.dedupeV2Enabled) ?? false) && dedupeDepsReady;
+  const {
+    dedupeStrongThreshold,
+    dedupeWeakThreshold,
+    orbEnabled,
+    orbForceAllCandidates,
+    orbForceMaxCandidates,
+    orbMinInlierRatio,
+    orbMinInliers,
+    orbMinMatches,
+    orbRequired,
+    orbRetries,
+    orbSharedSecret,
+    orbTimeoutMs,
+    orbVerifierUrl,
+    prefixRadius,
+  } = imageDedupeConfig;
   const startedAt = Date.now();
 
   let sha256Pixels = "";
@@ -309,7 +252,7 @@ export const processImageJob = async (
     }
   }
   const fallbackFormat: ImageFormat = ext === "png" ? "png" : "jpg";
-  const { rectOptions, borderOptions } = loadCropPipelineConfig(runtimeEnv);
+  const { rectOptions, borderOptions } = loadCropPipelineConfig();
 
   let workingBuffer: Buffer = originalBuffer;
   const rectDecision = await detectEmbeddedImageRect(workingBuffer, rectOptions);

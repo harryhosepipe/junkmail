@@ -4,6 +4,27 @@ import { fileURLToPath } from "node:url";
 
 let cached: Env | null = null;
 const appDir = resolve(fileURLToPath(new URL("..", import.meta.url)));
+const REQUIRED_DEFAULT_KEYS: ReadonlyArray<keyof Env> = [
+  "APP_ENV",
+  "NODE_ENV",
+  "PORT",
+  "WEB_ORIGIN",
+  "API_ORIGIN",
+  "REDIS_URL",
+  "CONVEX_URL",
+  "PUBLIC_CONVEX_URL",
+  "CONVEX_SELF_HOSTED_URL",
+  "CONVEX_SITE_URL",
+  "MINIO_ENDPOINT",
+  "MINIO_PORT",
+  "MINIO_ACCESS_KEY",
+  "MINIO_SECRET_KEY",
+  "MINIO_BUCKET",
+  "MINIO_REGION",
+  "MINIO_USE_SSL",
+  "MINIO_PUBLIC_URL",
+  "ASSETS_PROXY_BASE",
+];
 
 // API env ownership:
 // - Required keys and typing are defined in packages/config/src/env.schema.ts.
@@ -18,6 +39,7 @@ function loadApiEnv(includeLocalFile = true): Env {
     localFile: includeLocalFile ? resolve(appDir, ".env") : "__missing__.api.env",
     stagingFile: resolve(appDir, ".env.staging"),
     productionFile: resolve(appDir, ".env.production"),
+    requiredDefaultKeys: REQUIRED_DEFAULT_KEYS,
   });
 }
 

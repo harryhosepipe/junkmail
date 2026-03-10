@@ -1,10 +1,10 @@
 import { redis } from "../../../platform/queue/connection.js";
-import { env } from "../../../env.js";
+import { votingConfig } from "./votingConfig.js";
 
-const RATE_LIMIT_BURST = env.VOTE_RATE_LIMIT_BURST ?? 20;
-const RATE_LIMIT_BURST_WINDOW = env.VOTE_RATE_LIMIT_BURST_WINDOW ?? 60;
-const RATE_LIMIT_SUSTAINED = env.VOTE_RATE_LIMIT_SUSTAINED ?? 240;
-const RATE_LIMIT_SUSTAINED_WINDOW = env.VOTE_RATE_LIMIT_SUSTAINED_WINDOW ?? 3600;
+const RATE_LIMIT_BURST = votingConfig.rateLimitBurst;
+const RATE_LIMIT_BURST_WINDOW = votingConfig.rateLimitBurstWindow;
+const RATE_LIMIT_SUSTAINED = votingConfig.rateLimitSustained;
+const RATE_LIMIT_SUSTAINED_WINDOW = votingConfig.rateLimitSustainedWindow;
 
 const rateLimitKey = (prefix: string, hash: string, windowSeconds: number) =>
   `vote:${prefix}:${windowSeconds}:${hash}`;
